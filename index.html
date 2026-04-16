@@ -210,17 +210,22 @@
       <div class="spacer"></div>
       <h3 class="section-title">Premium finance inputs</h3>
       <div class="form-grid">
-        <div><label for="clientName">Client name</label><input id="clientName" type="text" value="Client Name" /></div>
-        <div><label for="bonusAmount">Premium Finance Roth Conversion Bonus</label><input id="bonusAmount" type="number" value="231000" /></div>
+        <div><label for="clientName">Client name</label><input id="clientName" type="text" placeholder="Client Name (Optional)" /></div>
+        <div><label for="bonusRate">Premium Finance Roth Conversion Bonus %</label><input id="bonusRate" type="number" step="0.1" value="22" /></div>
         <div>
-          <label for="feeType">Fee type</label>
+          <label for="feeType">Fee structure</label>
           <select id="feeType">
+            <option value="annual095" selected>0.95% annual</option>
             <option value="none">No fee modeled</option>
-            <option value="percent" selected>One-time % of conversion</option>
-            <option value="flat">One-time flat dollar fee</option>
           </select>
         </div>
-        <div><label for="feeAmount">Fee amount</label><input id="feeAmount" type="number" step="0.1" value="5" /></div>
+        <div>
+          <label for="payTaxesOutside">Tax payment</label>
+          <div style="padding:12px 13px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:rgba(4,10,22,.82); display:flex; align-items:center; gap:10px; min-height:48px;">
+            <input id="payTaxesOutside" type="checkbox" checked style="width:auto; margin:0;" />
+            <span style="font-size:14px; color:#d9e3f7;">Pay taxes from outside assets</span>
+          </div>
+        </div>
       </div>
 
       <div class="btn-row">
@@ -271,13 +276,13 @@
       <div class="panel" style="margin-bottom:24px;">
         <div class="section-kicker">Separate Roth Conversion Page</div>
         <h2 class="section-title">Premium Finance Roth Conversion</h2>
-        <div class="subtle">This page is modeled after your one-page client handout structure: a dedicated Roth Conversion page with the Premium Finance Roth Conversion Bonus shown separately from the broader strategy comparison. The comparison section below stays clean and does not list fees or bonus line items.</div>
+        <div class="subtle">This page is modeled after your one-page client handout structure: a dedicated Roth Conversion page with the Premium Finance Roth Conversion Bonus shown separately from the broader strategy comparison. The bonus is calculated as a percentage of the IRA being converted, applied before conversion to create the combined premium-finance Roth amount. The comparison section below stays clean and does not list fees or bonus line items.</div>
         <div class="spacer"></div>
         <div class="mini-grid" style="margin-bottom:16px;">
           <div class="note-card"><div class="label">Client</div><div id="rcClient" class="value" style="font-size:22px;">—</div></div>
           <div class="note-card"><div class="label">Tax Bracket</div><div id="rcBracket" class="value" style="font-size:22px;">—</div></div>
-          <div class="note-card"><div class="label">Bonus</div><div id="rcBonus" class="value" style="font-size:22px;">—</div></div>
-          <div class="note-card"><div class="label">Fee</div><div id="rcFee" class="value" style="font-size:22px;">—</div></div>
+          <div class="note-card"><div class="label">Bonus Rate</div><div id="rcBonus" class="value" style="font-size:22px;">—</div></div>
+          <div class="note-card"><div class="label">Tax / Fee Handling</div><div id="rcFee" class="value" style="font-size:22px;">—</div></div>
         </div>
         <div class="table-wrap">
           <table>
@@ -288,6 +293,7 @@
                 <th>Beginning Value</th>
                 <th>Converted</th>
                 <th>Bonus</th>
+                <th>Tax Payment</th>
                 <th>Fee</th>
                 <th>Roth End of Year</th>
                 <th>IRA End of Year</th>
@@ -504,10 +510,10 @@ function getInputs(){
     convGrowth: num('convGrowth'),
     survivorMode: status === 'mfj' ? el('survivorMode').value : 'none',
     deathYearOffset: status === 'mfj' ? num('deathYearOffset') : 0,
-    clientName: el('clientName').value || 'Client',
-    bonusAmount: num('bonusAmount'),
+    clientName: el('clientName').value.trim(),
+    bonusRate: num('bonusRate'),
     feeType: el('feeType').value,
-    feeAmount: num('feeAmount')
+    payTaxesOutside: el('payTaxesOutside').checked
   };
 }
 
@@ -547,6 +553,7 @@ function modelScenario(opts){
   let cumulativeIrmaa = 0;
   let cumulativeFees = 0;
   let cumulativeBonus = 0;
+  let cumulativeTaxPaidFromRoth = 0;
   let firstCompletionYear = null;
   let firstSSYear = null;
   let firstRMDYear = null;
@@ -618,22 +625,24 @@ function modelScenario(opts){
     tradH = Math.max(0, tradH - rmdH - convFromH);
     tradW = Math.max(0, tradW - rmdW - convFromW);
 
-    let bonusApplied = 0;
-    let feeApplied = 0;
-    if (opts.useConversions && yearOffset === 0 && opts.bonusAmount > 0) {
-      bonusApplied = opts.bonusAmount;
-      cumulativeBonus += bonusApplied;
-    }
-    if (opts.useConversions && conversion > 0) {
-      if (opts.feeType === 'percent') feeApplied = conversion * (opts.feeAmount / 100);
-      if (opts.feeType === 'flat' && yearOffset === 0) feeApplied = opts.feeAmount;
-    }
-    cumulativeFees += feeApplied;
-    roth += conversion + bonusApplied - feeApplied;
-
     const grossIncome = grossBeforeConversion + conversion;
     const taxableIncome = Math.max(0, grossIncome - TAX_CONFIG[currentStatus].standardDeduction);
     const federalTax = calcFederalTax(taxableIncome, currentStatus);
+    const baseFederalTax = calcFederalTax(taxableBeforeConversion, currentStatus);
+    const conversionTax = Math.max(0, federalTax - baseFederalTax);
+
+    let bonusApplied = 0;
+    let feeApplied = 0;
+    let taxesPaidFromRoth = 0;
+    if (opts.useConversions && conversion > 0) {
+      bonusApplied = conversion * (opts.bonusRate / 100);
+      cumulativeBonus += bonusApplied;
+      if (opts.feeType === 'annual095') feeApplied = (roth + conversion + bonusApplied) * 0.0095;
+      if (!opts.payTaxesOutside) taxesPaidFromRoth = conversionTax;
+    }
+    cumulativeFees += feeApplied;
+    cumulativeTaxPaidFromRoth += taxesPaidFromRoth;
+    roth += Math.max(0, conversion + bonusApplied - feeApplied - taxesPaidFromRoth);
 
     const medicareCount = (hAlive && personOnMedicare(hAge) ? 1 : 0) + (wAlive && wAge !== null && personOnMedicare(wAge) ? 1 : 0);
     const irmaa = irmaaAnnual(grossIncome, currentStatus, medicareCount);
@@ -678,6 +687,8 @@ function modelScenario(opts){
       beginningRoth,
       bonusApplied,
       feeApplied,
+      conversionTax,
+      taxesPaidFromRoth,
       event,
       survivorTriggered: deathOccurred,
       grossIncome,
@@ -695,6 +706,7 @@ function modelScenario(opts){
     cumulativeIrmaa,
     cumulativeFees,
     cumulativeBonus,
+    cumulativeTaxPaidFromRoth,
     rothAt95: rows[rows.length - 1].roth,
     tradAt95: rows[rows.length - 1].tradTotal
   };
@@ -749,11 +761,11 @@ function renderSummary(rows){
 }
 
 function renderRothPage(opt, inputs){
-  el('rcClient').textContent = inputs.clientName || 'Client';
+  el('rcClient').textContent = inputs.clientName || 'Confidential';
   el('rcBracket').textContent = `${inputs.targetBracket}%`;
-  el('rcBonus').textContent = money(inputs.bonusAmount || 0);
-  const feeText = inputs.feeType === 'percent' ? `${inputs.feeAmount}% of conversion` : (inputs.feeType === 'flat' ? money(inputs.feeAmount) : 'None');
-  el('rcFee').textContent = feeText;
+  el('rcBonus').textContent = `${Number(inputs.bonusRate || 0).toFixed(1)}%`;
+  const feeText = inputs.payTaxesOutside ? 'Taxes outside assets · 0.95% annual fee' : 'Taxes from conversion · 0.95% annual fee';
+  el('rcFee').textContent = inputs.feeType === 'none' ? (inputs.payTaxesOutside ? 'Taxes outside assets · No fee' : 'Taxes from conversion · No fee') : feeText;
   const body = el('rothPageBody');
   body.innerHTML = '';
   opt.rows.slice(0, 10).forEach((r, idx) => {
@@ -764,6 +776,7 @@ function renderRothPage(opt, inputs){
       <td>${money(r.beginningTraditional + r.beginningRoth)}</td>
       <td>${money(r.conversion)}</td>
       <td>${money(r.bonusApplied)}</td>
+      <td>${money(r.taxesPaidFromRoth || 0)}</td>
       <td>${money(r.feeApplied)}</td>
       <td>${money(r.roth)}</td>
       <td>${money(r.tradTotal)}</td>
@@ -779,6 +792,7 @@ function renderInsights(base, opt, inputs){
   const taxSaved = base.cumulativeTax - opt.cumulativeTax;
   const irmaaSaved = base.cumulativeIrmaa - opt.cumulativeIrmaa;
   const rmdReduced = base.cumulativeRmd - opt.cumulativeRmd;
+  const bonusCreated = opt.cumulativeBonus;
   const deathYear = getDeathYear(inputs);
   const widowText = (inputs.filingStatus === 'mfj' && inputs.survivorMode !== 'none')
     ? `A spouse death is modeled in ${deathYear}, after which the survivor keeps the higher Social Security benefit and files Single starting ${deathYear + 1}.`
@@ -793,6 +807,7 @@ function renderInsights(base, opt, inputs){
       <div style="margin-top:10px;">Projected lifetime federal tax ${taxSaved >= 0 ? 'reduction' : 'increase'} through age 95: <strong>${money(Math.abs(taxSaved))}</strong>.</div>
       <div style="margin-top:10px;">Projected IRMAA ${irmaaSaved >= 0 ? 'reduction' : 'increase'} through age 95: <strong>${money(Math.abs(irmaaSaved))}</strong>.</div>
       <div style="margin-top:10px;">Projected reduction in cumulative RMDs through age 95: <strong>${money(rmdReduced)}</strong>.</div>
+      <div style="margin-top:10px;">Premium Finance Roth Conversion Bonus created under the current run: <strong>${money(bonusCreated)}</strong>.</div>
       <div style="margin-top:10px;">Projected tax-free estate at age 95 under the Roth strategy: <strong>${money(opt.rothAt95)}</strong>.</div>
     </div>
   `;
@@ -839,10 +854,10 @@ function loadExample(){
   el('growth').value = '6.0';
   el('convGrowth').value = '6.0';
   el('startYear').value = '2026';
-  el('clientName').value = 'Client Name';
-  el('bonusAmount').value = '231000';
-  el('feeType').value = 'percent';
-  el('feeAmount').value = '5';
+  el('clientName').value = '';
+  el('bonusRate').value = '22';
+  el('feeType').value = 'annual095';
+  el('payTaxesOutside').checked = true;
   handleFilingStatusChange();
 }
 
