@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fidelity Roth Planner</title>
+  <meta name="description" content="Roth conversion planning calculator with lead capture and meeting booking." />
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111a2e;
+      --panel-2:#17233d;
+      --text:#e8eefc;
+      --muted:#aab8d6;
+      --accent:#caa55b;
+      --accent-2:#f0d8a0;
+      --line:rgba(255,255,255,.08);
+      --success:#8dd1a1;
+      --danger:#f3a2a2;
+      --shadow:0 18px 45px rgba(0,0,0,.28);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(202,165,91,.18), transparent 24%),
+        linear-gradient(180deg, #0a1020 0%, #0d1528 100%);
+      color:var(--text);
+    }
+    a{color:inherit;text-decoration:none}
+    .container{width:min(1120px, calc(100% - 32px));margin:0 auto}
+    .topbar{
+      position:sticky;top:0;z-index:20;
+      backdrop-filter: blur(12px);
+      background:rgba(8,14,27,.72);
+      border-bottom:1px solid var(--line);
+    }
+    .nav{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 0;
+    }
+    .brand{display:flex;align-items:center;gap:14px}
+    .brand-mark{
+      width:44px;height:44px;border-radius:12px;
+      background:linear-gradient(135deg, var(--accent), #92713c);
+      color:#111;font-weight:800;display:grid;place-items:center;
+      box-shadow:var(--shadow)
+    }
+    .brand-copy strong{display:block;font-size:1rem}
+    .brand-copy span{display:block;color:var(--muted);font-size:.87rem}
+    .logo-box{
+      border:1px dashed rgba(240,216,160,.45);
+      color:var(--accent-2);
+      padding:10px 14px;border-radius:14px;
+      font-size:.82rem;background:rgba(255,255,255,.02)
+    }
+    .hero{
+      padding:72px 0 32px;
+      display:grid;grid-template-columns:1.2fr .95fr;gap:28px;
+      align-items:stretch;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.015));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      border-radius:var(--radius);
+    }
+    .hero-copy{padding:42px}
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;
+      color:var(--accent-2);font-size:.82rem;letter-spacing:.08em;text-transform:uppercase;
+      border:1px solid rgba(202,165,91,.35);padding:8px 12px;border-radius:999px;
+      background:rgba(202,165,91,.08)
+    }
+    h1{
+      margin:18px 0 14px;font-size:clamp(2.2rem, 4vw, 4.4rem);line-height:1.02;
+      max-width:12ch;
+    }
+    .hero-copy p{
+      color:var(--muted);font-size:1.06rem;line-height:1.7;max-width:62ch
+    }
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+      min-height:48px;padding:0 18px;border-radius:14px;font-weight:700;
+      border:1px solid transparent;cursor:pointer;transition:.18s ease;
+    }
+    .btn-primary{background:linear-gradient(135deg, var(--accent), #a27a38);color:#151515}
+    .btn-secondary{background:rgba(255,255,255,.03);border-color:var(--line);color:var(--text)}
+    .btn:hover{transform:translateY(-1px)}
+    .hero-panel{padding:24px}
+    .hero-panel h3{margin:0 0 10px;font-size:1.1rem}
+    .stats{display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-top:18px}
+    .stat{
+      padding:16px;border-radius:16px;background:var(--panel-2);border:1px solid var(--line)
+    }
+    .stat strong{display:block;font-size:1.2rem}
+    .stat span{display:block;color:var(--muted);font-size:.84rem;margin-top:6px}
+    .section{padding:26px 0}
+    .split{display:grid;grid-template-columns:1.1fr .9fr;gap:26px}
+    .calc-card,.lead-card{padding:26px}
+    .section-title{font-size:1.45rem;margin:0 0 8px}
+    .section-sub{color:var(--muted);margin:0 0 22px;line-height:1.65}
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .field{display:flex;flex-direction:column;gap:8px}
+    .field label{font-size:.9rem;color:#d7e1fb}
+    .field input,.field select, .field textarea{
+      width:100%;min-height:48px;padding:12px 14px;border-radius:14px;
+      border:1px solid var(--line);background:#0e172b;color:var(--text);outline:none
+    }
+    .field textarea{min-height:110px;resize:vertical}
+    .field small{color:var(--muted)}
+    .full{grid-column:1 / -1}
+    .results{
+      margin-top:22px;padding:18px;border-radius:18px;background:var(--panel-2);border:1px solid var(--line)
+    }
+    .result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .result{
+      padding:16px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid var(--line)
+    }
+    .result span{display:block;color:var(--muted);font-size:.84rem}
+    .result strong{display:block;font-size:1.35rem;margin-top:6px}
+    .disclaimer{
+      margin-top:14px;color:var(--muted);font-size:.84rem;line-height:1.6
+    }
+    .checklist{display:grid;gap:10px;margin:18px 0 0;padding:0;list-style:none}
+    .checklist li{
+      padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line)
+    }
+    .mini{
+      margin-top:18px;padding:14px;border-radius:14px;background:rgba(202,165,91,.08);border:1px solid rgba(202,165,91,.22);
+      color:#f1e2bd;font-size:.92rem;line-height:1.6
+    }
+    .footer{
+      margin-top:26px;padding:26px 0 50px;border-top:1px solid var(--line);color:var(--muted)
+    }
+    .footer-grid{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+    .footer strong{color:var(--text);display:block;margin-bottom:8px}
+    .small{font-size:.84rem}
+    .success,.error{
+      display:none;margin-top:14px;padding:12px 14px;border-radius:14px;font-size:.92rem
+    }
+    .success{background:rgba(141,209,161,.12);border:1px solid rgba(141,209,161,.25);color:#ccefd7}
+    .error{background:rgba(243,162,162,.10);border:1px solid rgba(243,162,162,.22);color:#ffd3d3}
+    @media (max-width: 920px){
+      .hero,.split{grid-template-columns:1fr}
+      .stats,.result-grid,.form-grid{grid-template-columns:1fr}
+      .logo-box{display:none}
+      h1{max-width:unset}
+      .footer-grid{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="container nav">
+      <div class="brand">
+        <div class="brand-mark">FR</div>
+        <div class="brand-copy">
+          <strong>Fidelity Roth Planner</strong>
+          <span>Tax-efficient Roth conversion planning</span>
+        </div>
+      </div>
+      <div class="logo-box">Upload your logo image later and place it here</div>
+    </div>
+  </div>
+
+  <main class="container">
+    <section class="hero">
+      <div class="card hero-copy">
+        <div class="eyebrow">Roth Conversion Planning Tool</div>
+        <h1>See whether a Roth conversion may improve retirement outcomes.</h1>
+        <p>
+          Run a quick planning estimate, identify the projected tax cost of converting this year,
+          and book a strategy session to review timing, tax brackets, IRMAA exposure, and long-term
+          tax-free growth potential.
+        </p>
+        <div class="hero-actions">
+          <a href="#calculator" class="btn btn-primary">Use the calculator</a>
+          <a href="https://calendly.com/darryl-j-stein/custom-roth-conversion-retirement-meeting" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Book a meeting</a>
+        </div>
+      </div>
+
+      <div class="card hero-panel">
+        <h3>What this estimates</h3>
+        <p class="section-sub">
+          This planning tool provides a high-level estimate only. It helps frame the conversation around
+          tax rate management, future tax-free accumulation, and whether converting now may make sense.
+        </p>
+        <div class="stats">
+          <div class="stat">
+            <strong>Current-year tax</strong>
+            <span>Estimated added federal tax from the conversion</span>
+          </div>
+          <div class="stat">
+            <strong>Future value</strong>
+            <span>Projected tax-free account value over time</span>
+          </div>
+          <div class="stat">
+            <strong>Action step</strong>
+            <span>Email capture plus direct booking link</span>
+          </div>
+        </div>
+        <ul class="checklist">
+          <li>Estimate ordinary-income tax impact using simplified 2026 federal brackets.</li>
+          <li>Project growth of converted assets at an assumed annual rate.</li>
+          <li>Compare “convert now” versus “leave tax-deferred” as a planning prompt.</li>
+        </ul>
+        <div class="mini">
+          Best used as a conversation starter before a personalized tax and retirement income analysis.
+        </div>
+      </div>
+    </section>
+
+    <section class="section split" id="calculator">
+      <div class="card calc-card">
+        <h2 class="section-title">Roth Conversion Calculator</h2>
+        <p class="section-sub">
+          Enter a few planning inputs below. The estimate uses a simplified federal tax approach and does
+          not include state tax, NIIT, Medicare premium changes, or phaseouts.
+        </p>
+
+        <form id="calcForm">
+          <div class="form-grid">
+            <div class="field">
+              <label for="filingStatus">Filing status</label>
+              <select id="filingStatus">
+                <option value="single">Single</option>
+                <option value="mfj" selected>Married filing jointly</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="age">Age</label>
+              <input id="age" type="number" min="18" max="100" value="60" />
+            </div>
+            <div class="field">
+              <label for="currentIncome">Estimated taxable income this year ($)</label>
+              <input id="currentIncome" type="number" min="0" step="1000" value="120000" />
+            </div>
+            <div class="field">
+              <label for="conversionAmount">Planned Roth conversion amount ($)</label>
+              <input id="conversionAmount" type="number" min="0" step="1000" value="50000" />
+            </div>
+            <div class="field">
+              <label for="growthRate">Assumed annual growth rate (%)</label>
+              <input id="growthRate" type="number" min="0" max="20" step="0.1" value="7" />
+            </div>
+            <div class="field">
+              <label for="years">Years until funds are needed</label>
+              <input id="years" type="number" min="1" max="40" step="1" value="10" />
+            </div>
+          </div>
+
+          <div class="hero-actions" style="margin-top:18px">
+            <button type="submit" class="btn btn-primary">Calculate</button>
+            <button type="button" class="btn btn-secondary" id="resetBtn">Reset</button>
+          </div>
+        </form>
+
+        <div class="results" id="results">
+          <div class="result-grid">
+            <div class="result">
+              <span>Estimated added federal tax</span>
+              <strong id="addedTax">$0</strong>
+            </div>
+            <div class="result">
+              <span>Marginal tax bracket after conversion</span>
+              <strong id="marginalBracket">—</strong>
+            </div>
+            <div class="result">
+              <span>Projected Roth value</span>
+              <strong id="futureRoth">$0</strong>
+            </div>
+            <div class="result">
+              <span>Projected tax-deferred value after assumed future tax</span>
+              <strong id="futureTraditional">$0</strong>
+            </div>
+          </div>
+          <div class="disclaimer" id="summaryText">
+            Run the estimate to see a planning snapshot.
+          </div>
+        </div>
+      </div>
+
+      <div class="card lead-card">
+        <h2 class="section-title">Request a Personalized Review</h2>
+        <p class="section-sub">
+          Get a tailored Roth conversion discussion around bracket management, Social Security timing,
+          retirement income coordination, and tax-efficient legacy planning.
+        </p>
+
+        <form id="leadForm">
+          <div class="form-grid">
+            <div class="field">
+              <label for="name">Full name</label>
+              <input id="name" type="text" placeholder="Your name" required />
+            </div>
+            <div class="field">
+              <label for="email">Email address</label>
+              <input id="email" type="email" placeholder="you@example.com" required />
+            </div>
+            <div class="field full">
+              <label for="notes">What would you like to review?</label>
+              <textarea id="notes" placeholder="Ex: IRA balances, tax bracket concerns, retirement date, Social Security timing..."></textarea>
+            </div>
+          </div>
+
+          <div class="hero-actions" style="margin-top:18px">
+            <button type="submit" class="btn btn-primary">Submit</button>
+            <a href="https://calendly.com/darryl-j-stein/custom-roth-conversion-retirement-meeting" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Or schedule now</a>
+          </div>
+          <div class="success" id="successMsg">Form captured on page. For live email delivery, connect this form to Formspree, Basin, or your CRM.</div>
+          <div class="error" id="errorMsg">Please enter your name and a valid email address.</div>
+        </form>
+
+        <ul class="checklist">
+          <li>Email capture is enabled on-page now. A live form endpoint can be added once you choose your preferred CRM or form service.</li>
+          <li>The booking button already points to your Calendly link.</li>
+          <li>This page is static, which makes it simple to deploy to Vercel from GitHub.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container" style="padding:0">
+        <div class="footer-grid">
+          <div>
+            <strong>Fidelity Roth Planner</strong>
+            <div class="small">Strategic Roth conversion education for retirement-income planning.</div>
+          </div>
+          <div>
+            <strong>Contact</strong>
+            <div class="small">Email: <a href="mailto:Darryl.j.Stein@gmail.com">Darryl.j.Stein@gmail.com</a></div>
+            <div class="small">Schedule: <a href="https://calendly.com/darryl-j-stein/custom-roth-conversion-retirement-meeting" target="_blank" rel="noopener noreferrer">Book your meeting</a></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    const brackets = {
+      single: [
+        { cap: 11925, rate: 0.10, label: "10%" },
+        { cap: 48475, rate: 0.12, label: "12%" },
+        { cap: 103350, rate: 0.22, label: "22%" },
+        { cap: 197300, rate: 0.24, label: "24%" },
+        { cap: 250525, rate: 0.32, label: "32%" },
+        { cap: 626350, rate: 0.35, label: "35%" },
+        { cap: Infinity, rate: 0.37, label: "37%" }
+      ],
+      mfj: [
+        { cap: 23850, rate: 0.10, label: "10%" },
+        { cap: 96950, rate: 0.12, label: "12%" },
+        { cap: 206700, rate: 0.22, label: "22%" },
+        { cap: 394600, rate: 0.24, label: "24%" },
+        { cap: 501050, rate: 0.32, label: "32%" },
+        { cap: 751600, rate: 0.35, label: "35%" },
+        { cap: Infinity, rate: 0.37, label: "37%" }
+      ]
+    };
+
+    function calcTax(income, status){
+      const set = brackets[status];
+      let tax = 0;
+      let lower = 0;
+      let marginal = set[0].label;
+      for(const bracket of set){
+        const taxableInBand = Math.max(0, Math.min(income, bracket.cap) - lower);
+        tax += taxableInBand * bracket.rate;
+        if(income > lower){
+          marginal = bracket.label;
+        }
+        if(income <= bracket.cap) break;
+        lower = bracket.cap;
+      }
+      return { tax, marginal };
+    }
+
+    function fmt(v){
+      return new Intl.NumberFormat('en-US', { style:'currency', currency:'USD', maximumFractionDigits:0 }).format(v);
+    }
+
+    const calcForm = document.getElementById('calcForm');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function runCalculation(){
+      const status = document.getElementById('filingStatus').value;
+      const age = Number(document.getElementById('age').value || 0);
+      const currentIncome = Number(document.getElementById('currentIncome').value || 0);
+      const conversionAmount = Number(document.getElementById('conversionAmount').value || 0);
+      const growthRate = Number(document.getElementById('growthRate').value || 0) / 100;
+      const years = Number(document.getElementById('years').value || 0);
+
+      const taxBefore = calcTax(currentIncome, status);
+      const taxAfter = calcTax(currentIncome + conversionAmount, status);
+      const addedTax = Math.max(0, taxAfter.tax - taxBefore.tax);
+
+      const futureRoth = conversionAmount * Math.pow(1 + growthRate, years);
+      const assumedFutureTaxRate = age < 63 ? 0.24 : 0.22;
+      const futureTraditional = futureRoth * (1 - assumedFutureTaxRate);
+
+      document.getElementById('addedTax').textContent = fmt(addedTax);
+      document.getElementById('marginalBracket').textContent = taxAfter.marginal;
+      document.getElementById('futureRoth').textContent = fmt(futureRoth);
+      document.getElementById('futureTraditional').textContent = fmt(futureTraditional);
+
+      document.getElementById('summaryText').textContent =
+        `Estimated added federal tax on a ${fmt(conversionAmount)} conversion is ${fmt(addedTax)}. ` +
+        `At an assumed ${(growthRate*100).toFixed(1)}% annual return over ${years} years, the converted amount could grow to ${fmt(futureRoth)} tax-free. ` +
+        `For comparison only, leaving that amount tax-deferred and later paying an assumed ${(assumedFutureTaxRate*100).toFixed(0)}% tax could net about ${fmt(futureTraditional)}.`;
+    }
+
+    calcForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      runCalculation();
+    });
+
+    resetBtn.addEventListener('click', function(){
+      document.getElementById('filingStatus').value = 'mfj';
+      document.getElementById('age').value = 60;
+      document.getElementById('currentIncome').value = 120000;
+      document.getElementById('conversionAmount').value = 50000;
+      document.getElementById('growthRate').value = 7;
+      document.getElementById('years').value = 10;
+      runCalculation();
+    });
+
+    document.getElementById('leadForm').addEventListener('submit', function(e){
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const emailOK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const success = document.getElementById('successMsg');
+      const error = document.getElementById('errorMsg');
+
+      if(!name || !emailOK){
+        error.style.display = 'block';
+        success.style.display = 'none';
+        return;
+      }
+
+      const payload = {
+        name,
+        email,
+        notes: document.getElementById('notes').value.trim(),
+        submittedAt: new Date().toISOString()
+      };
+
+      const existing = JSON.parse(localStorage.getItem('frp_leads') || '[]');
+      existing.push(payload);
+      localStorage.setItem('frp_leads', JSON.stringify(existing));
+
+      error.style.display = 'none';
+      success.style.display = 'block';
+      e.target.reset();
+    });
+
+    runCalculation();
+  </script>
+</body>
+</html>
