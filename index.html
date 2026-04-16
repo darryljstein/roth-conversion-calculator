@@ -101,6 +101,9 @@
       color:#a9bbdc; font-size:13px; padding:18px 4px 8px;
     }
     .hidden { display:none; }
+    .mini-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+    .note-card { border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(8,13,25,.45); }
+    .section-kicker { color:#f7d873; font-size:12px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-bottom:6px; }
     @media (max-width: 1240px) {
       .grid { grid-template-columns: 1fr; }
       .card-grid { grid-template-columns: repeat(2,1fr); }
@@ -204,6 +207,22 @@
         <div><label for="startYear">Projection start year</label><input id="startYear" type="number" value="2026" /></div>
       </div>
 
+      <div class="spacer"></div>
+      <h3 class="section-title">Premium finance inputs</h3>
+      <div class="form-grid">
+        <div><label for="clientName">Client name</label><input id="clientName" type="text" value="Jeffrey Landau" /></div>
+        <div><label for="bonusAmount">Premium Finance Roth Conversion Bonus</label><input id="bonusAmount" type="number" value="231000" /></div>
+        <div>
+          <label for="feeType">Fee type</label>
+          <select id="feeType">
+            <option value="none">No fee modeled</option>
+            <option value="percent" selected>One-time % of conversion</option>
+            <option value="flat">One-time flat dollar fee</option>
+          </select>
+        </div>
+        <div><label for="feeAmount">Fee amount</label><input id="feeAmount" type="number" step="0.1" value="5" /></div>
+      </div>
+
       <div class="btn-row">
         <button class="primary" onclick="runPlanner()">Run Premium Finance Roth Conversion Bonus</button>
         <button class="secondary" onclick="loadExample()">Reload example</button>
@@ -245,6 +264,37 @@
               </tr>
             </thead>
             <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:24px;">
+        <div class="section-kicker">Separate Roth Conversion Page</div>
+        <h2 class="section-title">Premium Finance Roth Conversion</h2>
+        <div class="subtle">This page is modeled after your one-page client handout structure: a dedicated Roth Conversion page with the Premium Finance Roth Conversion Bonus shown separately from the broader strategy comparison. The comparison section below stays clean and does not list fees or bonus line items.</div>
+        <div class="spacer"></div>
+        <div class="mini-grid" style="margin-bottom:16px;">
+          <div class="note-card"><div class="label">Client</div><div id="rcClient" class="value" style="font-size:22px;">—</div></div>
+          <div class="note-card"><div class="label">Tax Bracket</div><div id="rcBracket" class="value" style="font-size:22px;">—</div></div>
+          <div class="note-card"><div class="label">Bonus</div><div id="rcBonus" class="value" style="font-size:22px;">—</div></div>
+          <div class="note-card"><div class="label">Fee</div><div id="rcFee" class="value" style="font-size:22px;">—</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>Age(s)</th>
+                <th>Beginning Value</th>
+                <th>Converted</th>
+                <th>Bonus</th>
+                <th>Fee</th>
+                <th>Roth End of Year</th>
+                <th>IRA End of Year</th>
+                <th>Total Value</th>
+              </tr>
+            </thead>
+            <tbody id="rothPageBody"></tbody>
           </table>
         </div>
       </div>
@@ -453,7 +503,11 @@ function getInputs(){
     growth: num('growth'),
     convGrowth: num('convGrowth'),
     survivorMode: status === 'mfj' ? el('survivorMode').value : 'none',
-    deathYearOffset: status === 'mfj' ? num('deathYearOffset') : 0
+    deathYearOffset: status === 'mfj' ? num('deathYearOffset') : 0,
+    clientName: el('clientName').value || 'Client',
+    bonusAmount: num('bonusAmount'),
+    feeType: el('feeType').value,
+    feeAmount: num('feeAmount')
   };
 }
 
@@ -491,6 +545,8 @@ function modelScenario(opts){
   let cumulativeTax = 0;
   let cumulativeRmd = 0;
   let cumulativeIrmaa = 0;
+  let cumulativeFees = 0;
+  let cumulativeBonus = 0;
   let firstCompletionYear = null;
   let firstSSYear = null;
   let firstRMDYear = null;
@@ -555,11 +611,25 @@ function modelScenario(opts){
       conversion = Math.min(room, tradH + tradW);
     }
 
+    const beginningTraditional = tradH + tradW;
+    const beginningRoth = roth;
     let convFromH = Math.min(conversion, tradH);
     let convFromW = Math.min(Math.max(0, conversion - convFromH), tradW);
     tradH = Math.max(0, tradH - rmdH - convFromH);
     tradW = Math.max(0, tradW - rmdW - convFromW);
-    roth += conversion;
+
+    let bonusApplied = 0;
+    let feeApplied = 0;
+    if (opts.useConversions && yearOffset === 0 && opts.bonusAmount > 0) {
+      bonusApplied = opts.bonusAmount;
+      cumulativeBonus += bonusApplied;
+    }
+    if (opts.useConversions && conversion > 0) {
+      if (opts.feeType === 'percent') feeApplied = conversion * (opts.feeAmount / 100);
+      if (opts.feeType === 'flat' && yearOffset === 0) feeApplied = opts.feeAmount;
+    }
+    cumulativeFees += feeApplied;
+    roth += conversion + bonusApplied - feeApplied;
 
     const grossIncome = grossBeforeConversion + conversion;
     const taxableIncome = Math.max(0, grossIncome - TAX_CONFIG[currentStatus].standardDeduction);
@@ -604,6 +674,10 @@ function modelScenario(opts){
       irmaa,
       tradTotal: tradH + tradW,
       roth,
+      beginningTraditional,
+      beginningRoth,
+      bonusApplied,
+      feeApplied,
       event,
       survivorTriggered: deathOccurred,
       grossIncome,
@@ -619,6 +693,8 @@ function modelScenario(opts){
     cumulativeTax,
     cumulativeRmd,
     cumulativeIrmaa,
+    cumulativeFees,
+    cumulativeBonus,
     rothAt95: rows[rows.length - 1].roth,
     tradAt95: rows[rows.length - 1].tradTotal
   };
@@ -643,7 +719,7 @@ function buildComparison(base, opt){
     ['Tax-Free Estate by Age 95', base.rothAt95, opt.rothAt95]
   ];
 
-  let html = '<div class="head"><div>Metric</div><div>Current Situation</div><div>After Strategy</div></div>';
+  let html = '<div class="head"><div>Metric</div><div>Current Situation</div><div>Fidelity Strategy</div></div>';
   compareRows.forEach(([label, left, right]) => {
     html += `<div class="row"><div>${label}</div><div class="left">${money(left)}</div><div class="right">${money(right)}</div></div>`;
   });
@@ -667,6 +743,31 @@ function renderSummary(rows){
       <td>${money(r.irmaa)}</td>
       <td>${money(r.tradTotal)}</td>
       <td>${money(r.roth)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderRothPage(opt, inputs){
+  el('rcClient').textContent = inputs.clientName || 'Client';
+  el('rcBracket').textContent = `${inputs.targetBracket}%`;
+  el('rcBonus').textContent = money(inputs.bonusAmount || 0);
+  const feeText = inputs.feeType === 'percent' ? `${inputs.feeAmount}% of conversion` : (inputs.feeType === 'flat' ? money(inputs.feeAmount) : 'None');
+  el('rcFee').textContent = feeText;
+  const body = el('rothPageBody');
+  body.innerHTML = '';
+  opt.rows.slice(0, 10).forEach((r, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>Year ${idx + 1}</td>
+      <td>${r.agesLabel}</td>
+      <td>${money(r.beginningTraditional + r.beginningRoth)}</td>
+      <td>${money(r.conversion)}</td>
+      <td>${money(r.bonusApplied)}</td>
+      <td>${money(r.feeApplied)}</td>
+      <td>${money(r.roth)}</td>
+      <td>${money(r.tradTotal)}</td>
+      <td>${money(r.roth + r.tradTotal)}</td>
     `;
     body.appendChild(tr);
   });
@@ -713,6 +814,7 @@ function runPlanner(){
   el('mRMDYearNote').textContent = opt.firstRMDYear ? `First projected RMD year is ${opt.firstRMDYear}.` : 'No RMD projected before age 95.';
 
   renderSummary(milestones);
+  renderRothPage(opt, inputs);
   buildComparison(base, opt);
   renderInsights(base, opt, inputs);
 }
@@ -737,6 +839,10 @@ function loadExample(){
   el('growth').value = '6.0';
   el('convGrowth').value = '6.0';
   el('startYear').value = '2026';
+  el('clientName').value = 'Jeffrey Landau';
+  el('bonusAmount').value = '231000';
+  el('feeType').value = 'percent';
+  el('feeAmount').value = '5';
   handleFilingStatusChange();
 }
 
