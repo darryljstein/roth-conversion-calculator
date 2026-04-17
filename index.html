@@ -222,6 +222,31 @@ function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
 
 
 
+
+const LOGO_STORAGE_KEY = "fidelity_roth_logo_data";
+function getLogoData(){
+  try { return window.localStorage ? localStorage.getItem(LOGO_STORAGE_KEY) : null; }
+  catch(e){ return null; }
+}
+function setLogoData(data){
+  try { if(window.localStorage){ if(data){ localStorage.setItem(LOGO_STORAGE_KEY, data); } else { localStorage.removeItem(LOGO_STORAGE_KEY); } } }
+  catch(e){}
+}
+function renderLogoPreview(){
+  const el = document.getElementById('logoPreview');
+  if(!el) return;
+  const data = getLogoData();
+  if(!data){ el.innerHTML = 'No logo uploaded'; return; }
+  el.innerHTML = `<img src="${data}" alt="Logo preview" style="max-height:60px;max-width:100%;object-fit:contain;" />`;
+}
+function handleLogoUpload(evt){
+  const file = evt && evt.target && evt.target.files ? evt.target.files[0] : null;
+  if(!file){ renderLogoPreview(); return; }
+  const reader = new FileReader();
+  reader.onload = function(e){ setLogoData(e.target.result); renderLogoPreview(); };
+  reader.readAsDataURL(file);
+}
+
 function buildScenario(useStrategy){
   const filingStart=document.getElementById('filingStatus').value;
   let status=filingStart;
@@ -418,6 +443,7 @@ function fillMetricTable(id,scenario){
 }
 let latest=null;
 function calculate(){
+  try {
   setupSpouseVisibility();
   renderLogoPreview();
   const before=buildScenario(false), after=buildScenario(true); latest={before,after};
@@ -443,6 +469,11 @@ function calculate(){
   document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. Desired annual income is set to ${fmt2(num('desiredIncome'))}, so the model illustrates taxable IRA withdrawals during the conversion window and tax-free Roth withdrawals after the conversion window when Roth assets are available. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()}, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. Each year, the model adds only the net Roth amount after incremental conversion taxes when taxes are paid from the conversion side. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a wife's spousal Social Security step-up once the husband reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.income)}</td><td>${fmt2(r.rmd)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
+  } catch(err){
+    console.error(err);
+    const box = document.getElementById('onscreenDisclaimer');
+    if(box) box.textContent = 'Calculation error: ' + (err && err.message ? err.message : err);
+  }
 }
 
 function addPdfLogo(doc){
