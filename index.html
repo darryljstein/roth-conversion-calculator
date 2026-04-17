@@ -1,867 +1,252 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fidelity Roth Planner — Premium Finance Roth Conversion Bonus</title>
+  <title>Fidelity Roth Planner V2.4</title>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
-    :root {
-      --bg: #09111f;
-      --card: #0f1b31;
-      --muted: #8ea1c4;
-      --text: #eef4ff;
-      --accent: #d4af37;
-      --accent-2: #1f6feb;
-      --line: rgba(255,255,255,0.10);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      color: var(--text);
-      background: linear-gradient(180deg, #08101d 0%, #0b1530 40%, #08101d 100%);
-    }
-    .wrap { max-width: 1420px; margin: 0 auto; padding: 24px; }
-    .hero {
-      display: flex; justify-content: space-between; gap: 24px; align-items: center;
-      margin-bottom: 24px; padding: 24px; border: 1px solid var(--line);
-      border-radius: 20px; background: rgba(255,255,255,0.03);
-    }
-    .hero h1 { margin: 0 0 8px; font-size: 38px; line-height: 1.05; }
-    .hero p { margin: 0; color: var(--muted); max-width: 850px; line-height: 1.55; }
-    .badge {
-      display:inline-block; margin-bottom:10px; padding:8px 12px; border-radius:999px;
-      background: rgba(212,175,55,.12); color:#f7d873; font-weight:700; font-size:12px;
-      text-transform:uppercase; letter-spacing:.04em;
-    }
-    .logo-box {
-      min-width:220px; min-height:120px; border:1px dashed rgba(212,175,55,.45);
-      border-radius:16px; display:flex; align-items:center; justify-content:center;
-      color:#cdb46a; text-align:center; padding:18px; background:rgba(212,175,55,.05);
-      font-size:14px;
-    }
-    .grid { display:grid; grid-template-columns: 460px 1fr; gap:24px; align-items:start; }
-    .panel {
-      background: rgba(255,255,255,0.04); border:1px solid var(--line);
-      border-radius:20px; padding:20px;
-    }
-    .section-title { margin:0 0 14px; font-size:18px; color:#f5f9ff; }
-    .subtle { color: var(--muted); font-size:13px; line-height:1.55; }
-    .form-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-    .form-grid.one { grid-template-columns: 1fr; }
-    .form-grid.three { grid-template-columns: repeat(3, 1fr); }
-    label {
-      display:block; font-size:12px; text-transform:uppercase; letter-spacing:.04em;
-      color:#b8c6e3; margin-bottom:6px; font-weight:700;
-    }
-    input, select {
-      width:100%; padding:12px 13px; border-radius:12px;
-      border:1px solid rgba(255,255,255,.10); background:rgba(4,10,22,.82);
-      color: var(--text); font-size:15px;
-    }
-    input:focus, select:focus { outline:2px solid rgba(31,111,235,.35); border-color: rgba(31,111,235,.8); }
-    .spacer { height:16px; }
-    .btn-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; }
-    button {
-      border:0; cursor:pointer; border-radius:12px; padding:13px 18px;
-      font-weight:700; font-size:14px;
-    }
-    .primary { background: linear-gradient(135deg, #d9b54a 0%, #b78616 100%); color:#141414; }
-    .secondary { background: rgba(255,255,255,0.08); color: var(--text); border:1px solid var(--line); }
-    .card-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:18px; }
-    .metric { border-radius:16px; padding:16px; background:rgba(8,13,25,.58); border:1px solid var(--line); min-height:120px; }
-    .metric .label { color: var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin-bottom:8px; }
-    .metric .value { font-size:30px; font-weight:800; margin-bottom:6px; }
-    .metric .note { font-size:13px; color:#b9c8e6; line-height:1.4; }
-    .table-wrap { overflow:auto; max-height: 520px; border-radius:16px; border:1px solid var(--line); background: rgba(8,13,25,.45); }
-    table { width:100%; border-collapse: collapse; font-size:14px; }
-    th, td { padding:11px 10px; border-bottom:1px solid rgba(255,255,255,.08); text-align:right; vertical-align:top; }
-    th:first-child, td:first-child, th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align:left; }
-    th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#c4d0ea; background: rgba(255,255,255,.03); position: sticky; top: 0; }
-    .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:18px; }
-    .compare { border-radius:18px; border:1px solid var(--line); background:rgba(7,12,23,.58); overflow:hidden; }
-    .compare .head, .compare .row { display:grid; grid-template-columns: 250px 1fr 1fr; }
-    .compare .head { border-bottom:1px solid var(--line); background:rgba(255,255,255,.03); font-weight:700; }
-    .compare .head div, .compare .row div { padding:12px 14px; }
-    .compare .row { border-bottom:1px solid rgba(255,255,255,.06); }
-    .compare .row:last-child { border-bottom:0; }
-    .compare .left { color:#ffb0b0; }
-    .compare .right { color:#baf5d6; }
-    .pill {
-      display:inline-block; padding:4px 8px; border-radius:999px;
-      background: rgba(31,111,235,.15); color:#9dc0ff; font-weight:700;
-      font-size:11px; text-transform:uppercase; letter-spacing:.05em;
-    }
-    .assumptions {
-      margin-top:18px; padding:16px; border-radius:16px; border:1px solid var(--line);
-      background: rgba(255,255,255,.03); color:#c3d0ea; font-size:13px; line-height:1.55;
-    }
-    .footer {
-      margin-top:28px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;
-      color:#a9bbdc; font-size:13px; padding:18px 4px 8px;
-    }
-    .hidden { display:none; }
-    .mini-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
-    .note-card { border:1px solid var(--line); border-radius:16px; padding:14px; background:rgba(8,13,25,.45); }
-    .section-kicker { color:#f7d873; font-size:12px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-bottom:6px; }
-    @media (max-width: 1240px) {
-      .grid { grid-template-columns: 1fr; }
-      .card-grid { grid-template-columns: repeat(2,1fr); }
-      .two-col { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 760px) {
-      .hero { flex-direction: column; align-items: stretch; }
-      .form-grid, .form-grid.three, .card-grid { grid-template-columns: 1fr; }
-      .compare .head, .compare .row { grid-template-columns: 1fr; }
-    }
+    :root { --blue:#0b3a6f; --gold:#c89a3d; --light:#f6f8fb; --border:#d7deea; --text:#1f2937; --muted:#6b7280; }
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:#eef2f7}
+    .container{max-width:1400px;margin:0 auto;padding:24px}.hero{background:linear-gradient(120deg,var(--blue),#143f7a 55%,#1f4f92);color:#fff;border-radius:18px;padding:28px;box-shadow:0 12px 28px rgba(8,25,53,.18);margin-bottom:22px}
+    .hero h1{margin:0 0 8px;font-size:34px}.hero p{margin:0;font-size:16px;line-height:1.5;max-width:980px}.grid{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}
+    .card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(16,24,40,.07);border:1px solid var(--border);margin-bottom:18px}
+    .card h2,.card h3{margin:0 0 14px;color:var(--blue)}.section-title{font-size:20px;margin-bottom:16px}
+    .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(140px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em}
+    input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff}
+    .checkbox-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:14px}.checkbox-row input{width:auto}
+    .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px} button{border:none;border-radius:12px;padding:12px 16px;cursor:pointer;font-weight:700;font-size:14px}
+    .primary{background:var(--blue);color:#fff}.gold{background:var(--gold);color:#1f2937}.pill-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+    .pill{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 8px 22px rgba(16,24,40,.05)}.pill .label{font-size:12px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.04em}
+    .pill .value{margin-top:8px;font-size:28px;color:var(--blue);font-weight:700} table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+    th,td{border-bottom:1px solid #e5e7eb;padding:10px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#f8fafc;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}.panel{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px}
+    .note,.assumptions,.small{font-size:13px;line-height:1.55;color:#475569}.hidden{display:none}
+    @media (max-width:1100px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col{grid-template-columns:1fr}}
+    @media (max-width:650px){.inputs-grid,.pill-row{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
-<div class="wrap">
+<div class="container">
   <div class="hero">
-    <div>
-      <div class="badge">Premium Finance Roth Conversion Bonus</div>
-      <h1>Fidelity Roth Planner</h1>
-      <p>
-        A Roth conversion planning engine designed to estimate the maximum annual conversion that can fit inside a selected federal tax bracket, project the completion timeline, stress-test future RMD pressure, model widowhood tax compression, and compare the current path versus a Roth optimization strategy.
-      </p>
-    </div>
-    <div class="logo-box">Logo placeholder<br/>top-right placement</div>
+    <h1>Fidelity Roth Planner</h1>
+    <p>Premium Finance Roth Conversion analysis with bracket-fill planning, survivor tax compression modeling, IRMAA visibility, milestone reporting, and a downloadable client PDF.</p>
   </div>
-
   <div class="grid">
-    <div class="panel">
-      <h2 class="section-title">Client inputs</h2>
-      <div class="subtle">Use current ages and balances. The engine projects annually through age 95 using a planning-model approximation for taxes, Social Security, RMDs, IRMAA, growth, and survivor status. This version supports MFJ, Single, and Head of Household.</div>
-
-      <div class="spacer"></div>
-      <h3 class="section-title">Household</h3>
-      <div class="form-grid">
-        <div>
-          <label for="filingStatus">Filing status</label>
-          <select id="filingStatus" onchange="handleFilingStatusChange()">
-            <option value="mfj" selected>Married Filing Jointly</option>
-            <option value="single">Single</option>
-            <option value="hoh">Head of Household</option>
-          </select>
-        </div>
-        <div>
-          <label for="targetBracket">Target top bracket</label>
-          <select id="targetBracket"></select>
-        </div>
-      </div>
-
-      <div class="spacer"></div>
-      <h3 class="section-title">Primary taxpayer</h3>
-      <div class="form-grid">
-        <div><label for="hAge">Current age</label><input id="hAge" type="number" value="63" /></div>
-        <div><label for="hIra">Traditional IRA balance</label><input id="hIra" type="number" value="700000" /></div>
-        <div><label for="hSSAge">Social Security start age</label><input id="hSSAge" type="number" value="66" /></div>
-        <div><label for="hSSAmt">Annual Social Security</label><input id="hSSAmt" type="number" value="40000" /></div>
-      </div>
-
-      <div id="spouseSection">
-        <div class="spacer"></div>
-        <h3 class="section-title">Spouse</h3>
-        <div class="form-grid">
-          <div><label for="wAge">Current age</label><input id="wAge" type="number" value="64" /></div>
-          <div><label for="wIra">Traditional IRA balance</label><input id="wIra" type="number" value="50000" /></div>
-          <div><label for="wSSAge">Social Security start age</label><input id="wSSAge" type="number" value="64" /></div>
-          <div><label for="wSSAmt">Annual Social Security</label><input id="wSSAmt" type="number" value="7000" /></div>
-        </div>
-
-        <div class="spacer"></div>
-        <h3 class="section-title">Survivor / widowhood modeling</h3>
-        <div class="form-grid">
-          <div>
-            <label for="survivorMode">Model spouse death event</label>
-            <select id="survivorMode">
-              <option value="none" selected>No widowhood event</option>
-              <option value="wifeDies">Wife passes first</option>
-              <option value="husbandDies">Husband passes first</option>
-            </select>
-          </div>
-          <div>
-            <label for="deathYearOffset">Years from start until death</label>
-            <input id="deathYearOffset" type="number" value="12" />
-          </div>
-          <div>
-            <label for="widowBracketTarget">Target bracket after survivor becomes Single</label>
-            <select id="widowBracketTarget"></select>
-          </div>
-          <div>
-            <label for="widowhoodNote">Planning note</label>
-            <input id="widowhoodNote" type="text" value="Survivor keeps higher Social Security and files Single after death." />
-          </div>
+    <div>
+      <div class="card">
+        <h2 class="section-title">Client Bio</h2>
+        <div class="inputs-grid">
+          <div class="field"><label>Client Name</label><input id="clientName" type="text" placeholder="Client Name (Optional)" /></div>
+          <div class="field"><label>Filing Status</label><select id="filingStatus"><option value="MFJ">Married Filing Jointly</option><option value="Single">Single</option><option value="HOH">Head of Household</option></select></div>
+          <div class="field"><label>Husband Age</label><input id="hAge" type="number" value="63" min="40" max="95" /></div>
+          <div class="field spouse-field"><label>Wife Age</label><input id="wAge" type="number" value="64" min="40" max="95" /></div>
+          <div class="field"><label>Husband IRA</label><input id="hIra" type="number" value="700000" step="1000" /></div>
+          <div class="field spouse-field"><label>Wife IRA</label><input id="wIra" type="number" value="50000" step="1000" /></div>
+          <div class="field"><label>Husband Pension</label><input id="pension" type="number" value="70000" step="1000" /></div>
+          <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
+          <div class="field"><label>Husband SS Start Age</label><input id="hSSAge" type="number" value="66" min="62" max="75" /></div>
+          <div class="field"><label>Husband SS Annual</label><input id="hSS" type="number" placeholder="Enter annual amount" /></div>
+          <div class="field spouse-field"><label>Wife SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" /></div>
+          <div class="field spouse-field"><label>Wife SS Annual</label><input id="wSS" type="number" placeholder="Enter annual amount" /></div>
+          <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
+          <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
+          <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="300000" step="1000" /></div>
+          <div class="field"><label>Spouse Death Year (optional)</label><input id="deathYear" type="number" placeholder="Example: 12" min="1" max="40" /></div>
         </div>
       </div>
 
-      <div class="spacer"></div>
-      <h3 class="section-title">Income and growth assumptions</h3>
-      <div class="form-grid">
-        <div><label for="pensionAmt">Annual pension</label><input id="pensionAmt" type="number" value="70000" /></div>
-        <div><label for="otherIncome">Other taxable income</label><input id="otherIncome" type="number" value="0" /></div>
-        <div><label for="cola">Pension & Social Security COLA %</label><input id="cola" type="number" step="0.1" value="2.5" /></div>
-        <div><label for="growth">Traditional IRA growth %</label><input id="growth" type="number" step="0.1" value="6.0" /></div>
-        <div><label for="convGrowth">Roth growth %</label><input id="convGrowth" type="number" step="0.1" value="6.0" /></div>
-        <div><label for="startYear">Projection start year</label><input id="startYear" type="number" value="2026" /></div>
-      </div>
-
-      <div class="spacer"></div>
-      <h3 class="section-title">Premium finance inputs</h3>
-      <div class="form-grid">
-        <div><label for="clientName">Client name</label><input id="clientName" type="text" placeholder="Client Name (Optional)" /></div>
-        <div><label for="bonusRate">Premium Finance Roth Conversion Bonus %</label><input id="bonusRate" type="number" step="0.1" value="22" /></div>
-        <div>
-          <label for="feeType">Fee structure</label>
-          <select id="feeType">
-            <option value="annual095" selected>0.95% annual</option>
-            <option value="none">No fee modeled</option>
-          </select>
+      <div class="card">
+        <h2 class="section-title">Premium Finance Inputs</h2>
+        <div class="inputs-grid">
+          <div class="field"><label>Premium</label><input id="premium" type="number" value="1000000" step="1000" /></div>
+          <div class="field"><label>Premium Finance Roth Conversion Bonus %</label><input id="bonusPct" type="number" value="22" step="0.1" /></div>
+          <div class="field"><label>Annual Fee</label><input type="text" value="0.95% annual" disabled /></div>
+          <div class="field"><label>Assumed Conversion Start Year</label><input id="startYear" type="number" value="1" min="1" max="5" /></div>
         </div>
-        <div>
-          <label for="payTaxesOutside">Tax payment</label>
-          <div style="padding:12px 13px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:rgba(4,10,22,.82); display:flex; align-items:center; gap:10px; min-height:48px;">
-            <input id="payTaxesOutside" type="checkbox" checked style="width:auto; margin:0;" />
-            <span style="font-size:14px; color:#d9e3f7;">Pay taxes from outside assets</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="primary" onclick="runPlanner()">Run Premium Finance Roth Conversion Bonus</button>
-        <button class="secondary" onclick="loadExample()">Reload example</button>
-      </div>
-
-      <div class="assumptions">
-        <strong>Planning assumptions inside this prototype</strong><br/>
-        Tax calculations are modeled using a simplified 2026-style bracket framework for MFJ, Single, and Head of Household. IRMAA is approximated with filing-status-specific thresholds. Social Security taxation is estimated using provisional-income rules. RMDs use the Uniform Lifetime Table style factors with current age-based start rules. When a spouse death event is modeled, the survivor receives the higher of the two Social Security benefits and the filing status switches to Single in the year after death. This is a planning prototype, not tax, investment, Medicare, or legal advice.
+        <div class="checkbox-row"><input id="payTaxesOutside" type="checkbox" checked /><label for="payTaxesOutside">Pay taxes from outside assets</label></div>
+        <div class="small" style="margin-top:10px;">Bonus is a one-time amount added to the premium up front and compounds inside the strategy.</div>
+        <div class="btn-row"><button class="primary" onclick="calculate()">Run Analysis</button><button class="gold" onclick="generatePDF()">Generate PDF Report</button></div>
       </div>
     </div>
 
     <div>
-      <div class="card-grid">
-        <div class="metric"><div class="label">Estimated Year 1 Roth conversion</div><div id="mMaxConv" class="value">—</div><div id="mMaxConvNote" class="note">Calculated using selected bracket room.</div></div>
-        <div class="metric"><div class="label">Years to finish conversions</div><div id="mYears" class="value">—</div><div id="mYearsNote" class="note">Projected time to convert all traditional IRAs.</div></div>
-        <div class="metric"><div class="label">First Social Security year</div><div id="mSSYear" class="value">—</div><div id="mSSYearNote" class="note">The first year any SS benefit enters the plan.</div></div>
-        <div class="metric"><div class="label">First RMD year</div><div id="mRMDYear" class="value">—</div><div id="mRMDYearNote" class="note">First projected year an RMD applies.</div></div>
+      <div class="pill-row">
+        <div class="pill"><div class="label">Beginning Value</div><div class="value" id="beginningValue">$0</div></div>
+        <div class="pill"><div class="label">Year 1 Max Conversion</div><div class="value" id="year1Conversion">$0</div></div>
+        <div class="pill"><div class="label">Years to Complete</div><div class="value" id="yearsToComplete">0</div></div>
+        <div class="pill"><div class="label">Tax-Free Estate at 95</div><div class="value" id="taxFreeEstate95">$0</div></div>
       </div>
 
-      <div class="panel" style="margin-bottom:24px;">
-        <h2 class="section-title">Summary path — selected milestone years</h2>
-        <div class="subtle">The table includes Year 1, Year 5, every 5th year after that, each Social Security start year, the widowhood filing-status switch year when modeled, and each first RMD year. Tax-free assets on the far right represent projected Roth value.</div>
-        <div class="spacer"></div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>Event</th>
-                <th>Ages</th>
-                <th>Status</th>
-                <th>Taxable Income</th>
-                <th>Conversion</th>
-                <th>Federal Tax</th>
-                <th>RMD</th>
-                <th>IRMAA</th>
-                <th>Traditional IRA</th>
-                <th>Tax-Free Assets</th>
-              </tr>
-            </thead>
-            <tbody id="summaryBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-bottom:24px;">
-        <div class="section-kicker">Separate Roth Conversion Page</div>
+      <div class="card">
         <h2 class="section-title">Premium Finance Roth Conversion</h2>
-        <div class="subtle">This page is modeled after your one-page client handout structure: a dedicated Roth Conversion page with the Premium Finance Roth Conversion Bonus shown separately from the broader strategy comparison. The bonus is calculated as a percentage of the IRA being converted, applied before conversion to create the combined premium-finance Roth amount. The comparison section below stays clean and does not list fees or bonus line items.</div>
-        <div class="spacer"></div>
-        <div class="mini-grid" style="margin-bottom:16px;">
-          <div class="note-card"><div class="label">Client</div><div id="rcClient" class="value" style="font-size:22px;">—</div></div>
-          <div class="note-card"><div class="label">Tax Bracket</div><div id="rcBracket" class="value" style="font-size:22px;">—</div></div>
-          <div class="note-card"><div class="label">Bonus Rate</div><div id="rcBonus" class="value" style="font-size:22px;">—</div></div>
-          <div class="note-card"><div class="label">Tax / Fee Handling</div><div id="rcFee" class="value" style="font-size:22px;">—</div></div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Year</th>
-                <th>Age(s)</th>
-                <th>Beginning Value</th>
-                <th>Converted</th>
-                <th>Bonus</th>
-                <th>Tax Payment</th>
-                <th>Fee</th>
-                <th>Roth End of Year</th>
-                <th>IRA End of Year</th>
-                <th>Total Value</th>
-              </tr>
-            </thead>
-            <tbody id="rothPageBody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="panel" style="margin-bottom:24px;">
-        <h2 class="section-title">Before vs. After Strategy Analysis</h2>
-        <div class="subtle">Current Situation assumes no Roth conversions. After Strategy uses annual bracket-fill Roth conversions and adapts after widowhood if a death event is modeled. This is where you can show the tax compression from MFJ to Single, the jump in IRMAA exposure, and the reduction in future RMD pressure.</div>
-        <div class="spacer"></div>
-        <div class="compare" id="compareBox"></div>
-      </div>
-
-      <div class="two-col">
-        <div class="panel">
-          <h2 class="section-title">Top planning observations</h2>
-          <div id="insights" class="subtle">Run the planner to generate observations.</div>
-        </div>
-        <div class="panel">
-          <h2 class="section-title">Lead capture</h2>
-          <div class="subtle">Prototype only. Replace this with your live lead form / CRM routing.</div>
-          <div class="spacer"></div>
-          <div class="form-grid one">
-            <div><label>Name</label><input type="text" placeholder="Client or prospect name"></div>
-            <div><label>Email</label><input type="email" placeholder="name@example.com"></div>
-            <div><label>Phone</label><input type="text" placeholder="(555) 555-5555"></div>
+        <div class="two-col">
+          <div class="panel">
+            <h3>Strategy Summary</h3>
+            <table><tbody>
+              <tr><td>Premium</td><td id="pfPremium">$0</td></tr>
+              <tr><td>Premium Finance Roth Conversion Bonus</td><td id="pfBonus">$0</td></tr>
+              <tr><td>Beginning Value</td><td id="pfBeginning">$0</td></tr>
+              <tr><td>Estimated Year 1 Conversion</td><td id="pfConversion">$0</td></tr>
+              <tr><td>Estimated Year 1 Taxes</td><td id="pfTaxes">$0</td></tr>
+              <tr><td>Tax Payment Source</td><td id="pfTaxSource">Outside Assets</td></tr>
+              <tr><td>Annual Fee Display</td><td>0.95% annual</td></tr>
+            </tbody></table>
           </div>
-          <div class="btn-row"><button class="secondary" type="button">Book a planning meeting</button></div>
+          <div class="panel">
+            <h3>Transparent Assumptions</h3>
+            <div class="assumptions" id="assumptionText"></div>
+          </div>
         </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Milestone Summary</h2>
+        <div class="small">Year 1, Year 5, Social Security years, RMD year, and every 5 years through age 95.</div>
+        <table id="milestoneTable"><thead><tr><th>Milestone</th><th>Age</th><th>Income</th><th>Conversion</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">Before vs Fidelity Strategy Analysis</h2>
+        <div class="two-col">
+          <div class="panel"><h3>Current Situation</h3><table><tbody id="beforeMetrics"></tbody></table></div>
+          <div class="panel"><h3>Fidelity Strategy</h3><table><tbody id="afterMetrics"></tbody></table></div>
+        </div>
+        <div class="note" style="margin-top:12px;">Comparison excludes bonus and fee totals by design. Those belong to the dedicated Premium Finance Roth Conversion section, not the strategy comparison page.</div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">How the Tax-Free Estate Is Calculated</h2>
+        <div class="note" id="estateExplain"></div>
       </div>
     </div>
-  </div>
-
-  <div class="footer">
-    <div>Darryl J. Stein — Fidelity Roth Planner</div>
-    <div>Email: Darryl.j.Stein@gmail.com · Meeting Link: Calendly integration placeholder</div>
   </div>
 </div>
 
 <script>
-const TAX_CONFIG = {
-  mfj: {
-    label: 'MFJ',
-    standardDeduction: 32200,
-    ssBase1: 32000,
-    ssBase2: 44000,
-    brackets: [
-      { rate: 10, max: 24800 },
-      { rate: 12, max: 100800 },
-      { rate: 22, max: 211400 },
-      { rate: 24, max: 403550 },
-      { rate: 32, max: 512450 },
-      { rate: 35, max: 768700 },
-      { rate: 37, max: Infinity }
-    ],
-    irmaa: [
-      { max: 218000, extraPerPerson: 0 },
-      { max: 274000, extraPerPerson: 1167.6 },
-      { max: 342000, extraPerPerson: 2884.8 },
-      { max: 410000, extraPerPerson: 4602.0 },
-      { max: 750000, extraPerPerson: 6319.2 },
-      { max: Infinity, extraPerPerson: 6888.0 }
-    ]
-  },
-  single: {
-    label: 'Single',
-    standardDeduction: 16100,
-    ssBase1: 25000,
-    ssBase2: 34000,
-    brackets: [
-      { rate: 10, max: 12400 },
-      { rate: 12, max: 50400 },
-      { rate: 22, max: 105700 },
-      { rate: 24, max: 201775 },
-      { rate: 32, max: 256225 },
-      { rate: 35, max: 512450 },
-      { rate: 37, max: Infinity }
-    ],
-    irmaa: [
-      { max: 109000, extraPerPerson: 0 },
-      { max: 137000, extraPerPerson: 1167.6 },
-      { max: 171000, extraPerPerson: 2884.8 },
-      { max: 205000, extraPerPerson: 4602.0 },
-      { max: 500000, extraPerPerson: 6319.2 },
-      { max: Infinity, extraPerPerson: 6888.0 }
-    ]
-  },
-  hoh: {
-    label: 'Head of Household',
-    standardDeduction: 23600,
-    ssBase1: 25000,
-    ssBase2: 34000,
-    brackets: [
-      { rate: 10, max: 17700 },
-      { rate: 12, max: 67350 },
-      { rate: 22, max: 108650 },
-      { rate: 24, max: 201775 },
-      { rate: 32, max: 256200 },
-      { rate: 35, max: 512450 },
-      { rate: 37, max: Infinity }
-    ],
-    irmaa: [
-      { max: 109000, extraPerPerson: 0 },
-      { max: 137000, extraPerPerson: 1167.6 },
-      { max: 171000, extraPerPerson: 2884.8 },
-      { max: 205000, extraPerPerson: 4602.0 },
-      { max: 500000, extraPerPerson: 6319.2 },
-      { max: Infinity, extraPerPerson: 6888.0 }
-    ]
-  }
+const fmt = n => (isFinite(n) ? n.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}) : '$0');
+const fmt2 = n => (isFinite(n) ? n.toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2}) : '$0.00');
+const num = id => { const el=document.getElementById(id); const v=parseFloat((el.value||'').toString().replace(/,/g,'')); return isNaN(v)?0:v; };
+const percent = id => num(id)/100;
+const TAX = {
+  MFJ:{ded:32200,irmaa1:218000,brackets:{12:96950,22:211300,24:403700,32:513050}},
+  Single:{ded:16100,irmaa1:109000,brackets:{12:48475,22:105550,24:191950,32:243725}},
+  HOH:{ded:23600,irmaa1:109000,brackets:{12:69350,22:118150,24:190200,32:243700}}
 };
-
-const RMD_FACTORS = {
-  73: 26.5, 74: 25.5, 75: 24.6, 76: 23.7, 77: 22.9, 78: 22.0, 79: 21.1,
-  80: 20.2, 81: 19.4, 82: 18.5, 83: 17.7, 84: 16.8, 85: 16.0, 86: 15.2,
-  87: 14.4, 88: 13.7, 89: 12.9, 90: 12.2, 91: 11.5, 92: 10.8, 93: 10.1,
-  94: 9.5, 95: 8.9, 96: 8.4, 97: 7.8, 98: 7.3, 99: 6.8, 100: 6.4
-};
-
-function el(id){ return document.getElementById(id); }
-function num(id){ return Number(el(id).value || 0); }
-function money(n){ return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n || 0)); }
-
-function fillBracketDropdown(id){
-  const select = el(id);
-  const options = [10,12,22,24,32,35];
-  select.innerHTML = options.map(v => `<option value="${v}">${v}%</option>`).join('');
-  select.value = id === 'targetBracket' ? '22' : '22';
+function setupSpouseVisibility(){const status=document.getElementById('filingStatus').value;document.querySelectorAll('.spouse-field').forEach(el=>el.classList.toggle('hidden',status!=='MFJ'));}
+document.getElementById('filingStatus').addEventListener('change',()=>{setupSpouseVisibility();calculate();});
+function rmdStartAge(currentAge){const birthYear=2026-currentAge+1; return birthYear>=1960?75:73;}
+function calcIRMAA(magi,status){const threshold=TAX[status].irmaa1; if(magi<=threshold) return 0; const base=2434.80; const surcharge=Math.ceil((magi-threshold)/50000); return base*Math.min(5,surcharge);}
+function taxableSS(ss){return ss*0.85;}
+function ordinaryTax(income,status){
+  const cfg=TAX[status], taxable=Math.max(0,income-cfg.ded), b=cfg.brackets;
+  let tax=0, prev=0; const levels=[[12,b[12]],[22,b[22]],[24,b[24]],[32,b[32]]];
+  for(const [rate,top] of levels){ const amt=Math.max(0,Math.min(taxable,top)-prev); tax+=amt*(rate/100); prev=top; if(taxable<=top) return tax; }
+  tax+=Math.max(0,taxable-b[32])*0.35; return tax;
 }
-fillBracketDropdown('targetBracket');
-fillBracketDropdown('widowBracketTarget');
-
-function handleFilingStatusChange(){
-  const status = el('filingStatus').value;
-  const showSpouse = status === 'mfj';
-  el('spouseSection').classList.toggle('hidden', !showSpouse);
-  runPlanner();
-}
-
-function calcFederalTax(taxableIncome, status){
-  const cfg = TAX_CONFIG[status];
-  let tax = 0, prev = 0;
-  for (const bracket of cfg.brackets) {
-    const taxableAtRate = Math.max(0, Math.min(taxableIncome, bracket.max) - prev);
-    tax += taxableAtRate * (bracket.rate / 100);
-    prev = bracket.max;
-    if (taxableIncome <= bracket.max) break;
+function buildScenario(useStrategy){
+  const filingStart=document.getElementById('filingStatus').value; let status=filingStart;
+  let hAge=num('hAge'), wAge=filingStart==='MFJ'?num('wAge'):0;
+  let ira=num('hIra')+(filingStart==='MFJ'?num('wIra'):0), outside=num('outsideAssets');
+  const premium=num('premium'), bonus=premium*percent('bonusPct'), growth=percent('growth'), cola=percent('cola'), feeRate=0.0095;
+  const pension0=num('pension'), hSSAge=num('hSSAge'), hSS0=num('hSS'), wSSAge=num('wSSAge'), wSS0=num('wSS');
+  const deathYear=Math.floor(num('deathYear')), payTaxesOutside=document.getElementById('payTaxesOutside').checked, targetBracket=parseInt(document.getElementById('targetBracket').value,10), startYear=num('startYear')||1;
+  let roth=useStrategy?(premium+bonus):0, totalTaxes=0,totalTaxFreeIncome=0,totalRMDs=0,totalIRMAA=0, milestones=[], firstConv=0, yearsToComplete=null, details=[];
+  for(let year=1; year<=40; year++){
+    const currentStatus=status, pension=pension0*Math.pow(1+cola,year-1), hSS=hAge>=hSSAge?hSS0*Math.pow(1+cola,Math.max(0,hAge-hSSAge)):0, wSS=(filingStart==='MFJ'&&currentStatus==='MFJ'&&wAge>=wSSAge)?wSS0*Math.pow(1+cola,Math.max(0,wAge-wSSAge)):0;
+    const ssIncome=hSS+wSS, ordinaryBase=pension+taxableSS(ssIncome), cfg=TAX[currentStatus], bracketCeiling=cfg.brackets[targetBracket];
+    let rmd=0; const primaryAge=currentStatus==='MFJ'?Math.max(hAge,wAge):hAge, rmdAge=rmdStartAge(primaryAge);
+    if(primaryAge>=rmdAge&&ira>0){const divisor=Math.max(2,27.4-Math.max(0,primaryAge-rmdAge)); rmd=ira/divisor;}
+    let conversion=0;
+    if(useStrategy&&year>=startYear&&ira>0){conversion=Math.max(0,bracketCeiling-ordinaryBase-rmd-cfg.ded); conversion=Math.min(conversion,ira);}
+    if(year===1) firstConv=conversion;
+    const taxableIncome=ordinaryBase+rmd+conversion, tax=ordinaryTax(taxableIncome,currentStatus), irmaa=calcIRMAA(taxableIncome,currentStatus);
+    totalTaxes+=tax; totalRMDs+=rmd; totalIRMAA+=irmaa;
+    if(useStrategy){ if(payTaxesOutside){ outside=Math.max(0,outside-tax-irmaa); roth+=conversion; } else { roth+=Math.max(0,conversion-tax-irmaa); } roth*=(1+growth-feeRate); } else { outside=Math.max(0,outside-tax-irmaa); }
+    ira=Math.max(0,(ira-conversion-rmd)*(1+growth)); if(useStrategy&&yearsToComplete===null&&ira<=1) yearsToComplete=year;
+    const currentAgeDisplay=currentStatus==='MFJ'?`${hAge}/${wAge}`:`${hAge}`, ssYear=(hAge===hSSAge)||(currentStatus==='MFJ'&&wAge===wSSAge), rmdYear=primaryAge===rmdAge, age95Reached=hAge>=95||(currentStatus==='MFJ'&&wAge>=95);
+    if(year===1||year===5||year%5===0||ssYear||rmdYear||age95Reached){ milestones.push({label:age95Reached?'Age 95':(ssYear?'SS Year':(rmdYear?'RMD Year':`Year ${year}`)), age:currentAgeDisplay, income:pension+ssIncome, conversion, ira, taxFree:roth}); }
+    details.push({year,age:currentAgeDisplay,income:pension+ssIncome,ordinaryIncomeBase:ordinaryBase,rmd,conversion,ira,roth,tax,irmaa,outside,status:currentStatus});
+    if(filingStart==='MFJ'&&deathYear&&year===deathYear){ status='Single'; wAge=0; }
+    hAge+=1; if(status==='MFJ') wAge+=1;
+    if(hAge>=95&&(status!=='MFJ'||wAge>=95)) break;
   }
-  return Math.max(0, tax);
+  if(yearsToComplete===null) yearsToComplete='>95';
+  return {premium,bonus,beginning:premium+bonus,firstConv,yearsToComplete,totalTaxes,totalTaxFreeIncome,totalRMDs,totalIRMAA,taxableEstate:ira+outside,taxFreeEstate:roth,milestones,details};
 }
-
-function getBracketCeiling(status, targetRate){
-  const cfg = TAX_CONFIG[status];
-  const row = cfg.brackets.find(b => Number(b.rate) === Number(targetRate));
-  return row ? row.max : cfg.brackets[2].max;
-}
-
-function taxableSocialSecurity(otherIncome, ssIncome, status){
-  const cfg = TAX_CONFIG[status];
-  const provisional = otherIncome + 0.5 * ssIncome;
-  if (provisional <= cfg.ssBase1) return 0;
-  if (provisional <= cfg.ssBase2) return Math.min(0.5 * ssIncome, 0.5 * (provisional - cfg.ssBase1));
-  const baseAmount = Math.min(0.5 * ssIncome, 0.5 * (cfg.ssBase2 - cfg.ssBase1));
-  return Math.min(0.85 * ssIncome, baseAmount + 0.85 * (provisional - cfg.ssBase2));
-}
-
-function getRMDStartAge(currentAge, startYear){
-  const birthYear = startYear - currentAge;
-  if (birthYear >= 1960) return 75;
-  if (birthYear >= 1951) return 73;
-  return 72;
-}
-
-function getRMDFactor(age){
-  if (RMD_FACTORS[age]) return RMD_FACTORS[age];
-  if (age < 73) return null;
-  if (age > 100) return Math.max(1, 6.4 - (age - 100) * 0.4);
-  return null;
-}
-
-function personOnMedicare(age){ return age >= 65 ? 1 : 0; }
-
-function irmaaAnnual(magi, status, onMedicareCount){
-  if (onMedicareCount <= 0) return 0;
-  const cfg = TAX_CONFIG[status];
-  const row = cfg.irmaa.find(r => magi <= r.max) || cfg.irmaa[cfg.irmaa.length - 1];
-  return row.extraPerPerson * onMedicareCount;
-}
-
-function getInputs(){
-  const status = el('filingStatus').value;
-  return {
-    filingStatus: status,
-    targetBracket: Number(el('targetBracket').value),
-    widowBracketTarget: Number(el('widowBracketTarget').value),
-    startYear: num('startYear'),
-    hAge: num('hAge'),
-    hIra: num('hIra'),
-    hSSAge: num('hSSAge'),
-    hSSAmt: num('hSSAmt'),
-    wAge: status === 'mfj' ? num('wAge') : 0,
-    wIra: status === 'mfj' ? num('wIra') : 0,
-    wSSAge: status === 'mfj' ? num('wSSAge') : 0,
-    wSSAmt: status === 'mfj' ? num('wSSAmt') : 0,
-    pensionAmt: num('pensionAmt'),
-    otherIncome: num('otherIncome'),
-    cola: num('cola'),
-    growth: num('growth'),
-    convGrowth: num('convGrowth'),
-    survivorMode: status === 'mfj' ? el('survivorMode').value : 'none',
-    deathYearOffset: status === 'mfj' ? num('deathYearOffset') : 0,
-    clientName: el('clientName').value.trim(),
-    bonusRate: num('bonusRate'),
-    feeType: el('feeType').value,
-    payTaxesOutside: el('payTaxesOutside').checked
-  };
-}
-
-function getDeathYear(opts){
-  if (opts.filingStatus !== 'mfj') return null;
-  if (!opts.survivorMode || opts.survivorMode === 'none') return null;
-  return opts.startYear + Math.max(0, opts.deathYearOffset);
-}
-
-function buildEventLabel(meta){
-  const events = [];
-  const idx = meta.year - meta.startYear + 1;
-  if (idx === 1) events.push('Year 1');
-  if (idx === 5) events.push('Year 5');
-  if (idx > 5 && idx % 5 === 0) events.push(`Year ${idx}`);
-  if (meta.hSSStarts) events.push('Primary SS starts');
-  if (meta.wSSStarts) events.push('Spouse SS starts');
-  if (meta.hRMDStarts) events.push('Primary RMD year');
-  if (meta.wRMDStarts) events.push('Spouse RMD year');
-  if (meta.deathEvent) events.push(meta.deathEvent);
-  if (meta.statusSwitch) events.push('Survivor files Single');
-  if (meta.age95) events.push('Age 95');
-  return events.join(' · ');
-}
-
-function modelScenario(opts){
-  const growth = opts.growth / 100;
-  const rothGrowth = opts.convGrowth / 100;
-  const cola = opts.cola / 100;
-  const deathYear = getDeathYear(opts);
-
-  let tradH = opts.hIra;
-  let tradW = opts.wIra;
-  let roth = 0;
-  let cumulativeTax = 0;
-  let cumulativeRmd = 0;
-  let cumulativeIrmaa = 0;
-  let cumulativeFees = 0;
-  let cumulativeBonus = 0;
-  let cumulativeTaxPaidFromRoth = 0;
-  let firstCompletionYear = null;
-  let firstSSYear = null;
-  let firstRMDYear = null;
-  const rows = [];
-
-  const hRMDStartAge = getRMDStartAge(opts.hAge, opts.startYear);
-  const wRMDStartAge = opts.filingStatus === 'mfj' ? getRMDStartAge(opts.wAge, opts.startYear) : null;
-
-  for (let year = opts.startYear; year <= opts.startYear + 40; year++) {
-    const yearOffset = year - opts.startYear;
-    let hAge = opts.hAge + yearOffset;
-    let wAge = opts.filingStatus === 'mfj' ? opts.wAge + yearOffset : null;
-    const deathOccurred = deathYear !== null && year >= deathYear;
-    const statusSwitch = deathYear !== null && year >= deathYear + 1;
-    const currentStatus = opts.filingStatus === 'mfj' ? (statusSwitch ? 'single' : 'mfj') : opts.filingStatus;
-    const targetBracket = currentStatus === 'single' && opts.filingStatus === 'mfj' && statusSwitch ? opts.widowBracketTarget : opts.targetBracket;
-
-    const pension = opts.pensionAmt * Math.pow(1 + cola, yearOffset);
-    const otherTaxable = opts.otherIncome * Math.pow(1 + cola, yearOffset);
-
-    const hSSRaw = hAge >= opts.hSSAge ? opts.hSSAmt * Math.pow(1 + cola, Math.max(0, year - (opts.startYear + (opts.hSSAge - opts.hAge)))) : 0;
-    const wSSRaw = (opts.filingStatus === 'mfj' && wAge !== null && wAge >= opts.wSSAge) ? opts.wSSAmt * Math.pow(1 + cola, Math.max(0, year - (opts.startYear + (opts.wSSAge - opts.wAge)))) : 0;
-
-    let hAlive = true;
-    let wAlive = opts.filingStatus === 'mfj';
-    if (opts.filingStatus === 'mfj' && deathOccurred) {
-      if (opts.survivorMode === 'wifeDies') wAlive = false;
-      if (opts.survivorMode === 'husbandDies') hAlive = false;
-    }
-
-    let totalSS = 0;
-    if (opts.filingStatus !== 'mfj') {
-      totalSS = hSSRaw;
-    } else if (!deathOccurred) {
-      totalSS = (hAlive ? hSSRaw : 0) + (wAlive ? wSSRaw : 0);
-    } else {
-      totalSS = Math.max(hSSRaw, wSSRaw);
-    }
-
-    if (!firstSSYear && totalSS > 0) firstSSYear = year;
-
-    let rmdH = 0, rmdW = 0;
-    if (hAlive && hAge >= hRMDStartAge && tradH > 0) {
-      const factor = getRMDFactor(hAge);
-      if (factor) rmdH = tradH / factor;
-    }
-    if (opts.filingStatus === 'mfj' && wAlive && wAge >= wRMDStartAge && tradW > 0) {
-      const factor = getRMDFactor(wAge);
-      if (factor) rmdW = tradW / factor;
-    }
-    const totalRmd = rmdH + rmdW;
-    if (!firstRMDYear && totalRmd > 0) firstRMDYear = year;
-
-    const ordinaryBeforeSS = pension + otherTaxable + totalRmd;
-    const ssTaxable = taxableSocialSecurity(ordinaryBeforeSS, totalSS, currentStatus);
-    const grossBeforeConversion = ordinaryBeforeSS + ssTaxable;
-    const taxableBeforeConversion = Math.max(0, grossBeforeConversion - TAX_CONFIG[currentStatus].standardDeduction);
-
-    let conversion = 0;
-    if (opts.useConversions) {
-      const room = Math.max(0, getBracketCeiling(currentStatus, targetBracket) - taxableBeforeConversion);
-      conversion = Math.min(room, tradH + tradW);
-    }
-
-    const beginningTraditional = tradH + tradW;
-    const beginningRoth = roth;
-    let convFromH = Math.min(conversion, tradH);
-    let convFromW = Math.min(Math.max(0, conversion - convFromH), tradW);
-    tradH = Math.max(0, tradH - rmdH - convFromH);
-    tradW = Math.max(0, tradW - rmdW - convFromW);
-
-    const grossIncome = grossBeforeConversion + conversion;
-    const taxableIncome = Math.max(0, grossIncome - TAX_CONFIG[currentStatus].standardDeduction);
-    const federalTax = calcFederalTax(taxableIncome, currentStatus);
-    const baseFederalTax = calcFederalTax(taxableBeforeConversion, currentStatus);
-    const conversionTax = Math.max(0, federalTax - baseFederalTax);
-
-    let bonusApplied = 0;
-    let feeApplied = 0;
-    let taxesPaidFromRoth = 0;
-    if (opts.useConversions && conversion > 0) {
-      bonusApplied = conversion * (opts.bonusRate / 100);
-      cumulativeBonus += bonusApplied;
-      if (opts.feeType === 'annual095') feeApplied = (roth + conversion + bonusApplied) * 0.0095;
-      if (!opts.payTaxesOutside) taxesPaidFromRoth = conversionTax;
-    }
-    cumulativeFees += feeApplied;
-    cumulativeTaxPaidFromRoth += taxesPaidFromRoth;
-    roth += Math.max(0, conversion + bonusApplied - feeApplied - taxesPaidFromRoth);
-
-    const medicareCount = (hAlive && personOnMedicare(hAge) ? 1 : 0) + (wAlive && wAge !== null && personOnMedicare(wAge) ? 1 : 0);
-    const irmaa = irmaaAnnual(grossIncome, currentStatus, medicareCount);
-
-    cumulativeTax += federalTax;
-    cumulativeRmd += totalRmd;
-    cumulativeIrmaa += irmaa;
-
-    tradH *= (1 + growth);
-    tradW *= (1 + growth);
-    roth *= (1 + rothGrowth);
-
-    if (opts.useConversions && !firstCompletionYear && tradH + tradW < 1) firstCompletionYear = year;
-
-    const hSSStarts = hAge === opts.hSSAge;
-    const wSSStarts = opts.filingStatus === 'mfj' && wAge !== null && wAge === opts.wSSAge;
-    const hRMDStarts = hAge === hRMDStartAge;
-    const wRMDStarts = opts.filingStatus === 'mfj' && wAge !== null && wAge === wRMDStartAge;
-    const deathEvent = deathYear === year ? (opts.survivorMode === 'wifeDies' ? 'Wife passes away' : 'Husband passes away') : '';
-    const event = buildEventLabel({
-      year, startYear: opts.startYear,
-      hSSStarts, wSSStarts, hRMDStarts, wRMDStarts,
-      deathEvent,
-      statusSwitch: deathYear !== null && year === deathYear + 1,
-      age95: hAge === 95 || wAge === 95
-    });
-
-    rows.push({
-      year,
-      hAge,
-      wAge,
-      agesLabel: opts.filingStatus === 'mfj' ? `${hAge} / ${wAge}` : `${hAge}`,
-      status: TAX_CONFIG[currentStatus].label,
-      taxableIncome,
-      conversion,
-      federalTax,
-      totalRmd,
-      irmaa,
-      tradTotal: tradH + tradW,
-      roth,
-      beginningTraditional,
-      beginningRoth,
-      bonusApplied,
-      feeApplied,
-      conversionTax,
-      taxesPaidFromRoth,
-      event,
-      survivorTriggered: deathOccurred,
-      grossIncome,
-      currentStatus
-    });
-  }
-
-  return {
-    rows,
-    firstCompletionYear,
-    firstSSYear,
-    firstRMDYear,
-    cumulativeTax,
-    cumulativeRmd,
-    cumulativeIrmaa,
-    cumulativeFees,
-    cumulativeBonus,
-    cumulativeTaxPaidFromRoth,
-    rothAt95: rows[rows.length - 1].roth,
-    tradAt95: rows[rows.length - 1].tradTotal
-  };
-}
-
-function pickMilestones(rows){
-  return rows.filter(r => r.event || r.hAge === 95 || r.wAge === 95);
-}
-
-function buildComparison(base, opt){
-  let taxFreeIncome = 0;
-  for (let i = 0; i < Math.min(base.rows.length, opt.rows.length); i++) {
-    taxFreeIncome += Math.max(0, base.rows[i].totalRmd - opt.rows[i].totalRmd);
-  }
-
-  const compareRows = [
-    ['Total Federal Taxes by Age 95', base.cumulativeTax, opt.cumulativeTax],
-    ['Total Tax-Free Income by Age 95', 0, taxFreeIncome],
-    ['Total RMDs by Age 95', base.cumulativeRmd, opt.cumulativeRmd],
-    ['Total IRMAA by Age 95', base.cumulativeIrmaa, opt.cumulativeIrmaa],
-    ['Taxable Estate by Age 95', base.tradAt95, opt.tradAt95],
-    ['Tax-Free Estate by Age 95', base.rothAt95, opt.rothAt95]
+function fillMetricTable(id,scenario){
+  const rows=[
+    ['Total Federal Taxes by Age 95',fmt2(scenario.totalTaxes)],
+    ['Total Tax-Free Income by Age 95',fmt2(scenario.totalTaxFreeIncome)],
+    ['Total RMDs by Age 95',fmt2(scenario.totalRMDs)],
+    ['Total IRMAA by Age 95',fmt2(scenario.totalIRMAA)],
+    ['Taxable Estate by Age 95',fmt2(scenario.taxableEstate)],
+    ['Tax-Free Estate by Age 95',fmt2(scenario.taxFreeEstate)]
   ];
-
-  let html = '<div class="head"><div>Metric</div><div>Current Situation</div><div>Fidelity Strategy</div></div>';
-  compareRows.forEach(([label, left, right]) => {
-    html += `<div class="row"><div>${label}</div><div class="left">${money(left)}</div><div class="right">${money(right)}</div></div>`;
-  });
-  el('compareBox').innerHTML = html;
+  document.getElementById(id).innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 }
-
-function renderSummary(rows){
-  const body = el('summaryBody');
-  body.innerHTML = '';
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.year}</td>
-      <td>${r.event || '—'}</td>
-      <td>${r.agesLabel}</td>
-      <td>${r.status}</td>
-      <td>${money(r.taxableIncome)}</td>
-      <td>${money(r.conversion)}</td>
-      <td>${money(r.federalTax)}</td>
-      <td>${money(r.totalRmd)}</td>
-      <td>${money(r.irmaa)}</td>
-      <td>${money(r.tradTotal)}</td>
-      <td>${money(r.roth)}</td>
-    `;
-    body.appendChild(tr);
-  });
+let latest=null;
+function calculate(){
+  setupSpouseVisibility();
+  const before=buildScenario(false), after=buildScenario(true); latest={before,after};
+  document.getElementById('beginningValue').textContent=fmt2(after.beginning);
+  document.getElementById('year1Conversion').textContent=fmt2(after.firstConv);
+  document.getElementById('yearsToComplete').textContent=after.yearsToComplete;
+  document.getElementById('taxFreeEstate95').textContent=fmt2(after.taxFreeEstate);
+  document.getElementById('pfPremium').textContent=fmt2(after.premium);
+  document.getElementById('pfBonus').textContent=fmt2(after.bonus);
+  document.getElementById('pfBeginning').textContent=fmt2(after.beginning);
+  document.getElementById('pfConversion').textContent=fmt2(after.firstConv);
+  document.getElementById('pfTaxes').textContent=fmt2(after.details[0]?after.details[0].tax:0);
+  document.getElementById('pfTaxSource').textContent=document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side';
+  document.getElementById('assumptionText').innerHTML=`Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed 0.95% annual fee inside the Premium Finance Roth Conversion illustration. Federal tax planning uses the selected filing status and fills the selected bracket each year when strategy mode is on.`;
+  document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
+  fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
+  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed 0.95% annual fee, with Roth conversions added along the way according to the selected bracket-fill strategy. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}.`;
 }
-
-function renderRothPage(opt, inputs){
-  el('rcClient').textContent = inputs.clientName || 'Confidential';
-  el('rcBracket').textContent = `${inputs.targetBracket}%`;
-  el('rcBonus').textContent = `${Number(inputs.bonusRate || 0).toFixed(1)}%`;
-  const feeText = inputs.payTaxesOutside ? 'Taxes outside assets · 0.95% annual fee' : 'Taxes from conversion · 0.95% annual fee';
-  el('rcFee').textContent = inputs.feeType === 'none' ? (inputs.payTaxesOutside ? 'Taxes outside assets · No fee' : 'Taxes from conversion · No fee') : feeText;
-  const body = el('rothPageBody');
-  body.innerHTML = '';
-  opt.rows.slice(0, 10).forEach((r, idx) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>Year ${idx + 1}</td>
-      <td>${r.agesLabel}</td>
-      <td>${money(r.beginningTraditional + r.beginningRoth)}</td>
-      <td>${money(r.conversion)}</td>
-      <td>${money(r.bonusApplied)}</td>
-      <td>${money(r.taxesPaidFromRoth || 0)}</td>
-      <td>${money(r.feeApplied)}</td>
-      <td>${money(r.roth)}</td>
-      <td>${money(r.tradTotal)}</td>
-      <td>${money(r.roth + r.tradTotal)}</td>
-    `;
-    body.appendChild(tr);
-  });
+async function generatePDF(){
+  if(!latest) calculate();
+  const { jsPDF } = window.jspdf; const doc = new jsPDF('p','pt','letter'); const clientName=(document.getElementById('clientName').value||'Confidential').trim();
+  let y=48; doc.setFontSize(22); doc.text('Fidelity Roth Planner',40,y); y+=22; doc.setFontSize(14); doc.text('Roth Conversion Strategy Analysis',40,y); y+=18; doc.setFontSize(11); doc.text(`Client: ${clientName}`,40,y); doc.text(`Date: ${new Date().toLocaleDateString()}`,420,y);
+  doc.autoTable({startY:y+16, head:[['Client Bio','Value']], body:[
+    ['Filing Status', document.getElementById('filingStatus').value],
+    ['Husband Age', String(num('hAge'))],
+    ['Wife Age', document.getElementById('filingStatus').value==='MFJ'?String(num('wAge')):'N/A'],
+    ['Husband IRA', fmt2(num('hIra'))],
+    ['Wife IRA', document.getElementById('filingStatus').value==='MFJ'?fmt2(num('wIra')):'N/A'],
+    ['Pension', fmt2(num('pension'))],
+    ['Target Bracket', document.getElementById('targetBracket').value+'%'],
+    ['Growth Rate', num('growth').toFixed(1)+'%']
+  ], styles:{fontSize:10}, headStyles:{fillColor:[11,58,111]}});
+  const after=latest.after, before=latest.before;
+  doc.addPage(); doc.setFontSize(18); doc.text('Premium Finance Roth Conversion',40,44);
+  doc.autoTable({startY:60, head:[['Line Item','Value']], body:[
+    ['Premium', fmt2(after.premium)],
+    ['Premium Finance Roth Conversion Bonus', fmt2(after.bonus)],
+    ['Beginning Value', fmt2(after.beginning)],
+    ['Year 1 Estimated Conversion', fmt2(after.firstConv)],
+    ['Year 1 Estimated Taxes', fmt2(after.details[0]?after.details[0].tax:0)],
+    ['Tax Payment Source', document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side'],
+    ['Displayed Annual Fee', '0.95% annual']
+  ], styles:{fontSize:10}, headStyles:{fillColor:[200,154,61]}});
+  doc.autoTable({startY:doc.lastAutoTable.finalY+24, head:[['Milestone','Age','Income','Conversion','IRA','Tax-Free Assets']], body:after.milestones.map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.taxFree)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}});
+  doc.addPage(); doc.setFontSize(18); doc.text('Before vs Fidelity Strategy',40,44);
+  doc.autoTable({startY:60, head:[['Metric','Current Situation','Fidelity Strategy']], body:[
+    ['Total Federal Taxes by Age 95', fmt2(before.totalTaxes), fmt2(after.totalTaxes)],
+    ['Total Tax-Free Income by Age 95', fmt2(before.totalTaxFreeIncome), fmt2(after.totalTaxFreeIncome)],
+    ['Total RMDs by Age 95', fmt2(before.totalRMDs), fmt2(after.totalRMDs)],
+    ['Total IRMAA by Age 95', fmt2(before.totalIRMAA), fmt2(after.totalIRMAA)],
+    ['Taxable Estate by Age 95', fmt2(before.taxableEstate), fmt2(after.taxableEstate)],
+    ['Tax-Free Estate by Age 95', fmt2(before.taxFreeEstate), fmt2(after.taxFreeEstate)]
+  ], styles:{fontSize:10}, headStyles:{fillColor:[11,58,111]}});
+  doc.setFontSize(10); doc.text('Bonus and fee totals are intentionally excluded from this comparison page.',40,doc.lastAutoTable.finalY+18);
+  doc.addPage(); doc.setFontSize(18); doc.text('Assumptions and Calculation Transparency',40,44);
+  const text = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. The current run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed 0.95% annual fee inside the Premium Finance Roth Conversion section. Additional Roth conversions are layered in based on bracket-fill capacity under the selected filing status and target bracket. This report is intended for planning illustration and conversation support rather than final tax preparation.`,520);
+  doc.setFontSize(11); doc.text(text,40,70); doc.save('fidelity-roth-planner-report.pdf');
 }
-
-function renderInsights(base, opt, inputs){
-  const firstYears = opt.rows.slice(0, 10);
-  const avgConv = firstYears.reduce((sum, row) => sum + row.conversion, 0) / Math.max(1, firstYears.length);
-  const taxSaved = base.cumulativeTax - opt.cumulativeTax;
-  const irmaaSaved = base.cumulativeIrmaa - opt.cumulativeIrmaa;
-  const rmdReduced = base.cumulativeRmd - opt.cumulativeRmd;
-  const bonusCreated = opt.cumulativeBonus;
-  const deathYear = getDeathYear(inputs);
-  const widowText = (inputs.filingStatus === 'mfj' && inputs.survivorMode !== 'none')
-    ? `A spouse death is modeled in ${deathYear}, after which the survivor keeps the higher Social Security benefit and files Single starting ${deathYear + 1}.`
-    : `No spouse death event is modeled in this run.`;
-
-  el('insights').innerHTML = `
-    <div style="line-height:1.7; color:#d5e0f6;">
-      <div><span class="pill">Selected bracket</span> Initial target bracket is <strong>${inputs.targetBracket}%</strong>${inputs.filingStatus === 'mfj' && inputs.survivorMode !== 'none' ? `, with a survivor target bracket of <strong>${inputs.widowBracketTarget}%</strong> after widowhood.` : '.'}</div>
-      <div style="margin-top:10px;">Average estimated annual conversion during the first 10 projection years: <strong>${money(avgConv)}</strong>.</div>
-      <div style="margin-top:10px;">${opt.firstCompletionYear ? `Projected completion year for traditional IRA conversion: <strong>${opt.firstCompletionYear}</strong>.` : 'Traditional IRA assets are not fully converted by age 95 under the selected bracket ceiling.'}</div>
-      <div style="margin-top:10px;">${widowText}</div>
-      <div style="margin-top:10px;">Projected lifetime federal tax ${taxSaved >= 0 ? 'reduction' : 'increase'} through age 95: <strong>${money(Math.abs(taxSaved))}</strong>.</div>
-      <div style="margin-top:10px;">Projected IRMAA ${irmaaSaved >= 0 ? 'reduction' : 'increase'} through age 95: <strong>${money(Math.abs(irmaaSaved))}</strong>.</div>
-      <div style="margin-top:10px;">Projected reduction in cumulative RMDs through age 95: <strong>${money(rmdReduced)}</strong>.</div>
-      <div style="margin-top:10px;">Premium Finance Roth Conversion Bonus created under the current run: <strong>${money(bonusCreated)}</strong>.</div>
-      <div style="margin-top:10px;">Projected tax-free estate at age 95 under the Roth strategy: <strong>${money(opt.rothAt95)}</strong>.</div>
-    </div>
-  `;
-}
-
-function runPlanner(){
-  const inputs = getInputs();
-  const base = modelScenario({ ...inputs, useConversions: false });
-  const opt = modelScenario({ ...inputs, useConversions: true });
-  const milestones = pickMilestones(opt.rows);
-
-  el('mMaxConv').textContent = money(opt.rows[0]?.conversion || 0);
-  el('mMaxConvNote').textContent = `Estimated Year 1 conversion while staying inside the selected ${inputs.targetBracket}% bracket.`;
-  el('mYears').textContent = opt.firstCompletionYear ? `${opt.firstCompletionYear - inputs.startYear + 1}` : '95+';
-  el('mYearsNote').textContent = opt.firstCompletionYear ? `Projected completion by calendar year ${opt.firstCompletionYear}.` : 'Not fully converted by age 95 under current assumptions.';
-  el('mSSYear').textContent = opt.firstSSYear || '—';
-  el('mSSYearNote').textContent = opt.firstSSYear ? `First Social Security cash flow appears in ${opt.firstSSYear}.` : 'No Social Security in model.';
-  el('mRMDYear').textContent = opt.firstRMDYear || '—';
-  el('mRMDYearNote').textContent = opt.firstRMDYear ? `First projected RMD year is ${opt.firstRMDYear}.` : 'No RMD projected before age 95.';
-
-  renderSummary(milestones);
-  renderRothPage(opt, inputs);
-  buildComparison(base, opt);
-  renderInsights(base, opt, inputs);
-}
-
-function loadExample(){
-  el('filingStatus').value = 'mfj';
-  el('targetBracket').value = '22';
-  el('widowBracketTarget').value = '22';
-  el('hAge').value = '63';
-  el('hIra').value = '700000';
-  el('hSSAge').value = '66';
-  el('hSSAmt').value = '40000';
-  el('wAge').value = '64';
-  el('wIra').value = '50000';
-  el('wSSAge').value = '64';
-  el('wSSAmt').value = '7000';
-  el('survivorMode').value = 'wifeDies';
-  el('deathYearOffset').value = '12';
-  el('pensionAmt').value = '70000';
-  el('otherIncome').value = '0';
-  el('cola').value = '2.5';
-  el('growth').value = '6.0';
-  el('convGrowth').value = '6.0';
-  el('startYear').value = '2026';
-  el('clientName').value = '';
-  el('bonusRate').value = '22';
-  el('feeType').value = 'annual095';
-  el('payTaxesOutside').checked = true;
-  handleFilingStatusChange();
-}
-
-loadExample();
+calculate();
 </script>
-</body>
-</html>
+</body></html>
