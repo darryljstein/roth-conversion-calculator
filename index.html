@@ -307,7 +307,10 @@ function buildScenario(useStrategy){
     }
 
     const ssIncome = hSS + wSS;
-    const displayedIncome = pension + ssIncome; // exact gross inputs for display
+    const fixedIncome = pension + ssIncome;
+    let displayedIncome = fixedIncome; // exact gross inputs for display
+    let taxableWithdrawal = 0;
+    let rothWithdrawal = 0;
     let rmd=0;
 
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
