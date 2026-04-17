@@ -34,7 +34,7 @@
 <div class="container">
   <div class="hero">
     <h1>Fidelity Roth Planner</h1>
-    <p>Final Engine with locked bracket-fill math, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF.</p>
+    <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF.</p>
   </div>
   <div class="grid">
     <div>
@@ -59,6 +59,7 @@
           <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="300000" step="1000" /></div>
+          <div class="field"><label>Desired Annual Income</label><input id="desiredIncome" type="number" value="80000" step="1000" /></div>
           <div class="field"><label>Conversion Period (Years)</label><input id="conversionYears" type="number" value="6" min="1" step="1" /></div>
           <div class="field"><label>Assumed Conversion Start Year</label><input id="startYear" type="number" value="1" min="1" max="10" step="1" /></div>
           <div class="field spouse-field"><label>Who Dies First? (optional)</label><select id="deathWho"><option value="">No death event</option><option value="husband">Husband dies first</option><option value="wife">Wife dies first</option></select></div>
