@@ -179,7 +179,7 @@ function feeRate(){
   return num('feePct')/100;
 }
 function feeLabel(){
-  return feeRate()===0 ? '0.00% annual (No Fee Product)' : `${num('feePct').toFixed(2)}% annual`;
+  return feeRate()===0 ? '0.00% annual (No Fee Product)' : `${num('feePct').toFixed(2)}% annual (first 10 years)`;
 }
 
 function getLogoData(){
@@ -264,6 +264,7 @@ function buildScenario(useStrategy){
   const cola=percent('cola');
   const growth=percent('growth');
   const annualFeeRate=useStrategy ? feeRate() : 0;
+  const feeYears = 10;
   const pensionOwner=(filingStart==='MFJ' ? document.getElementById('pensionOwner').value : 'primary');
   const survivorPct=getPensionContinuationPct();
 
@@ -352,9 +353,10 @@ function buildScenario(useStrategy){
       irmaa = calcIRMAA(fixedIncome + rmd + taxableWithdrawal + conversion, currentStatus);
 
       const netToRoth = payTaxesOutside ? conversion : Math.max(0, conversion - conversionTax);
+      const effectiveFeeRate = year <= feeYears ? annualFeeRate : 0;
       roth = Math.max(0, roth - rothWithdrawal);
-      roth = (roth + netToRoth) * Math.max(0, 1 + growth - annualFeeRate);
-      ira = Math.max(0, (ira - conversion - rmd - taxableWithdrawal) * (1+growth));
+      roth = (roth + netToRoth) * Math.max(0, 1 + growth - effectiveFeeRate);
+      ira = Math.max(0, (ira - conversion - rmd - taxableWithdrawal) * Math.max(0, 1 + growth - effectiveFeeRate));
       if(payTaxesOutside){
         outside=Math.max(0, outside-totalTax-irmaa);
       }
@@ -373,9 +375,6 @@ function buildScenario(useStrategy){
 
     totalRMDs += rmd;
     if(useStrategy && ira<=0.005 && conversionFinishedYear===null) conversionFinishedYear = year;
-    if(useStrategy && conversionFinishedYear!==null){
-      totalTaxFreeIncome += displayedIncome;
-    }
 
     const currentAgeDisplay=currentStatus==='MFJ' ? `${hAge}/${wAge}` : `${hAge}`;
     const ssYear=(Math.floor(hAge*10)===Math.floor(hSSStart*10)) || (currentStatus==='MFJ'&&Math.floor(wAge*10)===Math.floor(wSSStart*10)) || (currentStatus==='MFJ'&&applySpousal&&Math.floor(hAge*10)===Math.floor(Math.max(hSSStart,hFRAAge)*10));
@@ -394,7 +393,7 @@ function buildScenario(useStrategy){
     }
 
     details.push({
-      year, age: currentAgeDisplay, income: displayedIncome, grossIncome: displayedIncome, ordinaryIncomeBase: fixedIncome + rmd + taxableWithdrawal, rmd, taxFreeIncome: rothWithdrawal, conversion,
+      year, age: currentAgeDisplay, income: displayedIncome, grossIncome: displayedIncome, ordinaryIncomeBase: fixedIncome + rmd + taxableWithdrawal, iraWithdrawal: taxableWithdrawal, rmd, taxFreeIncome: rothWithdrawal, conversion,
       ira, roth, tax: detailTax, totalTax, irmaa, totalIrmaa: irmaa, outside, status: currentStatus, pension, ssIncome,
       completionYear: completionYear ? 'Yes' : '', taxableIncome: fixedIncome + rmd + taxableWithdrawal + conversion
     });
@@ -467,7 +466,7 @@ function calculate(){
   document.getElementById('assumptionText').innerHTML=`Desired annual income is ${fmt2(num('desiredIncome'))}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion uses available room within the selected tax bracket during the entered conversion window, beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of the pension thereafter. The selected bracket of ${after.targetBracket}% determines exact conversion taxes and exact bracket-fill room in this Locked Math Mode, while the entered conversion period defines the planning window. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Wife spousal Social Security modeling is active: once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife's annual benefit is modeled as her own reduced benefit plus a reduced spousal excess based on 50% of the husband's PIA less the wife's PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Wife spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
-  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()}, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. Each year, the model adds only the net Roth amount after incremental conversion taxes when taxes are paid from the conversion side. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a wife's spousal Social Security step-up once the husband reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
+  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. Each year, the model adds only the net Roth amount after incremental conversion taxes when taxes are paid from the conversion side. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a wife's spousal Social Security step-up once the husband reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
@@ -499,7 +498,7 @@ function rowsFromDetails(details, mode='before'){
   return details.map(r=> mode==='before' ? [
     `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.rmd), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira)
   ] : [
-    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth)
+    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth)
   ]);
 }
 function survivorRows(before, after){
@@ -596,13 +595,13 @@ async function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income is set to ${fmt2(num('desiredIncome'))}, so the model first uses taxable IRA withdrawals during the conversion window to fill any income gap before using remaining bracket room for Roth conversion. This run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()}. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each year's conversion is limited by exact bracket-fill room using gross entered income plus any RMD. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Wife spousal Social Security modeling is enabled, so once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife is modeled at her own reduced annual benefit plus a reduced spousal excess equal to ((50% of husband PIA minus wife PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income is set to ${fmt2(num('desiredIncome'))}, so the model first uses taxable IRA withdrawals during the conversion window to fill any income gap before using remaining bracket room for Roth conversion. This run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each year's conversion is limited by exact bracket-fill room using gross entered income plus any RMD. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Wife spousal Social Security modeling is enabled, so once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife is modeled at her own reduced annual benefit plus a reduced spousal excess equal to ((50% of husband PIA minus wife PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,5);
 
   // Page 6 onwards - detail tables
   const beforeCols = [['Year','Age','SS','Pension','RMD','Gross Income','Taxable Income','Taxes','IRMAA','IRA']];
-  const afterCols = [['Year','Age','SS','Pension','Tax-Free Income','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
+  const afterCols = [['Year','Age','SS','Pension','IRA Withdrawal','TAX-FREE ROTH INCOME','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
     doc.addPage('letter','l');
@@ -615,7 +614,19 @@ async function generatePDF(){
       styles:{fontSize:8, cellPadding:3},
       headStyles:{fillColor:[11,58,111]},
       margin:{bottom:85,left:24,right:24},
-      tableWidth:'auto'
+      tableWidth:'auto',
+      didParseCell: function(data){
+        if(mode==='after' && data.section==='head' && data.column.index===5){
+          data.cell.styles.fillColor=[0,200,83];
+          data.cell.styles.textColor=[255,255,255];
+          data.cell.styles.fontStyle='bold';
+        }
+        if(mode==='after' && data.section==='body' && data.column.index===5){
+          data.cell.styles.fillColor=[0,200,83];
+          data.cell.styles.textColor=[255,255,255];
+          data.cell.styles.fontStyle='bold';
+        }
+      }
     });
     addPdfFooter(doc,pageNum);
   }
