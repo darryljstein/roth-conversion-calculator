@@ -156,6 +156,9 @@ function getPensionContinuationPct(){
   const val=document.getElementById('pensionSurvivorPct').value;
   return val==='custom' ? num('pensionSurvivorCustom')/100 : parseFloat(val||'0')/100;
 }
+
+function feeRate(){ return num('feePct')/100; }
+function feeLabel(){ return `${num('feePct').toFixed(2)}% annual`; }
 function setupSpouseVisibility(){
   const status=document.getElementById('filingStatus').value;
   document.querySelectorAll('.spouse-field').forEach(el=>el.classList.toggle('hidden',status!=='MFJ'));
