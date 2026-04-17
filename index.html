@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fidelity Roth Planner V2.6</title>
+  <title>Fidelity Roth Planner V2.7</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
@@ -32,7 +32,7 @@
 <div class="container">
   <div class="hero">
     <h1>Fidelity Roth Planner</h1>
-    <p>Premium Finance Roth Conversion analysis with bracket-fill planning, survivor tax compression modeling, pension continuation logic, IRMAA visibility, milestone reporting, and a downloadable client PDF.</p>
+    <p>Premium Finance Roth Conversion analysis with bracket-fill planning, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, IRMAA visibility, milestone reporting, and a downloadable client PDF.</p>
   </div>
   <div class="grid">
     <div>
@@ -60,6 +60,19 @@
           <div class="field spouse-field"><label>Who Dies First? (optional)</label><select id="deathWho"><option value="">No death event</option><option value="husband">Husband dies first</option><option value="wife">Wife dies first</option></select></div>
           <div class="field spouse-field"><label>Death Age (optional)</label><input id="deathAge" type="number" placeholder="Example: 85" min="50" max="100" /></div>
         </div>
+      </div>
+
+      <div class="card spouse-field">
+        <h2 class="section-title">Social Security Spousal Modeling</h2>
+        <div class="inputs-grid">
+          <div class="field"><label>Apply Wife Spousal Step-Up</label><select id="applySpousal"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+          <div class="field"><label>Husband FRA Age</label><input id="hFRAAge" type="number" value="67.6" min="66" max="70" step="0.1" /></div>
+          <div class="field"><label>Husband FRA SS Annual (PIA)</label><input id="hPIA" type="number" placeholder="Enter annual FRA benefit" /></div>
+          <div class="field"><label>Wife FRA SS Annual (PIA)</label><input id="wPIA" type="number" placeholder="Enter wife's FRA annual benefit" /></div>
+          <div class="field"><label>Wife Current Own SS Annual</label><input id="wOwnSSCurrent" type="number" placeholder="Enter current annual benefit" /></div>
+          <div class="field"><label>Spousal Reduction Factor</label><input id="spousalFactor" type="number" value="65" min="0" max="100" step="1" /></div>
+        </div>
+        <div class="small" style="margin-top:10px;">When enabled, the wife keeps her own reduced benefit until the husband reaches his filing/FRA age. At that point the model adds a reduced spousal excess using: own reduced benefit + ((50% × husband PIA − wife PIA) × reduction factor).</div>
       </div>
 
       <div class="card">
@@ -151,12 +164,13 @@ function setupSpouseVisibility(){
   document.getElementById('pensionOwner').disabled = status!=='MFJ';
   document.getElementById('deathWho').disabled = status!=='MFJ';
   document.getElementById('deathAge').disabled = status!=='MFJ';
+  ['applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor'].forEach(id=>{document.getElementById(id).disabled = status!=='MFJ';});
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-['filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','bonusPct','premium','startYear','hAge','wAge','hIra','wIra','pension','cola','hSSAge','hSS','wSSAge','wSS','growth','outsideAssets','pensionSurvivorCustom','clientName'].forEach(id=>{
+['filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','bonusPct','premium','startYear','hAge','wAge','hIra','wIra','pension','cola','hSSAge','hSS','wSSAge','wSS','growth','outsideAssets','pensionSurvivorCustom','clientName','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor'].forEach(id=>{
   document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();calculate();});
 });
-attachRecalc(['premium','bonusPct','hIra','wIra','pension','cola','hSS','wSS','outsideAssets','growth','deathAge','pensionSurvivorCustom']);
+attachRecalc(['premium','bonusPct','hIra','wIra','pension','cola','hSS','wSS','outsideAssets','growth','deathAge','pensionSurvivorCustom','hPIA','wPIA','wOwnSSCurrent','spousalFactor','hFRAAge']);
 function rmdStartAge(currentAge){const birthYear=2026-currentAge+1; return birthYear>=1960?75:73;}
 function calcIRMAA(magi,status){const threshold=TAX[status].irmaa1; if(magi<=threshold) return 0; const base=2434.80; const surcharge=Math.ceil((magi-threshold)/50000); return base*Math.min(5,surcharge);}
 function taxableSS(ss){return ss*0.85;}
@@ -183,6 +197,12 @@ function buildScenario(useStrategy){
   const survivorPct=getPensionContinuationPct();
   let hSSStart=num('hSSAge'), hSSBase=num('hSS');
   let wSSStart=num('wSSAge'), wSSBase=num('wSS');
+  const applySpousal=document.getElementById('applySpousal').value==='yes' && filingStart==='MFJ';
+  const hFRAAge=num('hFRAAge')||67.0;
+  const hPIA=num('hPIA');
+  const wPIA=num('wPIA');
+  const wOwnSSCurrent=num('wOwnSSCurrent') || wSSBase;
+  const spousalFactor=percent('spousalFactor');
   const deathWho=document.getElementById('deathWho').value;
   const deathAge=Math.floor(num('deathAge'));
   const payTaxesOutside=document.getElementById('payTaxesOutside').checked;
@@ -198,7 +218,13 @@ function buildScenario(useStrategy){
     const ownerDied = deathApplied && ((deathWho===pensionOwner) || (pensionOwner==='wife' && filingStart!=='MFJ'));
     const pension = basePension * Math.pow(1+cola,year-1) * (ownerDied ? survivorPct : 1);
     const hSS = hAge>=hSSStart ? hSSBase*Math.pow(1+cola,Math.max(0,hAge-hSSStart)) : 0;
-    const wSS = (currentStatus==='MFJ' && wAge>=wSSStart) ? wSSBase*Math.pow(1+cola,Math.max(0,wAge-wSSStart)) : 0;
+    let wSS = (currentStatus==='MFJ' && wAge>=wSSStart) ? wSSBase*Math.pow(1+cola,Math.max(0,wAge-wSSStart)) : 0;
+    if(currentStatus==='MFJ' && applySpousal && wAge>=wSSStart && hAge>=Math.max(hSSStart,hFRAAge) && hPIA>0 && wPIA>0){
+      const ownReduced = wOwnSSCurrent*Math.pow(1+cola,Math.max(0,wAge-wSSStart));
+      const spousalExcess = Math.max(0, (0.5*hPIA) - wPIA);
+      const reducedExcess = spousalExcess * spousalFactor * Math.pow(1+cola,Math.max(0,hAge-hFRAAge));
+      wSS = Math.max(wSS, ownReduced + reducedExcess);
+    }
     const ssIncome = hSS + wSS;
     const ordinaryBase = pension + taxableSS(ssIncome);
     const cfg=TAX[currentStatus], bracketCeiling=cfg.brackets[targetBracket];
@@ -231,7 +257,7 @@ function buildScenario(useStrategy){
     if(useStrategy && yearsToComplete===null && ira<=1) yearsToComplete=year;
 
     const currentAgeDisplay=currentStatus==='MFJ' ? `${hAge}/${wAge}` : `${hAge}`;
-    const ssYear=(hAge===hSSStart)||(currentStatus==='MFJ'&&wAge===wSSStart);
+    const ssYear=(hAge===hSSStart)||(currentStatus==='MFJ'&&wAge===wSSStart)||(currentStatus==='MFJ'&&applySpousal&&Math.floor(hAge*10)===Math.floor(Math.max(hSSStart,hFRAAge)*10));
     const rmdYear=primaryAge===rmdAge;
     const age95Reached=hAge>=95 || (currentStatus==='MFJ' && wAge>=95);
     if(year===1||year===5||year%5===0||ssYear||rmdYear||age95Reached){
@@ -260,7 +286,7 @@ function buildScenario(useStrategy){
     if(hAge>=95 && (status!=='MFJ' || wAge>=95)) break;
   }
   if(yearsToComplete===null) yearsToComplete='>95';
-  return {premium,bonus,beginning:premium+bonus,firstConv,yearsToComplete,totalTaxes,totalTaxFreeIncome,totalRMDs,totalIRMAA,taxableEstate:ira+outside,taxFreeEstate:roth,milestones,details,survivorPct};
+  return {premium,bonus,beginning:premium+bonus,firstConv,yearsToComplete,totalTaxes,totalTaxFreeIncome,totalRMDs,totalIRMAA,taxableEstate:ira+outside,taxFreeEstate:roth,milestones,details,survivorPct,applySpousal,hFRAAge,hPIA,wPIA,wOwnSSCurrent,spousalFactor};
 }
 function fillMetricTable(id,scenario){
   const rows=[
@@ -292,10 +318,10 @@ function calculate(){
   const deathSummary = (document.getElementById('filingStatus').value==='MFJ' && document.getElementById('deathWho').value && num('deathAge'))
     ? `${capFirst(document.getElementById('deathWho').value)} dies first at age ${Math.floor(num('deathAge'))}.`
     : 'No death event is applied.';
-  document.getElementById('assumptionText').innerHTML=`Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed 0.95% annual fee inside the Premium Finance Roth Conversion illustration. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of the pension thereafter. Federal tax planning uses the selected filing status and fills the selected bracket each year when strategy mode is on. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit.`;
+  document.getElementById('assumptionText').innerHTML=`Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed 0.95% annual fee inside the Premium Finance Roth Conversion illustration. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of the pension thereafter. Federal tax planning uses the selected filing status and fills the selected bracket each year when strategy mode is on. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Wife spousal Social Security modeling is active: once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife's annual benefit is modeled as her own reduced benefit plus a reduced spousal excess based on 50% of the husband's PIA less the wife's PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Wife spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
-  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed 0.95% annual fee, with Roth conversions added along the way according to the selected bracket-fill strategy. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}.`;
+  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed 0.95% annual fee, with Roth conversions added along the way according to the selected bracket-fill strategy. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a wife's spousal Social Security step-up once the husband reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
 }
 async function generatePDF(){
   if(!latest) calculate();
@@ -314,6 +340,11 @@ async function generatePDF(){
     ['Pension Survivor Continuation', `${(getPensionContinuationPct()*100).toFixed(0)}%`],
     ['Target Bracket', document.getElementById('targetBracket').value+'%'],
     ['Growth Rate', num('growth').toFixed(1)+'%'],
+    ['Wife Spousal SS Modeling', document.getElementById('filingStatus').value==='MFJ' ? (document.getElementById('applySpousal').value==='yes' ? 'Enabled' : 'Disabled') : 'N/A'],
+    ['Husband FRA Age', document.getElementById('filingStatus').value==='MFJ' ? String(num('hFRAAge')) : 'N/A'],
+    ['Husband FRA SS Annual (PIA)', document.getElementById('filingStatus').value==='MFJ' ? fmt2(num('hPIA')) : 'N/A'],
+    ['Wife FRA SS Annual (PIA)', document.getElementById('filingStatus').value==='MFJ' ? fmt2(num('wPIA')) : 'N/A'],
+    ['Wife Current Own SS Annual', document.getElementById('filingStatus').value==='MFJ' ? fmt2(num('wOwnSSCurrent') || num('wSS')) : 'N/A'],
     ['Death Modeling', deathPdf]
   ], styles:{fontSize:10}, headStyles:{fillColor:[11,58,111]}});
   const after=latest.after, before=latest.before;
@@ -340,7 +371,7 @@ async function generatePDF(){
   ], styles:{fontSize:10}, headStyles:{fillColor:[11,58,111]}});
   doc.setFontSize(10); doc.text('Bonus and fee totals are intentionally excluded from this comparison page.',40,doc.lastAutoTable.finalY+18);
   doc.addPage(); doc.setFontSize(18); doc.text('Assumptions and Calculation Transparency',40,44);
-  const text = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. The current run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed 0.95% annual fee inside the Premium Finance Roth Conversion section. Additional Roth conversions are layered in based on bracket-fill capacity under the selected filing status and target bracket. The pension follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. This report is intended for planning illustration and conversation support rather than final tax preparation.`,520);
+  const text = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. The current run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed 0.95% annual fee inside the Premium Finance Roth Conversion section. Additional Roth conversions are layered in based on bracket-fill capacity under the selected filing status and target bracket. The pension follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Wife spousal Social Security modeling is enabled, so once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife is modeled at her own reduced annual benefit plus a reduced spousal excess equal to ((50% of husband PIA minus wife PIA) × ${(after.spousalFactor*100).toFixed(0)}%).` : 'Wife spousal Social Security modeling is disabled in this run.'} This report is intended for planning illustration and conversation support rather than final tax preparation.`,520);
   doc.setFontSize(11); doc.text(text,40,70); doc.save('fidelity-roth-planner-report.pdf');
 }
 setupSpouseVisibility();
