@@ -181,6 +181,35 @@ function feeRate(){
 function feeLabel(){
   return feeRate()===0 ? '0.00% annual (No Fee Product)' : `${num('feePct').toFixed(2)}% annual`;
 }
+
+function getLogoData(){
+  try { return localStorage.getItem("fidelityRothPlannerLogo") || ""; } catch(e){ return ""; }
+}
+function renderLogoPreview(){
+  const box=document.getElementById('logoPreview');
+  if(!box) return;
+  const data=getLogoData();
+  if(data){
+    box.innerHTML = `<img src="${data}" alt="Logo preview" style="max-width:100%;max-height:100%;object-fit:contain;display:block;">`;
+  } else {
+    box.textContent = 'No logo uploaded';
+  }
+}
+function handleLogoUpload(evt){
+  const file = evt && evt.target && evt.target.files ? evt.target.files[0] : null;
+  if(!file){
+    try{ localStorage.removeItem('fidelityRothPlannerLogo'); }catch(e){}
+    renderLogoPreview();
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{ localStorage.setItem('fidelityRothPlannerLogo', e.target.result); }catch(err){ console.error(err); }
+    renderLogoPreview();
+  };
+  reader.onerror = function(err){ console.error(err); };
+  reader.readAsDataURL(file);
+}
 function setupSpouseVisibility(){
   const status=document.getElementById('filingStatus').value;
   document.querySelectorAll('.spouse-field').forEach(el=>el.classList.toggle('hidden',status!=='MFJ'));
