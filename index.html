@@ -374,6 +374,9 @@ function buildScenario(useStrategy){
     let rmd=0;
 
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
+    const desiredIncome = (primaryAge >= incomeStartAge)
+      ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
+      : 0;
     const rmdAge=rmdStartAge(primaryAge);
     if(primaryAge>=rmdAge && ira>0){
       const divisor=Math.max(2,27.4-Math.max(0,primaryAge-rmdAge));
@@ -859,6 +862,19 @@ async function generatePDF(){
 
   doc.save('fidelity-roth-planner-report.pdf');
 }
-window.addEventListener('DOMContentLoaded', () => { try { setupSpouseVisibility(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+window.addEventListener('DOMContentLoaded', () => {
+  try {
+    setupSpouseVisibility();
+    renderLogoPreview();
+    syncPremiumToIraTotal();
+    calculate();
+  } catch(e){
+    console.error(e);
+    const box=document.getElementById('onscreenDisclaimer');
+    if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e);
+    const assumptions=document.getElementById('assumptionText');
+    if(assumptions) assumptions.textContent='Initialization error: '+(e&&e.message?e.message:e);
+  }
+});
 </script>
 </body></html>
