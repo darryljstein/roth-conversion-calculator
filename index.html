@@ -87,6 +87,7 @@
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Desired Annual Income</label><input id="desiredIncome" type="number" value="150000" step="1000" /></div>
           <div class="field"><label>Desired Income COLA %</label><input id="incomeCola" type="number" value="3.0" step="0.1" /></div>
+          <div class="field"><label>Income Start Age</label><input id="incomeStartAge" type="number" value="65" min="40" max="95" step="1" /></div>
           <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Conversion Period (Years)</label><input id="conversionYears" type="number" value="6" min="1" step="1" /></div>
           <div class="field"><label>Assumed Conversion Start Year</label><input id="startYear" type="number" value="1" min="1" max="10" step="1" /></div>
@@ -266,7 +267,7 @@ function setupSpouseVisibility(){
   }
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-const allIds = ['desiredIncome','incomeCola','filingStatus','deathWho','deathAge','payTaxesOutside','targetBracket','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','hPension','wPension','hPensionStartDate','wPensionStartDate','hPensionSurvivorPct','wPensionSurvivorPct','hPensionCola','wPensionCola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','wCurrentIncome','wTaxableIncome','growth','outsideAssets','clientName','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','deathWho','deathAge','payTaxesOutside','targetBracket','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','hPension','wPension','hPensionStartDate','wPensionStartDate','hPensionSurvivorPct','wPensionSurvivorPct','hPensionCola','wPensionCola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','wCurrentIncome','wTaxableIncome','growth','outsideAssets','clientName','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
 allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();calculate();}));
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
@@ -332,6 +333,7 @@ function buildScenario(useStrategy){
   const conversionEndYear=startYear + conversionYears - 1;
   const desiredIncomeBase = num('desiredIncome');
   const incomeCola = percent('incomeCola');
+  const incomeStartAge = Math.floor(num('incomeStartAge') || 65);
   const currentTaxableIncome = num('hTaxableIncome') + (filingStart==='MFJ' ? num('wTaxableIncome') : 0);
 
   let roth=0;
@@ -345,7 +347,9 @@ function buildScenario(useStrategy){
 
   for(let year=1; year<=40; year++){
     const currentStatus=status;
-    const desiredIncome = desiredIncomeBase * Math.pow(1 + incomeCola, year - 1);
+    const desiredIncome = (primaryAge >= incomeStartAge)
+      ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
+      : 0;
     let hPension = year >= hPensionStartYear ? hPensionBase * Math.pow(1+hPensionCola, year-hPensionStartYear) : 0;
     let wPension = year >= wPensionStartYear ? wPensionBase * Math.pow(1+wPensionCola, year-wPensionStartYear) : 0;
     if(deathApplied && filingStart==='MFJ'){
