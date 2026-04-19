@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Fidelity Mutual Financial V3.8</title>
+<style>
+body{font-family:Arial;margin:0;background:#f5f7fb;}
+.hero{background:#1f4c86;color:white;padding:30px;border-radius:20px;margin:20px;}
+.hero-flex{display:flex;justify-content:space-between;align-items:center;}
+.hero-right img{height:95px;filter:brightness(2.2) contrast(1.3);}
+.card{background:white;padding:20px;border-radius:15px;margin:20px;}
+.spouse-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.spouse-col{border:1px solid #ddd;border-radius:12px;padding:15px;}
+.field{margin-bottom:10px;}
+button{padding:10px 20px;font-size:16px;}
+</style>
+</head>
+
+<body>
+
+<div class="hero">
+<div class="hero-flex">
+<div>
+<h1>Fidelity Mutual Financial</h1>
+<p>V3.8 Retirement Engine</p>
+</div>
+<div class="hero-right">
+<img src="logo-white.png">
+</div>
+</div>
+</div>
+
+<div class="card">
+<h2>Client Bio</h2>
+
+<div class="spouse-layout">
+
+<div class="spouse-col">
+<h3>Husband</h3>
+<div class="field">Age <input id="hAge" value="65"></div>
+<div class="field">IRA <input id="hIra" value="2000000"></div>
+<div class="field">Current Income <input id="hCurrentIncome" value="50000"></div>
+<div class="field">Taxable Portion <input id="hTaxableIncome" value="20000"></div>
+</div>
+
+<div class="spouse-col">
+<h3>Wife</h3>
+<div class="field">Age <input id="wAge" value="62"></div>
+<div class="field">IRA <input id="wIra" value="2000000"></div>
+<div class="field">Current Income <input id="wCurrentIncome" value="87000"></div>
+<div class="field">Taxable Portion <input id="wTaxableIncome" value="87000"></div>
+</div>
+
+</div>
+
+<div class="field">Desired Income <input id="desiredIncome" value="120000"></div>
+<div class="field">Income COLA % <input id="incomeCola" value="3"></div>
+
+<button onclick="calculate()">Run Analysis</button>
+
+<div id="output"></div>
+
+</div>
+
+<script>
+function num(id){return parseFloat(document.getElementById(id).value)||0;}
+
+function calculate(){
+
+let hIra = num('hIra');
+let wIra = num('wIra');
+let ira = hIra + wIra;
+
+let roth = 0;
+let rothBuckets = [];
+
+let desiredIncome = num('desiredIncome');
+let cola = num('incomeCola')/100;
+
+let hTax = num('hTaxableIncome');
+let wTax = num('wTaxableIncome');
+let currentTaxableIncome = hTax + wTax;
+
+let output = "<h3>Projection</h3>";
+
+for(let year=1;year<=15;year++){
+
+let income = desiredIncome * Math.pow(1+cola, year-1);
+
+let availableRoom = 150000;
+let adjustedRoom = Math.max(0, availableRoom - currentTaxableIncome);
+
+let conversion = Math.min(adjustedRoom, ira);
+
+ira -= conversion;
+roth += conversion;
+
+rothBuckets.push({year:year,amount:conversion});
+
+let availableRoth = 0;
+for(let b of rothBuckets){
+if(year >= b.year + 5){availableRoth += b.amount;}
+}
+
+let remaining = income;
+
+let iraWithdrawal = Math.min(remaining, ira);
+ira -= iraWithdrawal;
+remaining -= iraWithdrawal;
+
+let rothWithdrawal = Math.min(remaining, availableRoth);
+roth -= rothWithdrawal;
+remaining -= rothWithdrawal;
+
+output += `Year ${year}: Income ${income.toFixed(0)} | IRA ${iraWithdrawal.toFixed(0)} | Roth ${rothWithdrawal.toFixed(0)}<br>`;
+}
+
+document.getElementById("output").innerHTML = output;
+}
+</script>
+
+</body>
+</html>
