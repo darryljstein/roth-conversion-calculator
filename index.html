@@ -312,6 +312,8 @@ function buildScenario(useStrategy){
   let survivorSnapshotBefore=null, survivorSnapshotAfter=null;
   let conversionFinishedYear = null;
   let carriedHigherSS = 0;
+  let currentGrossIncome = 0;
+  let currentTaxableIncome = 0;
 
   for(let year=1; year<=40; year++){
     const currentStatus=status;
@@ -323,10 +325,10 @@ function buildScenario(useStrategy){
     const wIncomeEndAge = Math.floor(num('wIncomeEndAge') || 65);
     const husbandCurrentGrossIncome = (hAge < hIncomeEndAge) ? num('hCurrentIncome') : 0;
     const wifeCurrentGrossIncome = (currentStatus==='MFJ' && wAge < wIncomeEndAge) ? num('wCurrentIncome') : 0;
-    const currentGrossIncome = husbandCurrentGrossIncome + wifeCurrentGrossIncome;
+    currentGrossIncome = husbandCurrentGrossIncome + wifeCurrentGrossIncome;
     const husbandCurrentTaxableIncome = (hAge < hIncomeEndAge) ? num('hTaxableIncome') : 0;
     const wifeCurrentTaxableIncome = (currentStatus==='MFJ' && wAge < wIncomeEndAge) ? num('wTaxableIncome') : 0;
-    const currentTaxableIncome = husbandCurrentTaxableIncome + wifeCurrentTaxableIncome;
+    currentTaxableIncome = husbandCurrentTaxableIncome + wifeCurrentTaxableIncome;
 
     const hSS = (hSSBase>0 && hAge>=hSSStart) ? hSSBase*Math.pow(1+cola,Math.max(0,hAge-hSSStart)) : 0;
     let wSS = (currentStatus==='MFJ' && wSSBase>0 && wAge>=wSSStart) ? wSSBase*Math.pow(1+cola,Math.max(0,wAge-wSSStart)) : 0;
