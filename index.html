@@ -333,6 +333,7 @@ function buildScenario(useStrategy){
   const conversionEndYear=startYear + conversionYears - 1;
   const desiredIncomeBase = num('desiredIncome');
   const incomeCola = percent('incomeCola');
+  const cola = incomeCola;
   const incomeStartAge = Math.floor(num('incomeStartAge') || 65);
   const currentTaxableIncome = num('hTaxableIncome') + (filingStart==='MFJ' ? num('wTaxableIncome') : 0);
 
