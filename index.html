@@ -251,21 +251,37 @@ document.getElementById('wIra').addEventListener('input', syncPremiumToIraTotal)
 attachRecalc(allIds.filter(id => !['filingStatus','pensionSurvivorPct','deathWho','pensionOwner','payTaxesOutside','targetBracket','feeType'].includes(id)));
 
 function rmdStartAge(currentAge){const birthYear=2026-currentAge+1; return birthYear>=1960?75:73;}
-function calcIRMAA(magi,status,hAge,wAge){
+function calcIRMAA(magi, status, hAge, wAge) {
+
   const husbandEligible = Number(hAge) >= 65;
   const wifeEligible = (status === 'MFJ') ? (Number(wAge) >= 65) : false;
   const singleEligible = (status !== 'MFJ') ? (Number(hAge) >= 65) : false;
 
-  if(!(husbandEligible || wifeEligible || singleEligible)) return 0;
+  // 🚫 No Medicare → No IRMAA
+  if (!(husbandEligible || wifeEligible || singleEligible)) return 0;
 
-  const threshold = TAX[status].irmaa1;
-  if(magi <= threshold) return 0;
+  // ✅ 2026 IRMAA ANNUAL TOTALS (Part B + Part D combined estimate)
+  // These match real CMS tier structure — NOT linear
 
-  const base = 3583.20;
-  const surcharge = Math.ceil((magi - threshold) / 50000);
-  return base * Math.min(5, surcharge);
-}
-function taxableSS(ss){return ss*0.85;}
+  if (status === 'MFJ') {
+
+    if (magi <= 218000) return 0;
+    if (magi <= 274000) return 3583.20;   // Tier 1
+    if (magi <= 342000) return 5319.60;   // Tier 2
+    if (magi <= 410000) return 7054.80;   // Tier 3
+    if (magi <= 750000) return 8790.00;   // Tier 4
+    return 9370.80;                       // Tier 5
+  }
+
+  // Single (survivor years)
+
+  if (magi <= 109000) return 0;
+  if (magi <= 137000) return 3583.20;
+  if (magi <= 171000) return 5319.60;
+  if (magi <= 205000) return 7054.80;
+  if (magi <= 500000) return 8790.00;
+  return 9370.80;
+}function taxableSS(ss){return ss*0.85;}
 function ordinaryTax(income,status){
   const cfg=TAX[status], taxable=Math.max(0,income-cfg.ded), b=cfg.brackets;
   let tax=0, prev=0; const levels=[[12,b[12]],[22,b[22]],[24,b[24]],[32,b[32]]];
