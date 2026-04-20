@@ -251,12 +251,19 @@ document.getElementById('wIra').addEventListener('input', syncPremiumToIraTotal)
 attachRecalc(allIds.filter(id => !['filingStatus','pensionSurvivorPct','deathWho','pensionOwner','payTaxesOutside','targetBracket','feeType'].includes(id)));
 
 function rmdStartAge(currentAge){const birthYear=2026-currentAge+1; return birthYear>=1960?75:73;}
-function calcIRMAA(magi,status){
-  const threshold=TAX[status].irmaa1;
-  if(magi<=threshold) return 0;
-  const base=2434.80;
-  const surcharge=Math.ceil((magi-threshold)/50000);
-  return base*Math.min(5,surcharge);
+function calcIRMAA(magi,status,hAge,wAge){
+  const husbandEligible = Number(hAge) >= 65;
+  const wifeEligible = (status === 'MFJ') ? (Number(wAge) >= 65) : false;
+  const singleEligible = (status !== 'MFJ') ? (Number(hAge) >= 65) : false;
+
+  if(!(husbandEligible || wifeEligible || singleEligible)) return 0;
+
+  const threshold = TAX[status].irmaa1;
+  if(magi <= threshold) return 0;
+
+  const base = 3583.20;
+  const surcharge = Math.ceil((magi - threshold) / 50000);
+  return base * Math.min(5, surcharge);
 }
 function taxableSS(ss){return ss*0.85;}
 function ordinaryTax(income,status){
@@ -390,7 +397,7 @@ function buildScenario(useStrategy){
       const baseTax = ordinaryTax(currentTaxableIncome + ssIncome + pension + rmd + taxableWithdrawal, currentStatus);
       detailTax = baseTax + conversionTax;
       totalTax = detailTax;
-      irmaa = calcIRMAA(currentTaxableIncome + ssIncome + pension + rmd + taxableWithdrawal + conversion, currentStatus);
+      irmaa = calcIRMAA(currentTaxableIncome + ssIncome + pension + rmd + taxableWithdrawal + conversion, currentStatus, hAge, wAge);
 
       const netToRoth = payTaxesOutside ? conversion : Math.max(0, conversion - conversionTax);
       const effectiveFeeRate = year <= feeYears ? annualFeeRate : 0;
@@ -430,7 +437,7 @@ function buildScenario(useStrategy){
       displayedIncome = currentGrossIncome + ssIncome + pension + rmd;
       totalTax = ordinaryTax(currentTaxableIncome + displayedIncome, currentStatus);
       detailTax = totalTax;
-      irmaa = calcIRMAA(currentTaxableIncome + displayedIncome, currentStatus);
+      irmaa = calcIRMAA(currentTaxableIncome + displayedIncome, currentStatus, hAge, wAge);
       outside=Math.max(0, outside-totalTax-irmaa);
       ira = Math.max(0, (ira - rmd) * (1+growth));
       totalTaxes += totalTax;
