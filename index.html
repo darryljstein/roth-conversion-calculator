@@ -18,6 +18,12 @@
     .grid{display:grid;grid-template-columns:420px 1fr;gap:22px;align-items:start}
     .card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(16,24,40,.07);border:1px solid var(--border);margin-bottom:18px}
     .card h2,.card h3{margin:0 0 14px;color:var(--blue)}.section-title{font-size:20px;margin-bottom:16px}
+    .client-bio-top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+    .client-box-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+    .client-box{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px}
+    .client-box-title{font-size:18px;margin:0 0 12px;color:var(--blue)}
+    .shared-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}
+
     .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}
     .field label{font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em}
     input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff}
@@ -33,7 +39,7 @@
     .disclaimer-box{font-size:12px;line-height:1.5;color:#475569;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px}
     @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col{grid-template-columns:1fr}}
     @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
-    @media (max-width:650px){.inputs-grid,.pill-row{grid-template-columns:1fr}}
+    @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -53,28 +59,48 @@
     <div>
       <div class="card">
         <h2 class="section-title">Client Bio</h2>
-        <div class="inputs-grid">
-          <div class="field"><label>Client Name</label><input id="clientName" type="text" placeholder="Client Name (Optional)" /></div>
+
+        <div class="client-bio-top">
+          <div class="field"><label>Household / Report Name</label><input id="clientName" type="text" placeholder="Client or Household Name" /></div>
           <div class="field"><label>Filing Status</label><select id="filingStatus"><option value="MFJ">Married Filing Jointly</option><option value="Single">Single</option><option value="HOH">Head of Household</option></select></div>
-          <div class="field"><label>Husband Age</label><input id="hAge" type="number" value="65" min="40" max="95" /></div>
-          <div class="field spouse-field"><label>Wife Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
-          <div class="field"><label>Husband IRA</label><input id="hIra" type="number" value="2000000" step="1000" /></div>
-          <div class="field spouse-field"><label>Wife IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
-          <div class="field"><label>Husband Pension</label><input id="pension" type="number" value="0" step="1000" /></div>
-          <div class="field"><label>Pension Owner</label><select id="pensionOwner"><option value="husband" selected>Husband</option><option value="wife">Wife</option></select></div>
+        </div>
+
+        <div class="client-box-grid">
+          <div class="client-box spouse-field">
+            <h3 class="client-box-title" id="client2BoxTitle">Client 2</h3>
+            <div class="inputs-grid">
+              <div class="field spouse-field"><label>Client 2 Name</label><input id="client2Name" type="text" placeholder="Client 2 Name" /></div>
+              <div class="field spouse-field"><label>Client 2 Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
+              <div class="field spouse-field"><label>Client 2 IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" step="0.1" /></div>
+              <div class="field spouse-field"><label>Client 2 SS Annual</label><input id="wSS" type="number" value="25000" /></div>
+              <div class="field spouse-field"><label>Client 2 Current Annual Income</label><input id="wCurrentIncome" type="number" value="87000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 Taxable Income Portion</label><input id="wTaxableIncome" type="number" value="87000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 Income Ends At Age</label><input id="wIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
+            </div>
+          </div>
+
+          <div class="client-box">
+            <h3 class="client-box-title" id="client1BoxTitle">Client 1</h3>
+            <div class="inputs-grid">
+              <div class="field"><label>Client 1 Name</label><input id="client1Name" type="text" placeholder="Client 1 Name" /></div>
+              <div class="field"><label>Client 1 Age</label><input id="hAge" type="number" value="65" min="40" max="95" /></div>
+              <div class="field"><label>Client 1 IRA</label><input id="hIra" type="number" value="2000000" step="1000" /></div>
+              <div class="field"><label>Client 1 Pension</label><input id="pension" type="number" value="0" step="1000" /></div>
+              <div class="field"><label>Client 1 SS Start Age</label><input id="hSSAge" type="number" value="66" min="62" max="75" step="0.1" /></div>
+              <div class="field"><label>Client 1 SS Annual</label><input id="hSS" type="number" value="25000" /></div>
+              <div class="field"><label>Client 1 Current Annual Income</label><input id="hCurrentIncome" type="number" value="50000" step="1000" /></div>
+              <div class="field"><label>Client 1 Taxable Income Portion</label><input id="hTaxableIncome" type="number" value="20000" step="1000" /></div>
+              <div class="field"><label>Client 1 Income Ends At Age</label><input id="hIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shared-grid">
+          <div class="field"><label>Pension Owner</label><select id="pensionOwner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
           <div class="field"><label>Pension Survivor Continuation</label><select id="pensionSurvivorPct"><option value="0" selected>0%</option><option value="50">50%</option><option value="100">100%</option><option value="custom">Custom %</option></select></div>
           <div class="field hidden" id="pensionCustomWrap"><label>Custom Survivor %</label><input id="pensionSurvivorCustom" type="number" value="0" min="0" max="100" step="1" /></div>
           <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
-          <div class="field"><label>Husband SS Start Age</label><input id="hSSAge" type="number" value="66" min="62" max="75" step="0.1" /></div>
-          <div class="field"><label>Husband SS Annual</label><input id="hSS" type="number" value="25000" /></div>
-          <div class="field spouse-field"><label>Wife SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" step="0.1" /></div>
-          <div class="field spouse-field"><label>Wife SS Annual</label><input id="wSS" type="number" value="25000" /></div>
-          <div class="field"><label>Husband Current Annual Income</label><input id="hCurrentIncome" type="number" value="50000" step="1000" /></div>
-          <div class="field"><label>Husband Taxable Income Portion</label><input id="hTaxableIncome" type="number" value="20000" step="1000" /></div>
-          <div class="field"><label>Husband Income Ends At Age</label><input id="hIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
-          <div class="field spouse-field"><label>Wife Current Annual Income</label><input id="wCurrentIncome" type="number" value="87000" step="1000" /></div>
-          <div class="field spouse-field"><label>Wife Taxable Income Portion</label><input id="wTaxableIncome" type="number" value="87000" step="1000" /></div>
-          <div class="field spouse-field"><label>Wife Income Ends At Age</label><input id="wIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
           <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="1000000" step="1000" /></div>
@@ -83,22 +109,24 @@
           <div class="field"><label>Income Start Age</label><input id="incomeStartAge" type="number" value="65" min="40" max="95" step="1" /></div>
           <div class="field"><label>Conversion Period (Years)</label><input id="conversionYears" type="number" value="6" min="1" step="1" /></div>
           <div class="field"><label>Assumed Conversion Start Year</label><input id="startYear" type="number" value="1" min="1" max="10" step="1" /></div>
-          <div class="field spouse-field"><label>Who Dies First? (optional)</label><select id="deathWho"><option value="">No death event</option><option value="husband">Husband dies first</option><option value="wife">Wife dies first</option></select></div>
+          <div class="field spouse-field"><label>Who Dies First? (optional)</label><select id="deathWho"><option value="">No death event</option><option value="husband">Client 1 dies first</option><option value="wife">Client 2 dies first</option></select></div>
           <div class="field spouse-field"><label>Death Age (optional)</label><input id="deathAge" type="number" placeholder="Example: 85" min="50" max="100" /></div>
         </div>
+
+      </div>
       </div>
 
       <div class="card spouse-field">
         <h2 class="section-title">Social Security Spousal Modeling</h2>
         <div class="inputs-grid">
-          <div class="field"><label>Apply Wife Spousal Step-Up</label><select id="applySpousal"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
-          <div class="field"><label>Husband FRA Age</label><input id="hFRAAge" type="number" value="67.6" min="66" max="70" step="0.1" /></div>
-          <div class="field"><label>Husband FRA SS Annual (PIA)</label><input id="hPIA" type="number" placeholder="Enter annual FRA benefit" /></div>
-          <div class="field"><label>Wife FRA SS Annual (PIA)</label><input id="wPIA" type="number" placeholder="Enter wife's FRA annual benefit" /></div>
-          <div class="field"><label>Wife Current Own SS Annual</label><input id="wOwnSSCurrent" type="number" placeholder="Enter current annual benefit" /></div>
+          <div class="field"><label>Apply Client 2 Spousal Step-Up</label><select id="applySpousal"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+          <div class="field"><label>Client 1 FRA Age</label><input id="hFRAAge" type="number" value="67.6" min="66" max="70" step="0.1" /></div>
+          <div class="field"><label>Client 1 FRA SS Annual (PIA)</label><input id="hPIA" type="number" placeholder="Enter annual FRA benefit" /></div>
+          <div class="field"><label>Client 2 FRA SS Annual (PIA)</label><input id="wPIA" type="number" placeholder="Enter wife's FRA annual benefit" /></div>
+          <div class="field"><label>Client 2 Current Own SS Annual</label><input id="wOwnSSCurrent" type="number" placeholder="Enter current annual benefit" /></div>
           <div class="field"><label>Spousal Reduction Factor</label><input id="spousalFactor" type="number" value="65" min="0" max="100" step="1" /></div>
         </div>
-        <div class="small" style="margin-top:10px;">When enabled, the wife keeps her own reduced benefit until the husband reaches his filing/FRA age. At that point the model adds a reduced spousal excess using: own reduced benefit + ((50% × husband PIA − wife PIA) × reduction factor).</div>
+        <div class="small" style="margin-top:10px;">When enabled, Client 2 keeps their own reduced benefit until Client 1 reaches filing/FRA age. At that point the model adds a reduced spousal excess using: own reduced benefit + ((50% × Client 1 PIA − Client 2 PIA) × reduction factor).</div>
       </div>
 
       <div class="card">
@@ -191,6 +219,28 @@ const TAX = {
   HOH:{ded:23600,irmaa1:109000,brackets:{12:69400,22:118200,24:190300,32:243700}}
 };
 function capFirst(s){return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';}
+
+function displayClient1Name(){
+  const v = (document.getElementById('client1Name')?.value || '').trim();
+  return v || 'Client 1';
+}
+function displayClient2Name(){
+  const v = (document.getElementById('client2Name')?.value || '').trim();
+  return v || 'Client 2';
+}
+function refreshClientDisplay(){
+  const c1 = displayClient1Name();
+  const c2 = displayClient2Name();
+  const c1Box = document.getElementById('client1BoxTitle');
+  const c2Box = document.getElementById('client2BoxTitle');
+  if(c1Box) c1Box.textContent = c1;
+  if(c2Box) c2Box.textContent = c2;
+  const po = document.getElementById('pensionOwner');
+  if(po && po.options.length >= 2){ po.options[0].text = c1; po.options[1].text = c2; }
+  const dw = document.getElementById('deathWho');
+  if(dw && dw.options.length >= 3){ dw.options[1].text = `${c1} dies first`; dw.options[2].text = `${c2} dies first`; }
+}
+
 function getPensionContinuationPct(){
   const val=document.getElementById('pensionSurvivorPct').value;
   return val==='custom' ? num('pensionSurvivorCustom')/100 : parseFloat(val||'0')/100;
@@ -255,8 +305,8 @@ function setupSpouseVisibility(){
   }
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','pension','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','pensionSurvivorCustom','clientName','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
-allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();calculate();}));
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','pension','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','pensionSurvivorCustom','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
+allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();}));
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
 document.getElementById('hIra').addEventListener('input', syncPremiumToIraTotal);
@@ -539,6 +589,7 @@ function fillMetricTable(id,scenario){
 let latest=null;
 function calculate(){
   setupSpouseVisibility();
+  refreshClientDisplay();
   renderLogoPreview();
   const before=buildScenario(false), after=buildScenario(true); latest={before,after};
   document.getElementById('beginningValue').textContent=fmt2(after.beginning);
@@ -553,14 +604,14 @@ function calculate(){
   document.getElementById('pfTaxSource').textContent=document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side';
   document.getElementById('pfPensionContinuation').textContent=`${(after.survivorPct*100).toFixed(0)}%`;
   document.getElementById('pfFeeDisplay').textContent=feeLabel();
-  const pensionOwnerLabel = document.getElementById('filingStatus').value==='MFJ' ? capFirst(document.getElementById('pensionOwner').value) : 'Primary client';
+  const pensionOwnerLabel = document.getElementById('filingStatus').value==='MFJ' ? capFirst(document.getElementById('pensionOwner').value) : 'Client 1';
   const deathSummary = (document.getElementById('filingStatus').value==='MFJ' && document.getElementById('deathWho').value && num('deathAge'))
     ? `${capFirst(document.getElementById('deathWho').value)} dies first at age ${Math.floor(num('deathAge'))}.`
     : 'No death event is applied.';
-  document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. Combined current taxable income included in conversion math is ${fmt2(after.currentTaxableIncome||0)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion uses available room within the selected tax bracket during the entered conversion window, beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of the pension thereafter. The selected bracket of ${after.targetBracket}% determines exact conversion taxes and exact bracket-fill room in this Locked Math Mode, while the entered conversion period defines the planning window. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Wife spousal Social Security modeling is active: once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife's annual benefit is modeled as her own reduced benefit plus a reduced spousal excess based on 50% of the husband's PIA less the wife's PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Wife spousal Social Security modeling is not active in this run.'}`;
+  document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. Combined current taxable income included in conversion math is ${fmt2(after.currentTaxableIncome||0)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion uses available room within the selected tax bracket during the entered conversion window, beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of the pension thereafter. The selected bracket of ${after.targetBracket}% determines exact conversion taxes and exact bracket-fill room in this Locked Math Mode, while the entered conversion period defines the planning window. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
-  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. Each year, the model adds only the net Roth amount after incremental conversion taxes when taxes are paid from the conversion side. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a wife's spousal Social Security step-up once the husband reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
+  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. Each year, the model adds only the net Roth amount after incremental conversion taxes when taxes are paid from the conversion side. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
@@ -618,7 +669,7 @@ async function generatePDF(){
   if(!latest) calculate();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('l','pt','letter');
-  const clientName=(document.getElementById('clientName').value||'Confidential').trim();
+  const clientName=(document.getElementById('clientName').value||displayClient1Name() + (document.getElementById('filingStatus').value==='MFJ' ? (' & ' + displayClient2Name()) : '')).trim();
   const before=latest.before, after=latest.after;
   const deathPdf = (document.getElementById('filingStatus').value==='MFJ' && document.getElementById('deathWho').value && num('deathAge'))
       ? `${capFirst(document.getElementById('deathWho').value)} dies first at age ${Math.floor(num('deathAge'))}` : 'None';
@@ -638,18 +689,18 @@ async function generatePDF(){
   doc.setDrawColor(11,58,111); doc.setLineWidth(0.5); doc.line(40,110,752,110);
   doc.autoTable({startY:124, head:[['Client Bio','Value']], body:[
     ['Filing Status', document.getElementById('filingStatus').value],
-    ['Husband Age', String(num('hAge'))],
-    ['Wife Age', document.getElementById('filingStatus').value==='MFJ'?String(num('wAge')):'N/A'],
-    ['Husband IRA', fmt2(num('hIra'))],
-    ['Wife IRA', document.getElementById('filingStatus').value==='MFJ'?fmt2(num('wIra')):'N/A'],
+    [(displayClient1Name() + ' Age'), String(num('hAge'))],
+    [(displayClient2Name() + ' Age'), document.getElementById('filingStatus').value==='MFJ'?String(num('wAge')):'N/A'],
+    [(displayClient1Name() + ' IRA'), fmt2(num('hIra'))],
+    [(displayClient2Name() + ' IRA'), document.getElementById('filingStatus').value==='MFJ'?fmt2(num('wIra')):'N/A'],
     ['Pension', fmt2(num('pension'))],
-    ['Pension Owner', document.getElementById('filingStatus').value==='MFJ'?capFirst(document.getElementById('pensionOwner').value):'Primary client'],
+    ['Pension Owner', document.getElementById('filingStatus').value==='MFJ'?capFirst(document.getElementById('pensionOwner').value):'Client 1'],
     ['Pension Survivor Continuation', `${(getPensionContinuationPct()*100).toFixed(0)}%`],
     ['Conversion Period (Years)', String(Math.max(1,Math.floor(num('conversionYears')||6)))],
     ['Conversion Start Year', String(Math.max(1,Math.floor(num('startYear')||1)))],
     ['Target Bracket (planning context)', document.getElementById('targetBracket').value+'%'],
     ['Growth Rate', num('growth').toFixed(1)+'%'],
-    ['Wife Spousal SS Modeling', document.getElementById('filingStatus').value==='MFJ' ? (document.getElementById('applySpousal').value==='yes' ? 'Enabled' : 'Disabled') : 'N/A'],
+    [(displayClient2Name() + ' Spousal SS Modeling'), document.getElementById('filingStatus').value==='MFJ' ? (document.getElementById('applySpousal').value==='yes' ? 'Enabled' : 'Disabled') : 'N/A'],
     ['Death Modeling', deathPdf]
   ], styles:{fontSize:10}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
   addPdfFooter(doc,1);
@@ -808,7 +859,7 @@ async function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, so the model first uses taxable IRA withdrawals during the conversion window to fill any income gap before using remaining bracket room for Roth conversion. This run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each year's conversion is limited by exact bracket-fill room using gross entered income plus any RMD. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Wife spousal Social Security modeling is enabled, so once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife is modeled at her own reduced annual benefit plus a reduced spousal excess equal to ((50% of husband PIA minus wife PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, so the model first uses taxable IRA withdrawals during the conversion window to fill any income gap before using remaining bracket room for Roth conversion. This run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each year's conversion is limited by exact bracket-fill room using gross entered income plus any RMD. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -849,7 +900,7 @@ async function generatePDF(){
   // Survivor comparison page
   const survivorPageNum = doc.getNumberOfPages()+1;
   doc.addPage('letter','l');
-  addTitle(doc,'Survivor Tax Impact: Without and With Roth Conversion','Shows what happens tax-wise to the wife after the entered husband death age.');
+  addTitle(doc,'Survivor Tax Impact: Without and With Roth Conversion','Shows what happens tax-wise to the survivor after the entered Client 1 death age.');
   addPdfLogo(doc);
   doc.autoTable({
     startY:78,
@@ -863,6 +914,6 @@ async function generatePDF(){
 
   doc.save('fidelity-roth-planner-report.pdf');
 }
-window.addEventListener('DOMContentLoaded', () => { try { setupSpouseVisibility(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+window.addEventListener('DOMContentLoaded', () => { try { setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 </script>
 </body></html>
