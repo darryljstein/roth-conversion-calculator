@@ -10,15 +10,12 @@
     :root { --blue:#0b3a6f; --gold:#c89a3d; --light:#f6f8fb; --border:#d7deea; --text:#1f2937; --muted:#6b7280; }
     *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:#eef2f7}
     .container{max-width:1500px;margin:0 auto;padding:24px}.hero{background:linear-gradient(120deg,var(--blue),#143f7a 55%,#1f4f92);color:#fff;border-radius:18px;padding:28px;box-shadow:0 12px 28px rgba(8,25,53,.18);margin-bottom:22px}
-    .hero h1{margin:0 0 8px;font-size:34px}.hero p{margin:0;font-size:16px;line-height:1.5;max-width:1050px}.grid{display:grid;grid-template-columns:420px 1fr;gap:22px;align-items:start}
-.grid{
-  display:grid;
-  grid-template-columns:420px 1fr;
-  gap:22px;
-  align-items:start;
-  max-height:none;     /* 👈 ADD */
-  overflow:visible;    /* 👈 ADD */
-}
+    .hero h1{margin:0 0 8px;font-size:34px}.hero p{margin:0;font-size:16px;line-height:1.5;max-width:1050px}
+    .hero-flex{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+    .hero-left{flex:1;min-width:0}
+    .hero-right{flex:0 0 300px;min-width:300px;display:flex;align-items:flex-start;justify-content:flex-end}
+    .hero-right img{height:150px;max-height:150px;width:auto;display:block;object-fit:contain}
+    .grid{display:grid;grid-template-columns:420px 1fr;gap:22px;align-items:start}
     .card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(16,24,40,.07);border:1px solid var(--border);margin-bottom:18px}
     .card h2,.card h3{margin:0 0 14px;color:var(--blue)}.section-title{font-size:20px;margin-bottom:16px}
     .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}
@@ -35,14 +32,22 @@
     .note,.assumptions,.small{font-size:13px;line-height:1.55;color:#475569}.hidden{display:none}
     .disclaimer-box{font-size:12px;line-height:1.5;color:#475569;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px}
     @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col{grid-template-columns:1fr}}
+    @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
     @media (max-width:650px){.inputs-grid,.pill-row{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
 <div class="container">
   <div class="hero">
-    <h1>Fidelity Mutual Financial</h1>
-    <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF.</p>
+    <div class="hero-flex">
+      <div class="hero-left">
+        <h1>Fidelity Mutual Financial</h1>
+        <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF.</p>
+      </div>
+      <div class="hero-right">
+        <img src="logo-white.png" alt="Fidelity Mutual Financial Logo" />
+      </div>
+    </div>
   </div>
   <div class="grid">
     <div>
@@ -165,7 +170,7 @@
 
       <div class="card">
         <h2 class="section-title">Year-by-Year Tax Flow Preview</h2>
-        <div class="small">This preview shows the first 15 years from the strategy scenario. Roth withdrawals respect a 5-year conversion ladder, and current taxable income reduces annual conversion room.</div>
+        <div class="small">This preview shows the first 15 years from the strategy scenario. Roth withdrawals respect a 5-year conversion ladder, current taxable income reduces annual conversion room, and withdrawals only occur after earned income, Social Security, and pension are counted against the desired income target.</div>
         <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>Roth Income</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
       </div>
 
@@ -177,17 +182,8 @@
 </div>
 <script>
 const fmt2 = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2,minimumFractionDigits:2}).format(isFinite(n)?n:0);
-const num = id => { 
-  const el = document.getElementById(id);
-  if (!el) return 0;
-  const v = parseFloat(el.value);
-  return isNaN(v) ? 0 : v;
-};
-const percent = id => {
-  const el = document.getElementById(id);
-  if (!el) return 0;
-  return num(id)/100;
-};
+const num = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v)?0:v; };
+const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
 const TAX = {
   MFJ:{ded:32200,irmaa1:218000,brackets:{12:97000,22:211400,24:403200,32:513300}},
@@ -268,12 +264,27 @@ document.getElementById('wIra').addEventListener('input', syncPremiumToIraTotal)
 attachRecalc(allIds.filter(id => !['filingStatus','pensionSurvivorPct','deathWho','pensionOwner','payTaxesOutside','targetBracket','feeType'].includes(id)));
 
 function rmdStartAge(currentAge){const birthYear=2026-currentAge+1; return birthYear>=1960?75:73;}
-function calcIRMAA(magi,status){
-  const threshold=TAX[status].irmaa1;
-  if(magi<=threshold) return 0;
-  const base=2434.80;
-  const surcharge=Math.ceil((magi-threshold)/50000);
-  return base*Math.min(5,surcharge);
+function calcIRMAA(magi,status,hAge,wAge){
+  const husbandEligible = Number(hAge) >= 65;
+  const wifeEligible = (status === 'MFJ') ? (Number(wAge) >= 65) : false;
+  const singleEligible = (status !== 'MFJ') ? (Number(hAge) >= 65) : false;
+  if(!(husbandEligible || wifeEligible || singleEligible)) return 0;
+
+  if(status === 'MFJ'){
+    if(magi <= 218000) return 0;
+    if(magi <= 274000) return 3583.20;
+    if(magi <= 342000) return 5319.60;
+    if(magi <= 410000) return 7054.80;
+    if(magi <= 750000) return 8790.00;
+    return 9370.80;
+  }
+
+  if(magi <= 109000) return 0;
+  if(magi <= 137000) return 3583.20;
+  if(magi <= 171000) return 5319.60;
+  if(magi <= 205000) return 7054.80;
+  if(magi <= 500000) return 8790.00;
+  return 9370.80;
 }
 function taxableSS(ss){return ss*0.85;}
 function ordinaryTax(income,status){
@@ -336,11 +347,6 @@ function buildScenario(useStrategy){
 
   for(let year=1; year<=40; year++){
     const currentStatus=status;
-    const primaryAge = currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
-
-    const desiredIncome = (primaryAge >= incomeStartAge)
-                ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
-                : 0;
     const ownerDied = deathApplied && filingStart==='MFJ' && deathWho===pensionOwner;
     const pension = basePension * Math.pow(1+cola,year-1) * (ownerDied ? survivorPct : 1);
 
@@ -369,6 +375,9 @@ function buildScenario(useStrategy){
     let rmd=0;
 
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
+    const desiredIncome = (primaryAge >= incomeStartAge)
+      ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
+      : 0;
     const rmdAge=rmdStartAge(primaryAge);
     if(primaryAge>=rmdAge && ira>0){
       const divisor=Math.max(2,27.4-Math.max(0,primaryAge-rmdAge));
@@ -382,8 +391,8 @@ function buildScenario(useStrategy){
     let detailTax=0;
 
     if(useStrategy){
-      // gross spending need is after SS + pension; IRA funds spending before Roth buckets unlock
-      let remainingNeed = Math.max(0, desiredIncome - ssIncome - pension);
+      // true income gap logic: earned income, Social Security, and pension satisfy need before any IRA/Roth withdrawals
+      let remainingNeed = Math.max(0, desiredIncome - currentGrossIncome - ssIncome - pension);
       const cfg=TAX[currentStatus], bracketCeiling=cfg.brackets[targetBracket];
 
       // Use IRA for spending first (pre and post conversion) before Roth, especially during first 5 years
@@ -411,7 +420,7 @@ function buildScenario(useStrategy){
       const baseTax = ordinaryTax(currentTaxableIncome + ssIncome + pension + rmd + taxableWithdrawal, currentStatus);
       detailTax = baseTax + conversionTax;
       totalTax = detailTax;
-      irmaa = calcIRMAA(currentTaxableIncome + ssIncome + pension + rmd + taxableWithdrawal + conversion, currentStatus);
+      irmaa = calcIRMAA(currentTaxableIncome + ssIncome + pension + rmd + taxableWithdrawal + conversion, currentStatus, hAge, wAge);
 
       const netToRoth = payTaxesOutside ? conversion : Math.max(0, conversion - conversionTax);
       const effectiveFeeRate = year <= feeYears ? annualFeeRate : 0;
@@ -451,7 +460,7 @@ function buildScenario(useStrategy){
       displayedIncome = currentGrossIncome + ssIncome + pension + rmd;
       totalTax = ordinaryTax(currentTaxableIncome + displayedIncome, currentStatus);
       detailTax = totalTax;
-      irmaa = calcIRMAA(currentTaxableIncome + displayedIncome, currentStatus);
+      irmaa = calcIRMAA(currentTaxableIncome + displayedIncome, currentStatus, hAge, wAge);
       outside=Math.max(0, outside-totalTax-irmaa);
       ira = Math.max(0, (ira - rmd) * (1+growth));
       totalTaxes += totalTax;
@@ -799,7 +808,7 @@ async function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income is set to ${fmt2(num('desiredIncome'))}, so the model first uses taxable IRA withdrawals during the conversion window to fill any income gap before using remaining bracket room for Roth conversion. This run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each year's conversion is limited by exact bracket-fill room using gross entered income plus any RMD. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Wife spousal Social Security modeling is enabled, so once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife is modeled at her own reduced annual benefit plus a reduced spousal excess equal to ((50% of husband PIA minus wife PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, so the model first uses taxable IRA withdrawals during the conversion window to fill any income gap before using remaining bracket room for Roth conversion. This run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each year's conversion is limited by exact bracket-fill room using gross entered income plus any RMD. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Wife spousal Social Security modeling is enabled, so once the husband reaches age ${after.hFRAAge.toFixed(1)}, the wife is modeled at her own reduced annual benefit plus a reduced spousal excess equal to ((50% of husband PIA minus wife PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -854,16 +863,6 @@ async function generatePDF(){
 
   doc.save('fidelity-roth-planner-report.pdf');
 }
-window.addEventListener('DOMContentLoaded', () => {
-  try {
-    setupSpouseVisibility();
-    renderLogoPreview();
-    syncPremiumToIraTotal();
-    calculate();
-  } catch(e){
-    console.error("INIT ERROR:", e);
-    alert("Initialization error: " + e.message);
-  }
-});
+window.addEventListener('DOMContentLoaded', () => { try { setupSpouseVisibility(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 </script>
 </body></html>
