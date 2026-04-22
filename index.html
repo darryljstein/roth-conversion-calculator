@@ -111,6 +111,8 @@
           <div class="field"><label>Last Deduction Age</label><input id="alimonyEndAge" type="number" value="72" min="40" max="95" step="1" /></div>
           <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
           <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
+          <div class="field"><label>Tax Bracket Inflation %</label><input id="taxInflation" type="number" value="2.6" step="0.1" /></div>
+          <div class="field"><label>Additional 65+ Deduction (Per Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="1000000" step="1000" /></div>
           <div class="field"><label>Desired Annual Income</label><input id="desiredIncome" type="number" value="150000" step="1000" /></div>
@@ -224,7 +226,7 @@ const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
 const TAX = {
   MFJ:{ded:32200,irmaa1:218000,brackets:{12:97000,22:211400,24:403200,32:513300}},
-  Single:{ded:16100,irmaa1:109000,brackets:{12:48500,22:105700,24:192000,32:243800}},
+  Single:{ded:16100,irmaa1:109000,brackets:{12:48500,22:105700,24:201775,32:256225}},
   HOH:{ded:23600,irmaa1:109000,brackets:{12:69400,22:118200,24:190300,32:243700}}
 };
 function capFirst(s){return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';}
@@ -314,7 +316,7 @@ function setupSpouseVisibility(){
   }
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','pension','pensionTaxFree','plannedIraWithdrawal','plannedIraEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','pensionSurvivorCustom','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','pension','pensionTaxFree','plannedIraWithdrawal','plannedIraEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','pensionSurvivorCustom','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
 allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();}));
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
@@ -346,8 +348,28 @@ function calcIRMAA(magi,status,hAge,wAge){
   return 9370.80;
 }
 function taxableSS(ss){return ss*0.85;}
-function ordinaryTax(income,status){
-  const cfg=TAX[status], taxable=Math.max(0,income-cfg.ded), b=cfg.brackets;
+function getTaxConfig(status, year, hAge, wAge){
+  const base = TAX[status];
+  const taxInflation = percent('taxInflation') || 0;
+  const factor = Math.pow(1 + taxInflation, Math.max(0, year - 1));
+  const seniorBase = num('seniorDeduction');
+  const seniorCount = status === 'MFJ'
+    ? (Number(hAge) >= 65 ? 1 : 0) + (Number(wAge) >= 65 ? 1 : 0)
+    : (Number(hAge) >= 65 ? 1 : 0);
+  const ded = (base.ded * factor) + (seniorBase * factor * seniorCount);
+  return {
+    ded,
+    irmaa1: base.irmaa1 * factor,
+    brackets: {
+      12: base.brackets[12] * factor,
+      22: base.brackets[22] * factor,
+      24: base.brackets[24] * factor,
+      32: base.brackets[32] * factor
+    }
+  };
+}
+function ordinaryTax(income, cfg){
+  const taxable=Math.max(0,income-cfg.ded), b=cfg.brackets;
   let tax=0, prev=0; const levels=[[12,b[12]],[22,b[22]],[24,b[24]],[32,b[32]]];
   for(const [rate,top] of levels){ const amt=Math.max(0,Math.min(taxable,top)-prev); tax+=amt*(rate/100); prev=top; if(taxable<=top) return tax; }
   tax+=Math.max(0,taxable-b[32])*0.35; return tax;
@@ -477,19 +499,23 @@ function buildScenario(useStrategy){
     let irmaa=0;
     let detailTax=0;
 
+    if(year===1) firstConv=conversion;
+
+    const taxCfg = getTaxConfig(currentStatus, year, hAge, wAge);
+    const bracketTarget = parseInt(document.getElementById('targetBracket').value,10);
+    const taxableBaseBeforeConversion = Math.max(0, currentTaxableIncome + taxablePension + taxableSSIncome + iraWithdrawal - alimonyDeduction);
     if(useStrategy && year>=startYear && year<=conversionEndYear && ira>0){
       const yearsRemainingInWindow = conversionEndYear - year + 1;
       const convertibleBalance = Math.max(0, ira - iraWithdrawal);
-      const plannedConversion = yearsRemainingInWindow > 0 ? (convertibleBalance / yearsRemainingInWindow) : convertibleBalance;
-      conversion = Math.max(0, Math.min(convertibleBalance, plannedConversion));
+      const scheduledConversion = yearsRemainingInWindow > 0 ? (convertibleBalance / yearsRemainingInWindow) : convertibleBalance;
+      const bracketIncomeCap = (taxCfg.brackets[bracketTarget] || taxCfg.brackets[24]) + taxCfg.ded;
+      const bracketRoom = Math.max(0, bracketIncomeCap - taxableBaseBeforeConversion);
+      conversion = Math.max(0, Math.min(convertibleBalance, scheduledConversion, bracketRoom));
       if(conversion>0 && yearsRemainingInWindow === 1) conversionFinishedYear = year;
     }
-    if(year===1) firstConv=conversion;
-
-    const taxableBaseBeforeConversion = Math.max(0, currentTaxableIncome + taxablePension + taxableSSIncome + iraWithdrawal - alimonyDeduction);
     const taxableBaseAfterConversion = taxableBaseBeforeConversion + conversion;
-    const baseTax = ordinaryTax(taxableBaseBeforeConversion, currentStatus);
-    const totalTaxWithConversion = ordinaryTax(taxableBaseAfterConversion, currentStatus);
+    const baseTax = ordinaryTax(taxableBaseBeforeConversion, taxCfg);
+    const totalTaxWithConversion = ordinaryTax(taxableBaseAfterConversion, taxCfg);
     conversionTax = Math.max(0, totalTaxWithConversion - baseTax);
     detailTax = useStrategy ? totalTaxWithConversion : baseTax;
     totalTax = detailTax;
@@ -659,10 +685,10 @@ function calculate(){
   const deathSummary = (document.getElementById('filingStatus').value==='MFJ' && document.getElementById('deathWho').value && num('deathAge'))
     ? `${capFirst(document.getElementById('deathWho').value)} dies first at age ${Math.floor(num('deathAge'))}.`
     : 'No death event is applied.';
-  document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it uses Desired Income as a gap-filler. Taxable pension is ${fmt2(num('pension'))}, tax-free pension is ${fmt2(num('pensionTaxFree'))}, and any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion is scheduled to fully complete within the entered conversion window, beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active conversion year converts roughly an equal share of the remaining IRA balance after the advisor-entered IRA spending, any RMD, and any additional gap-fill spending. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of both pension streams thereafter. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
+  document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it uses Desired Income as a gap-filler. Taxable pension is ${fmt2(num('pension'))}, tax-free pension is ${fmt2(num('pensionTaxFree'))}, and any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion is now constrained by the selected tax bracket and inflation-adjusted tax limits. Beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}, each active conversion year uses the smaller of: the remaining-on-schedule conversion amount or the available room under the selected bracket after inflation-adjusted deductions. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of both pension streams thereafter. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
-  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)}, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
+  document.getElementById('estateExplain').innerHTML=`Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)}, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.iraWithdrawal||0)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
@@ -755,6 +781,8 @@ async function generatePDF(){
     ['Conversion Period (Years)', String(Math.max(1,Math.floor(num('conversionYears')||6)))],
     ['Conversion Start Year', String(Math.max(1,Math.floor(num('startYear')||1)))],
     ['Target Bracket (planning context)', document.getElementById('targetBracket').value+'%'],
+    ['Tax Bracket Inflation', num('taxInflation').toFixed(1)+'%'],
+    ['Additional 65+ Deduction (per person)', fmt2(num('seniorDeduction'))],
     ['Growth Rate', num('growth').toFixed(1)+'%'],
     [(displayClient2Name() + ' Spousal SS Modeling'), document.getElementById('filingStatus').value==='MFJ' ? (document.getElementById('applySpousal').value==='yes' ? 'Enabled' : 'Disabled') : 'N/A'],
     ['Death Modeling', deathPdf]
@@ -777,7 +805,8 @@ async function generatePDF(){
     ['Tax Payment Source', document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side'],
     ['Pension Continuation at First Death', `${(getPensionContinuationPct()*100).toFixed(0)}%`],
     ['Displayed Annual Fee', feeLabel()],
-    ['Desired Annual Income', fmt2(num('desiredIncome'))]
+    ['Desired Annual Income', fmt2(num('desiredIncome'))],
+    ['Bracket Inflation Assumption', num('taxInflation').toFixed(1)+'%']
   ], styles:{fontSize:10}, headStyles:{fillColor:[200,154,61]}, margin:{bottom:85}});
   addPdfFooter(doc,2);
 
@@ -916,7 +945,7 @@ async function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run also tracks taxable pension of ${fmt2(num('pension'))}, tax-free pension of ${fmt2(num('pensionTaxFree'))}, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is designed to convert the remaining IRA balance evenly across the years left in the window, after the planned IRA distribution, any RMD, and any additional gap-fill spending. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run also tracks taxable pension of ${fmt2(num('pension'))}, tax-free pension of ${fmt2(num('pensionTaxFree'))}, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
