@@ -15,7 +15,7 @@
     .hero-left{flex:1;min-width:0}
     .hero-right{flex:0 0 300px;min-width:300px;display:flex;align-items:flex-start;justify-content:flex-end}
     .hero-right img{height:150px;max-height:150px;width:auto;display:block;object-fit:contain}
-    .grid{display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);gap:22px;align-items:start}
+    .grid{display:grid;grid-template-columns:minmax(360px,420px) minmax(0,1fr);gap:22px;align-items:start}
     .card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(16,24,40,.07);border:1px solid var(--border);margin-bottom:18px}
     .card h2,.card h3{margin:0 0 14px;color:var(--blue)}.section-title{font-size:20px;margin-bottom:16px}
     .client-bio-top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
@@ -24,22 +24,23 @@
     .client-box-title{font-size:18px;margin:0 0 12px;color:var(--blue)}
     .shared-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}
     .left-stack{display:flex;flex-direction:column;gap:18px;min-width:0}
-    .social-security-card .inputs-grid{grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}
+    .social-security-card .inputs-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .social-security-card .small{max-width:100%}
 
-    .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}
-    .field label{font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em}
+    .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0;overflow:hidden}
+    .field label{font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em;line-height:1.25;overflow-wrap:anywhere;word-break:break-word}
     input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff}
     .checkbox-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:14px}.checkbox-row input{width:auto}
     .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px} button{border:none;border-radius:12px;padding:12px 16px;cursor:pointer;font-weight:700;font-size:14px}
     .primary{background:var(--blue);color:#fff}.gold{background:var(--gold);color:#1f2937}.pill-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
-    .pill{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 8px 22px rgba(16,24,40,.05)}.pill .label{font-size:12px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.04em}
+    .pill{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 8px 22px rgba(16,24,40,.05);min-width:0}.pill .label{font-size:12px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.04em}
     .pill .value{margin-top:8px;font-size:28px;color:var(--blue);font-weight:700} table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
     th,td{border-bottom:1px solid #e5e7eb;padding:10px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#f8fafc;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}.panel{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px}
+    .two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.panel{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px;min-width:0;overflow:hidden}
     .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
     .note,.assumptions,.small{font-size:13px;line-height:1.55;color:#475569}.hidden{display:none}
     .disclaimer-box{font-size:12px;line-height:1.5;color:#475569;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px}
+    @media (max-width:1280px){.social-security-card .inputs-grid{grid-template-columns:1fr}}
     @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col,.client-box-grid{grid-template-columns:1fr}.social-security-card .inputs-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
     @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
@@ -118,7 +119,7 @@
 
       </div>
 
-      <div class="card spouse-field social-security-card">
+      <div class="card spouse-field social-security-card" style="padding:18px;">
         <h2 class="section-title">Social Security Spousal Modeling</h2>
         <div class="inputs-grid">
           <div class="field"><label>Apply Client 2 Spousal Step-Up</label><select id="applySpousal"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
