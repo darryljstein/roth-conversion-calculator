@@ -15,7 +15,7 @@
     .hero-left{flex:1;min-width:0}
     .hero-right{flex:0 0 300px;min-width:300px;display:flex;align-items:flex-start;justify-content:flex-end}
     .hero-right img{height:150px;max-height:150px;width:auto;display:block;object-fit:contain}
-    .grid{display:grid;grid-template-columns:420px 1fr;gap:22px;align-items:start}
+    .grid{display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);gap:22px;align-items:start}
     .card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(16,24,40,.07);border:1px solid var(--border);margin-bottom:18px}
     .card h2,.card h3{margin:0 0 14px;color:var(--blue)}.section-title{font-size:20px;margin-bottom:16px}
     .client-bio-top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
@@ -23,8 +23,11 @@
     .client-box{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px}
     .client-box-title{font-size:18px;margin:0 0 12px;color:var(--blue)}
     .shared-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}
+    .left-stack{display:flex;flex-direction:column;gap:18px;min-width:0}
+    .social-security-card .inputs-grid{grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}
+    .social-security-card .small{max-width:100%}
 
-    .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}
+    .inputs-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px;min-width:0}
     .field label{font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:.04em}
     input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff}
     .checkbox-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:14px}.checkbox-row input{width:auto}
@@ -37,7 +40,7 @@
     .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
     .note,.assumptions,.small{font-size:13px;line-height:1.55;color:#475569}.hidden{display:none}
     .disclaimer-box{font-size:12px;line-height:1.5;color:#475569;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px}
-    @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col{grid-template-columns:1fr}}
+    @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col,.client-box-grid{grid-template-columns:1fr}.social-security-card .inputs-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
     @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
   </style>
@@ -56,7 +59,7 @@
     </div>
   </div>
   <div class="grid">
-    <div>
+    <div class="left-stack">
       <div class="card">
         <h2 class="section-title">Client Bio</h2>
 
@@ -66,20 +69,6 @@
         </div>
 
         <div class="client-box-grid">
-          <div class="client-box spouse-field">
-            <h3 class="client-box-title" id="client2BoxTitle">Client 2</h3>
-            <div class="inputs-grid">
-              <div class="field spouse-field"><label>Client 2 Name</label><input id="client2Name" type="text" placeholder="Client 2 Name" /></div>
-              <div class="field spouse-field"><label>Client 2 Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
-              <div class="field spouse-field"><label>Client 2 IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
-              <div class="field spouse-field"><label>Client 2 SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" step="0.1" /></div>
-              <div class="field spouse-field"><label>Client 2 SS Annual</label><input id="wSS" type="number" value="25000" /></div>
-              <div class="field spouse-field"><label>Client 2 Current Annual Income</label><input id="wCurrentIncome" type="number" value="87000" step="1000" /></div>
-              <div class="field spouse-field"><label>Client 2 Taxable Income Portion</label><input id="wTaxableIncome" type="number" value="87000" step="1000" /></div>
-              <div class="field spouse-field"><label>Client 2 Income Ends At Age</label><input id="wIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
-            </div>
-          </div>
-
           <div class="client-box">
             <h3 class="client-box-title" id="client1BoxTitle">Client 1</h3>
             <div class="inputs-grid">
@@ -92,6 +81,20 @@
               <div class="field"><label>Client 1 Current Annual Income</label><input id="hCurrentIncome" type="number" value="50000" step="1000" /></div>
               <div class="field"><label>Client 1 Taxable Income Portion</label><input id="hTaxableIncome" type="number" value="20000" step="1000" /></div>
               <div class="field"><label>Client 1 Income Ends At Age</label><input id="hIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
+            </div>
+          </div>
+
+          <div class="client-box spouse-field">
+            <h3 class="client-box-title" id="client2BoxTitle">Client 2</h3>
+            <div class="inputs-grid">
+              <div class="field spouse-field"><label>Client 2 Name</label><input id="client2Name" type="text" placeholder="Client 2 Name" /></div>
+              <div class="field spouse-field"><label>Client 2 Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
+              <div class="field spouse-field"><label>Client 2 IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" step="0.1" /></div>
+              <div class="field spouse-field"><label>Client 2 SS Annual</label><input id="wSS" type="number" value="25000" /></div>
+              <div class="field spouse-field"><label>Client 2 Current Annual Income</label><input id="wCurrentIncome" type="number" value="87000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 Taxable Income Portion</label><input id="wTaxableIncome" type="number" value="87000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 Income Ends At Age</label><input id="wIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
             </div>
           </div>
         </div>
@@ -114,15 +117,14 @@
         </div>
 
       </div>
-      </div>
 
-      <div class="card spouse-field">
+      <div class="card spouse-field social-security-card">
         <h2 class="section-title">Social Security Spousal Modeling</h2>
         <div class="inputs-grid">
           <div class="field"><label>Apply Client 2 Spousal Step-Up</label><select id="applySpousal"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
           <div class="field"><label>Client 1 FRA Age</label><input id="hFRAAge" type="number" value="67.6" min="66" max="70" step="0.1" /></div>
           <div class="field"><label>Client 1 FRA SS Annual (PIA)</label><input id="hPIA" type="number" placeholder="Enter annual FRA benefit" /></div>
-          <div class="field"><label>Client 2 FRA SS Annual (PIA)</label><input id="wPIA" type="number" placeholder="Enter wife's FRA annual benefit" /></div>
+          <div class="field"><label>Client 2 FRA SS Annual (PIA)</label><input id="wPIA" type="number" placeholder="Enter Client 2 FRA annual benefit" /></div>
           <div class="field"><label>Client 2 Current Own SS Annual</label><input id="wOwnSSCurrent" type="number" placeholder="Enter current annual benefit" /></div>
           <div class="field"><label>Spousal Reduction Factor</label><input id="spousalFactor" type="number" value="65" min="0" max="100" step="1" /></div>
         </div>
