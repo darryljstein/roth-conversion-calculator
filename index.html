@@ -394,8 +394,7 @@ function getPensionStreams(year, filingStart, deathApplied, deathWho, status, hA
 }
 
 function getPensionContinuationPct(){
-  const val=document.getElementById('pensionSurvivorPct').value;
-  return val==='custom' ? num('pensionSurvivorCustom')/100 : parseFloat(val||'0')/100;
+  return 0;
 }
 function feeRate(){
   if(document.getElementById('feeType').value==='nofee') return 0;
@@ -461,7 +460,7 @@ document.getElementById('logoUpload').addEventListener('change', handleLogoUploa
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
 document.getElementById('hIra').addEventListener('input', syncPremiumToIraTotal);
 document.getElementById('wIra').addEventListener('input', syncPremiumToIraTotal);
-attachRecalc(allIds.filter(id => !['filingStatus','pensionSurvivorPct','deathWho','pensionOwner','payTaxesOutside','targetBracket','feeType'].includes(id)));
+attachRecalc(allIds.filter(id => !['filingStatus','deathWho','payTaxesOutside','targetBracket','feeType'].includes(id)));
 
 function rmdStartAge(currentAge){const birthYear=2026-currentAge+1; return birthYear>=1960?75:73;}
 function calcIRMAA(magi,status,hAge,wAge){
@@ -924,8 +923,7 @@ async function generatePDF(){
     ['NQ Withdrawal Stops At Age', String(Math.floor(num('plannedNqEndAge')||70))],
     ['Alimony / Other Deduction', fmt2(num('alimonyDeduction'))],
     ['Last Deduction Age', String(Math.floor(num('alimonyEndAge')||72))],
-    ['Pension Owner', document.getElementById('filingStatus').value==='MFJ'?capFirst(document.getElementById('pensionOwner').value):'Client 1'],
-    ['Pension Survivor Continuation', `${(getPensionContinuationPct()*100).toFixed(0)}%`],
+    ['Pension Owners / Survivor Rules', 'Each pension uses its own owner and survivor continuation'],
     ['Conversion Period (Years)', String(Math.max(1,Math.floor(num('conversionYears')||6)))],
     ['Conversion Start Year', String(Math.max(1,Math.floor(num('startYear')||1)))],
     ['Target Bracket (planning context)', document.getElementById('targetBracket').value+'%'],
@@ -1094,7 +1092,7 @@ async function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run also tracks taxable pension of ${fmt2(num('pension'))}, tax-free pension of ${fmt2(num('pensionTaxFree'))}, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows the selected survivor continuation rule of ${(getPensionContinuationPct()*100).toFixed(0)}% if the pension owner dies first. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at age 95. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. That amount compounds annually at a gross rate of ${num('growth').toFixed(1)}%, reduced by the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
