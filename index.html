@@ -23,6 +23,12 @@
     .client-box{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px}
     .client-box-title{font-size:18px;margin:0 0 12px;color:var(--blue)}
     .shared-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}
+    .pension-section{display:flex;flex-direction:column;gap:12px}
+    .pension-row{border:1px solid var(--border);border-radius:14px;padding:14px;background:#fbfdff}
+    .pension-row-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+    .pension-row-title{font-size:14px;font-weight:700;color:var(--blue)}
+    .mini-btn{padding:8px 12px;border-radius:10px;font-size:13px;font-weight:700}
+    .ghost{background:#eef2f7;color:#1f2937;border:1px solid var(--border)}
     .left-stack{display:flex;flex-direction:column;gap:18px;min-width:0}
     .social-security-card .inputs-grid{grid-template-columns:1fr;gap:12px}
     .social-security-card .small{max-width:100%}
@@ -101,12 +107,28 @@
         </div>
 
         <div class="shared-grid">
-          <div class="field"><label>Pension Owner</label><select id="pensionOwner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
-          <div class="field"><label>Pension Survivor Continuation</label><select id="pensionSurvivorPct"><option value="0" selected>0%</option><option value="50">50%</option><option value="100">100%</option><option value="custom">Custom %</option></select></div>
-          <div class="field hidden" id="pensionCustomWrap"><label>Custom Survivor %</label><input id="pensionSurvivorCustom" type="number" value="0" min="0" max="100" step="1" /></div>
-          <div class="field"><label>Tax-Free Pension Annual</label><input id="pensionTaxFree" type="number" value="0" step="1000" /></div>
+          <div class="field" style="grid-column:1 / -1">
+            <label>Pensions</label>
+            <div class="pension-section" id="pensionRows">
+              <div class="pension-row" data-pension-index="1">
+                <div class="pension-row-header">
+                  <div class="pension-row-title">Pension 1</div>
+                  <button type="button" class="mini-btn ghost" onclick="addPensionRow()">+ Add Pension</button>
+                </div>
+                <div class="inputs-grid">
+                  <div class="field"><label>Taxable Pension Annual</label><input id="pension1Taxable" type="number" value="0" step="1000" /></div>
+                  <div class="field"><label>Tax-Free Pension Annual</label><input id="pension1TaxFree" type="number" value="0" step="1000" /></div>
+                  <div class="field"><label>Pension Owner</label><select id="pension1Owner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
+                  <div class="field"><label>Pension Survivor Continuation</label><select id="pension1SurvivorPct"><option value="0" selected>0%</option><option value="50">50%</option><option value="100">100%</option><option value="custom">Custom %</option></select></div>
+                  <div class="field hidden" id="pension1CustomWrap"><label>Custom Survivor %</label><input id="pension1SurvivorCustom" type="number" value="0" min="0" max="100" step="1" /></div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="field"><label>Planned IRA Withdrawal Annual</label><input id="plannedIraWithdrawal" type="number" value="0" step="1000" /></div>
-          <div class="field"><label>Planned IRA Withdrawal Through Age</label><input id="plannedIraEndAge" type="number" value="70" min="40" max="95" step="1" /></div>
+          <div class="field"><label>IRA Withdrawal Stops At Age</label><input id="plannedIraEndAge" type="number" value="70" min="40" max="95" step="1" /></div>
+          <div class="field"><label>Planned NQ Withdrawal Annual</label><input id="plannedNqWithdrawal" type="number" value="0" step="1000" /></div>
+          <div class="field"><label>NQ Withdrawal Stops At Age</label><input id="plannedNqEndAge" type="number" value="70" min="40" max="95" step="1" /></div>
           <div class="field"><label>Alimony / Other Deduction Annual</label><input id="alimonyDeduction" type="number" value="0" step="1000" /></div>
           <div class="field"><label>Last Deduction Age</label><input id="alimonyEndAge" type="number" value="72" min="40" max="95" step="1" /></div>
           <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
@@ -211,7 +233,7 @@
       <div class="card">
         <h2 class="section-title">Year-by-Year Tax Flow Preview</h2>
         <div class="small">This preview shows the first 15 years from the strategy scenario. The redesigned engine respects advisor-entered IRA withdrawals first, applies taxable and tax-free pension separately, then uses matured Roth money only after the 5-year ladder is available. Desired income now fills only the remaining gap instead of overriding the entered IRA draw.</div>
-        <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>IRA Withdrawal</th><th>Roth Income</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
+        <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>IRA Withdrawal</th><th>NQ Withdrawal</th><th>Roth Income</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="card">
@@ -247,10 +269,128 @@ function refreshClientDisplay(){
   const c2Box = document.getElementById('client2BoxTitle');
   if(c1Box) c1Box.textContent = c1;
   if(c2Box) c2Box.textContent = c2;
-  const po = document.getElementById('pensionOwner');
-  if(po && po.options.length >= 2){ po.options[0].text = c1; po.options[1].text = c2; }
+  refreshAllPensionLabels();
   const dw = document.getElementById('deathWho');
   if(dw && dw.options.length >= 3){ dw.options[1].text = `${c1} dies first`; dw.options[2].text = `${c2} dies first`; }
+}
+
+
+function pensionRowCount(){
+  return document.querySelectorAll('#pensionRows .pension-row').length;
+}
+function getPensionValue(index, suffix){
+  const el = document.getElementById(`pension${index}${suffix}`);
+  if(!el) return 0;
+  const v = parseFloat(el.value);
+  return isNaN(v) ? 0 : v;
+}
+function getPensionOwnerValue(index){
+  const el = document.getElementById(`pension${index}Owner`);
+  return el ? el.value : 'husband';
+}
+function getPensionSurvivorPct(index){
+  const el = document.getElementById(`pension${index}SurvivorPct`);
+  if(!el) return 0;
+  const val = el.value;
+  return val === 'custom' ? (getPensionValue(index,'SurvivorCustom')/100) : (parseFloat(val||'0')/100);
+}
+function refreshPensionRowVisibility(index){
+  const el = document.getElementById(`pension${index}SurvivorPct`);
+  const wrap = document.getElementById(`pension${index}CustomWrap`);
+  if(el && wrap){
+    wrap.classList.toggle('hidden', el.value !== 'custom');
+  }
+}
+function refreshAllPensionLabels(){
+  const c1 = displayClient1Name();
+  const c2 = displayClient2Name();
+  document.querySelectorAll('#pensionRows .pension-row').forEach((row, idx) => {
+    const n = idx + 1;
+    const title = row.querySelector('.pension-row-title');
+    if(title) title.textContent = `Pension ${n}`;
+    const owner = document.getElementById(`pension${n}Owner`);
+    if(owner && owner.options.length >= 2){
+      owner.options[0].text = c1;
+      owner.options[1].text = c2;
+    }
+  });
+}
+function attachDynamicInput(el){
+  if(!el) return;
+  el.addEventListener('change', ()=>{setupSpouseVisibility();refreshClientDisplay();calculate();});
+  el.addEventListener('input', calculate);
+}
+function addPensionRow(){
+  const container = document.getElementById('pensionRows');
+  if(!container) return;
+  const next = pensionRowCount() + 1;
+  const row = document.createElement('div');
+  row.className = 'pension-row';
+  row.setAttribute('data-pension-index', String(next));
+  row.innerHTML = `
+    <div class="pension-row-header">
+      <div class="pension-row-title">Pension ${next}</div>
+      <button type="button" class="mini-btn ghost" onclick="removePensionRow(${next})">Remove</button>
+    </div>
+    <div class="inputs-grid">
+      <div class="field"><label>Taxable Pension Annual</label><input id="pension${next}Taxable" type="number" value="0" step="1000" /></div>
+      <div class="field"><label>Tax-Free Pension Annual</label><input id="pension${next}TaxFree" type="number" value="0" step="1000" /></div>
+      <div class="field"><label>Pension Owner</label><select id="pension${next}Owner"><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
+      <div class="field"><label>Pension Survivor Continuation</label><select id="pension${next}SurvivorPct" onchange="refreshPensionRowVisibility(${next})"><option value="0" selected>0%</option><option value="50">50%</option><option value="100">100%</option><option value="custom">Custom %</option></select></div>
+      <div class="field hidden" id="pension${next}CustomWrap"><label>Custom Survivor %</label><input id="pension${next}SurvivorCustom" type="number" value="0" min="0" max="100" step="1" /></div>
+    </div>`;
+  container.appendChild(row);
+  ['Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension${next}${suffix}`)));
+  refreshAllPensionLabels();
+  setupSpouseVisibility();
+  calculate();
+}
+function removePensionRow(index){
+  const row = document.querySelector(`#pensionRows .pension-row[data-pension-index="${index}"]`);
+  if(!row) return;
+  row.remove();
+  document.querySelectorAll('#pensionRows .pension-row').forEach((r, idx) => {
+    const old = r.getAttribute('data-pension-index');
+    const n = idx + 1;
+    if(String(n) === old) return;
+    r.setAttribute('data-pension-index', String(n));
+    r.innerHTML = `
+      <div class="pension-row-header">
+        <div class="pension-row-title">Pension ${n}</div>
+        ${n === 1 ? '<button type="button" class="mini-btn ghost" onclick="addPensionRow()">+ Add Pension</button>' : `<button type="button" class="mini-btn ghost" onclick="removePensionRow(${n})">Remove</button>`}
+      </div>
+      <div class="inputs-grid">
+        <div class="field"><label>Taxable Pension Annual</label><input id="pension${n}Taxable" type="number" value="${getPensionValue(Number(old),'Taxable')}" step="1000" /></div>
+        <div class="field"><label>Tax-Free Pension Annual</label><input id="pension${n}TaxFree" type="number" value="${getPensionValue(Number(old),'TaxFree')}" step="1000" /></div>
+        <div class="field"><label>Pension Owner</label><select id="pension${n}Owner"><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
+        <div class="field"><label>Pension Survivor Continuation</label><select id="pension${n}SurvivorPct" onchange="refreshPensionRowVisibility(${n})"><option value="0">0%</option><option value="50">50%</option><option value="100">100%</option><option value="custom">Custom %</option></select></div>
+        <div class="field hidden" id="pension${n}CustomWrap"><label>Custom Survivor %</label><input id="pension${n}SurvivorCustom" type="number" value="${getPensionValue(Number(old),'SurvivorCustom')}" min="0" max="100" step="1" /></div>
+      </div>`;
+  });
+  document.querySelectorAll('#pensionRows .pension-row').forEach((r, idx) => {
+    const n = idx + 1;
+    const owner = document.getElementById(`pension${n}Owner`);
+    if(owner) owner.value = getPensionOwnerValue(n);
+    const surv = document.getElementById(`pension${n}SurvivorPct`);
+    if(surv) surv.value = String(getPensionSurvivorPct(n)*100).replace('.0','');
+    ['Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension${n}${suffix}`)));
+    refreshPensionRowVisibility(n);
+  });
+  refreshAllPensionLabels();
+  setupSpouseVisibility();
+  calculate();
+}
+function getPensionStreams(year, filingStart, deathApplied, deathWho, status, hAge, wAge){
+  let taxablePension = 0;
+  let taxFreePension = 0;
+  for(let i=1;i<=pensionRowCount();i++){
+    const owner = getPensionOwnerValue(i);
+    const ownerDied = deathApplied && filingStart==='MFJ' && deathWho===owner;
+    const continuation = ownerDied ? getPensionSurvivorPct(i) : 1;
+    taxablePension += getPensionValue(i,'Taxable') * Math.pow(1+percent('cola'),year-1) * continuation;
+    taxFreePension += getPensionValue(i,'TaxFree') * Math.pow(1+percent('cola'),year-1) * continuation;
+  }
+  return {taxablePension, taxFreePension, totalPension: taxablePension + taxFreePension};
 }
 
 function getPensionContinuationPct(){
@@ -303,9 +443,7 @@ function handleLogoUpload(evt){
 function setupSpouseVisibility(){
   const status=document.getElementById('filingStatus').value;
   document.querySelectorAll('.spouse-field').forEach(el=>el.classList.toggle('hidden',status!=='MFJ'));
-  const custom=document.getElementById('pensionSurvivorPct').value==='custom';
-  document.getElementById('pensionCustomWrap').classList.toggle('hidden',!custom);
-  document.getElementById('pensionOwner').disabled = status!=='MFJ';
+  document.querySelectorAll('#pensionRows .pension-row').forEach((row, idx)=>{ const n = idx+1; refreshPensionRowVisibility(n); const owner = document.getElementById(`pension${n}Owner`); if(owner) owner.disabled = status!=='MFJ'; });
   document.getElementById('deathWho').disabled = status!=='MFJ';
   document.getElementById('deathAge').disabled = status!=='MFJ';
   ['applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor'].forEach(id=>{document.getElementById(id).disabled = status!=='MFJ';});
@@ -317,7 +455,7 @@ function setupSpouseVisibility(){
   }
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','pensionSurvivorPct','deathWho','deathAge','pensionOwner','payTaxesOutside','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','pension','pensionTaxFree','plannedIraWithdrawal','plannedIraEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','pensionSurvivorCustom','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','filingStatus','deathWho','deathAge','payTaxesOutside','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
 allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();}));
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
@@ -389,18 +527,18 @@ function buildScenario(useStrategy){
   let ira=useStrategy ? (premium+bonus) : (enteredHusbandIra + enteredWifeIra);
   const initialIra = ira;
   let outside=num('outsideAssets');
-  const taxablePensionBase=num('pension');
-  const taxFreePensionBase=num('pensionTaxFree');
   const plannedIraWithdrawalBase=num('plannedIraWithdrawal');
   const plannedIraEndAge=Math.floor(num('plannedIraEndAge') || 70);
+  const plannedNqWithdrawalBase=num('plannedNqWithdrawal');
+  const plannedNqEndAge=Math.floor(num('plannedNqEndAge') || 70);
   const alimonyDeductionBase=num('alimonyDeduction');
   const alimonyEndAge=Math.floor(num('alimonyEndAge') || 72);
   const cola=percent('cola');
   const growth=percent('growth');
   const annualFeeRate=useStrategy ? feeRate() : 0;
   const feeYears = 10;
-  const pensionOwner=(filingStart==='MFJ' ? document.getElementById('pensionOwner').value : 'primary');
-  const survivorPct=getPensionContinuationPct();
+  const pensionOwner='multiple';
+  const survivorPct=0;
 
   let hSSBase=num('hSS'), wSSBase=num('wSS');
   let hSSStart=num('hSSAge'), wSSStart=num('wSSAge');
@@ -434,12 +572,7 @@ function buildScenario(useStrategy){
   for(let year=1; year<=40; year++){
     const currentStatus=status;
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
-    const ownerDied = deathApplied && filingStart==='MFJ' && deathWho===pensionOwner;
-    const continuationFactor = ownerDied ? survivorPct : 1;
-
-    const taxablePension = taxablePensionBase * Math.pow(1+cola,year-1) * continuationFactor;
-    const taxFreePension = taxFreePensionBase * Math.pow(1+cola,year-1) * continuationFactor;
-    const pension = taxablePension + taxFreePension;
+    const {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
 
     const hIncomeEndAge = Math.floor(num('hIncomeEndAge') || 65);
     const wIncomeEndAge = Math.floor(num('wIncomeEndAge') || 65);
@@ -466,6 +599,7 @@ function buildScenario(useStrategy){
       : 0;
 
     const plannedIraWithdrawal = primaryAge <= plannedIraEndAge ? plannedIraWithdrawalBase : 0;
+    const plannedNqWithdrawal = primaryAge <= plannedNqEndAge ? plannedNqWithdrawalBase : 0;
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
     const rmdAge=rmdStartAge(primaryAge);
@@ -477,7 +611,7 @@ function buildScenario(useStrategy){
 
     let rothWithdrawal = 0;
     let extraIraGapWithdrawal = 0;
-    const baseCashFlow = currentGrossIncome + pension + ssIncome + plannedIraWithdrawal;
+    const baseCashFlow = currentGrossIncome + pension + ssIncome + plannedIraWithdrawal + plannedNqWithdrawal;
     let remainingNeed = Math.max(0, desiredIncome - baseCashFlow);
 
     const availableRoth = rothBuckets.reduce((sum,b)=> sum + (year >= b.availableYear ? b.balance : 0), 0);
@@ -504,7 +638,7 @@ function buildScenario(useStrategy){
 
     const taxCfg = getTaxConfig(currentStatus, year, hAge, wAge);
     const bracketTarget = parseInt(document.getElementById('targetBracket').value,10);
-    const taxableBaseBeforeConversion = Math.max(0, currentTaxableIncome + taxablePension + taxableSSIncome + iraWithdrawal - alimonyDeduction);
+    const taxableBaseBeforeConversion = Math.max(0, currentTaxableIncome + taxablePension + taxableSSIncome + plannedNqWithdrawal + iraWithdrawal - alimonyDeduction);
     if(useStrategy && year>=startYear && year<=conversionEndYear && ira>0){
       const yearsRemainingInWindow = conversionEndYear - year + 1;
       const convertibleBalance = Math.max(0, ira - iraWithdrawal);
@@ -557,7 +691,7 @@ function buildScenario(useStrategy){
     totalIRMAA += irmaa;
     totalRMDs += rmd;
 
-    const displayedIncome = currentGrossIncome + pension + ssIncome + iraWithdrawal + rothWithdrawal;
+    const displayedIncome = currentGrossIncome + pension + ssIncome + plannedNqWithdrawal + iraWithdrawal + rothWithdrawal;
 
     if(useStrategy && ira<=0.005 && conversionFinishedYear===null) conversionFinishedYear = year;
 
@@ -584,6 +718,7 @@ function buildScenario(useStrategy){
       grossIncome: displayedIncome,
       iraWithdrawal,
       plannedIraWithdrawal,
+      plannedNqWithdrawal,
       extraIraGapWithdrawal,
       rmd,
       conversion,
@@ -691,17 +826,17 @@ function calculate(){
   document.getElementById('pfIraSpend').textContent=fmt2(after.details[0]?after.details[0].iraWithdrawal:0);
   document.getElementById('pfTaxes').textContent=fmt2(after.details[0]?after.details[0].tax:0);
   document.getElementById('pfTaxSource').textContent=document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side';
-  document.getElementById('pfPensionContinuation').textContent=`${(after.survivorPct*100).toFixed(0)}%`;
+  document.getElementById('pfPensionContinuation').textContent=`Multiple pensions modeled individually`;
   document.getElementById('pfFeeDisplay').textContent=feeLabel();
-  const pensionOwnerLabel = document.getElementById('filingStatus').value==='MFJ' ? capFirst(document.getElementById('pensionOwner').value) : 'Client 1';
+  const pensionOwnerLabel = 'Each pension carries its own owner and survivor election';
   const deathSummary = (document.getElementById('filingStatus').value==='MFJ' && document.getElementById('deathWho').value && num('deathAge'))
     ? `${capFirst(document.getElementById('deathWho').value)} dies first at age ${Math.floor(num('deathAge'))}.`
     : 'No death event is applied.';
-  document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it uses Desired Income as a gap-filler. Taxable pension is ${fmt2(num('pension'))}, tax-free pension is ${fmt2(num('pensionTaxFree'))}, and any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion is now constrained by the selected tax bracket and inflation-adjusted tax limits. Beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}, each active conversion year uses the smaller of: the remaining-on-schedule conversion amount or the available room under the selected bracket after inflation-adjusted deductions. The pension is owned by ${pensionOwnerLabel}. If that pension owner dies first, the survivor receives ${(after.survivorPct*100).toFixed(0)}% of both pension streams thereafter. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
+  document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and a planned NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} through age ${Math.floor(num('plannedNqEndAge')||70)} before it uses Desired Income as a gap-filler. Each pension is modeled separately with its own taxable amount, tax-free amount, owner, and survivor continuation. Any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion is now constrained by the selected tax bracket and inflation-adjusted tax limits. Beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}, each active conversion year uses the smaller of: the remaining-on-schedule conversion amount or the available room under the selected bracket after inflation-adjusted deductions. ${pensionOwnerLabel}. If a death event is entered, each pension applies its own survivor continuation based on its assigned owner. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
-  document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)}, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
-  document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.iraWithdrawal||0)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
+  document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} through age ${Math.floor(num('plannedNqEndAge')||70)}, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
+  document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.iraWithdrawal||0)}</td><td>${fmt2(r.plannedNqWithdrawal||0)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
 
@@ -730,9 +865,9 @@ function addTitle(doc, title, subtitle=''){
 }
 function rowsFromDetails(details, mode='before'){
   return details.map(r=> mode==='before' ? [
-    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira)
+    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.plannedNqWithdrawal||0), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira)
   ] : [
-    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.conversion), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth)
+    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.plannedNqWithdrawal||0), fmt2(r.conversion), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth)
   ]);
 }
 function survivorRows(before, after){
@@ -782,10 +917,11 @@ async function generatePDF(){
     [(displayClient2Name() + ' Age'), document.getElementById('filingStatus').value==='MFJ'?String(num('wAge')):'N/A'],
     [(displayClient1Name() + ' IRA'), fmt2(num('hIra'))],
     [(displayClient2Name() + ' IRA'), document.getElementById('filingStatus').value==='MFJ'?fmt2(num('wIra')):'N/A'],
-    ['Taxable Pension', fmt2(num('pension'))],
-    ['Tax-Free Pension', fmt2(num('pensionTaxFree'))],
+    ['Pensions', `${pensionRowCount()} pension(s) modeled separately`],
     ['Planned IRA Withdrawal', fmt2(num('plannedIraWithdrawal'))],
-    ['IRA Withdrawal Through Age', String(Math.floor(num('plannedIraEndAge')||70))],
+    ['IRA Withdrawal Stops At Age', String(Math.floor(num('plannedIraEndAge')||70))],
+    ['Planned NQ Withdrawal', fmt2(num('plannedNqWithdrawal'))],
+    ['NQ Withdrawal Stops At Age', String(Math.floor(num('plannedNqEndAge')||70))],
     ['Alimony / Other Deduction', fmt2(num('alimonyDeduction'))],
     ['Last Deduction Age', String(Math.floor(num('alimonyEndAge')||72))],
     ['Pension Owner', document.getElementById('filingStatus').value==='MFJ'?capFirst(document.getElementById('pensionOwner').value):'Client 1'],
@@ -816,7 +952,7 @@ async function generatePDF(){
     ['IRA at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).ira || 0)],
     ['Tax-Free Assets at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).roth || 0)],
     ['Tax Payment Source', document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side'],
-    ['Pension Continuation at First Death', `${(getPensionContinuationPct()*100).toFixed(0)}%`],
+    ['Pension Continuation at First Death', 'Each pension uses its own survivor continuation'],
     ['Displayed Annual Fee', feeLabel()],
     ['Desired Annual Income', fmt2(num('desiredIncome'))],
     ['Bracket Inflation Assumption', num('taxInflation').toFixed(1)+'%']
@@ -963,8 +1099,8 @@ async function generatePDF(){
   addPdfFooter(doc,6);
 
   // Page 7 onwards - detail tables
-  const beforeCols = [['Year','Age','SS','Pension','IRA Withdrawal','Gross Income','Taxable Income','Taxes','IRMAA','IRA']];
-  const afterCols = [['Year','Age','SS','Pension','IRA Withdrawal','Conversion','TAX-FREE ROTH INCOME','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
+  const beforeCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Gross Income','Taxable Income','Taxes','IRMAA','IRA']];
+  const afterCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Conversion','TAX-FREE ROTH INCOME','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
     doc.addPage('letter','l');
@@ -979,12 +1115,12 @@ async function generatePDF(){
       margin:{bottom:85,left:24,right:24},
       tableWidth:'auto',
       didParseCell: function(data){
-        if(mode==='after' && data.section==='head' && data.column.index===6){
+        if(mode==='after' && data.section==='head' && data.column.index===7){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
         }
-        if(mode==='after' && data.section==='body' && data.column.index===6){
+        if(mode==='after' && data.section==='body' && data.column.index===7){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
@@ -1013,6 +1149,6 @@ async function generatePDF(){
 
   doc.save('fidelity-roth-planner-report.pdf');
 }
-window.addEventListener('DOMContentLoaded', () => { try { setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+window.addEventListener('DOMContentLoaded', () => { try { ['Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 </script>
 </body></html>
