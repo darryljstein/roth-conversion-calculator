@@ -239,7 +239,7 @@
       <div class="card">
         <h2 class="section-title">Year-by-Year Tax Flow Preview</h2>
         <div class="small">This preview shows the first 15 years from the strategy scenario. The redesigned engine respects advisor-entered IRA withdrawals first, applies taxable and tax-free pension separately, then uses matured Roth money only after the 5-year ladder is available. Desired income now fills only the remaining gap instead of overriding the entered IRA draw.</div>
-        <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>IRA Withdrawal</th><th>NQ Withdrawal</th><th>Roth Income</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
+        <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>IRA Withdrawal</th><th>NQ Withdrawal</th><th>Conversion</th><th>Conversion Taxes</th><th>Roth Income</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="card">
@@ -727,6 +727,7 @@ function buildScenario(useStrategy){
       extraIraGapWithdrawal,
       rmd,
       conversion,
+      conversionTax,
       taxFreeIncome: rothWithdrawal,
       ira,
       roth,
@@ -841,7 +842,7 @@ function calculate(){
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
   document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the end of the planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} through age ${Math.floor(num('plannedNqEndAge')||70)}, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
-  document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.iraWithdrawal||0)}</td><td>${fmt2(r.plannedNqWithdrawal||0)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
+  document.querySelector('#detailPreviewTable tbody').innerHTML = after.details.slice(0,15).map(r=>`<tr><td>${r.year}</td><td>${r.age}</td><td>${fmt2(r.grossIncome||r.income)}</td><td>${fmt2(r.iraWithdrawal||0)}</td><td>${fmt2(r.plannedNqWithdrawal||0)}</td><td>${fmt2(r.conversion||0)}</td><td>${fmt2(r.conversionTax||0)}</td><td>${fmt2(r.taxFreeIncome||0)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.irmaa)}</td><td>${fmt2(r.ira)}</td><td>${fmt2(r.roth)}</td></tr>`).join('');
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
 
@@ -872,7 +873,7 @@ function rowsFromDetails(details, mode='before'){
   return details.map(r=> mode==='before' ? [
     `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.plannedNqWithdrawal||0), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira)
   ] : [
-    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.plannedNqWithdrawal||0), fmt2(r.conversion), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth)
+    `Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.pension), fmt2(r.iraWithdrawal), fmt2(r.plannedNqWithdrawal||0), fmt2(r.conversion), fmt2(r.conversionTax||0), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth)
   ]);
 }
 function survivorRows(before, after){
@@ -1104,11 +1105,11 @@ async function generatePDF(){
 
   // Page 7 onwards - detail tables
   const beforeCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Gross Income','Taxable Income','Taxes','IRMAA','IRA']];
-  const afterCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Conversion','TAX-FREE ROTH INCOME','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
+  const afterCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Conversion','Conversion\nTaxes','TAX-FREE\nROTH INCOME','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
     doc.addPage('letter','l');
-    addTitle(doc,title, mode==='before' ? 'Before page shows advisor-entered IRA withdrawals and taxable income through age 95.' : 'After page shows advisor-entered IRA withdrawals, forced conversion scheduling, and Roth income through age 95.');
+    addTitle(doc,title, mode==='before' ? 'Before page shows advisor-entered IRA withdrawals and taxable income through age 95.' : 'After page shows advisor-entered IRA withdrawals, conversion taxes, forced conversion scheduling, and Roth income through age 95.');
     addPdfLogo(doc);
     doc.autoTable({
       startY:78,
@@ -1119,12 +1120,12 @@ async function generatePDF(){
       margin:{bottom:85,left:24,right:24},
       tableWidth:'auto',
       didParseCell: function(data){
-        if(mode==='after' && data.section==='head' && data.column.index===7){
+        if(mode==='after' && data.section==='head' && data.column.index===8){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
         }
-        if(mode==='after' && data.section==='body' && data.column.index===7){
+        if(mode==='after' && data.section==='body' && data.column.index===8){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
