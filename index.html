@@ -38,12 +38,13 @@
     input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px;background:#fff}
     .checkbox-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:14px}.checkbox-row input{width:auto}
     .btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px} button{border:none;border-radius:12px;padding:12px 16px;cursor:pointer;font-weight:700;font-size:14px}
-    .primary{background:var(--blue);color:#fff}.gold{background:var(--gold);color:#1f2937}.pill-row{display:grid;grid-template-columns:1.65fr 1.05fr .85fr .95fr .95fr;gap:12px;margin-bottom:18px}
-    .pill{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 8px 22px rgba(16,24,40,.05);min-width:0;overflow:hidden}
-    .pill .label{font-size:12px;text-transform:uppercase;color:var(--muted);font-weight:700;letter-spacing:.04em;line-height:1.25;overflow-wrap:anywhere}
-    .pill .value{margin-top:8px;font-size:clamp(16px,1.45vw,24px);color:var(--blue);font-weight:700;line-height:1.05;overflow:hidden;max-width:100%;display:block;white-space:nowrap;text-overflow:clip;letter-spacing:-0.02em}
-    #beginningValue{font-size:clamp(14px,1.25vw,20px)}
-    #year1Conversion,#yearsToComplete,#taxFreeEstate95,#taxFreeCoverageAge{font-size:clamp(16px,1.35vw,22px)}
+    .primary{background:var(--blue);color:#fff}.gold{background:var(--gold);color:#1f2937}.pill-row{display:grid;grid-template-columns:1.55fr 1.05fr .9fr 1fr 1fr;gap:14px;margin-bottom:20px;align-items:stretch}
+    .pill{background:#fff;border:1px solid var(--border);border-radius:18px;padding:16px 18px;box-shadow:0 8px 22px rgba(16,24,40,.05);min-width:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;min-height:102px}
+    .pill .label{font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:800;letter-spacing:.06em;line-height:1.15;overflow-wrap:anywhere;min-height:28px}
+    .pill .value{margin-top:10px;font-size:clamp(16px,1.22vw,22px);color:var(--blue);font-weight:800;line-height:1;overflow:hidden;max-width:100%;display:block;white-space:nowrap;text-overflow:clip;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}
+    #beginningValue{font-size:clamp(13px,1.0vw,18px);letter-spacing:-0.05em}
+    #year1Conversion,#taxFreeEstate95,#taxFreeCoverageAge{font-size:clamp(16px,1.15vw,20px)}
+    #yearsToCompleteDisplay{font-size:clamp(15px,1.08vw,18px);letter-spacing:-0.01em}
     table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
     th,td{border-bottom:1px solid #e5e7eb;padding:10px 8px;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#f8fafc;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0}
     .two-col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.panel{background:#fbfdff;border:1px solid var(--border);border-radius:16px;padding:16px;min-width:0;overflow:hidden}
@@ -51,7 +52,8 @@
     .note,.assumptions,.small{font-size:13px;line-height:1.55;color:#475569}.hidden{display:none}
     .disclaimer-box{font-size:12px;line-height:1.5;color:#475569;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:16px}
     @media (max-width:1280px){.social-security-card .inputs-grid{grid-template-columns:1fr}}
-    @media (max-width:1400px){.pill-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media (max-width:1450px){.pill-row{grid-template-columns:1.35fr 1fr .9fr 1fr 1fr}}
+    @media (max-width:1280px){.pill-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
     @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col,.client-box-grid{grid-template-columns:1fr}.social-security-card .inputs-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
     @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
@@ -186,7 +188,7 @@
       <div class="pill-row">
         <div class="pill"><div class="label">Beginning Value</div><div class="value" id="beginningValue">$0</div></div>
         <div class="pill"><div class="label">Year 1 Planned Conversion</div><div class="value" id="year1Conversion">$0</div></div>
-        <div class="pill"><div class="label">Entered Conversion Period</div><div class="value" id="yearsToComplete">0</div></div>
+        <div class="pill"><div class="label">Conversion<br>Period</div><div class="value" id="yearsToCompleteDisplay">0 YEARS</div></div>
         <div class="pill"><div class="label">Tax-Free Estate at 95</div><div class="value" id="taxFreeEstate95">$0</div></div>
         <div class="pill"><div class="label">Tax-Free Income Through Age</div><div class="value" id="taxFreeCoverageAge">—</div></div>
       </div>
@@ -820,7 +822,7 @@ function calculate(){
   const before=buildScenario(false), after=buildScenario(true); latest={before,after};
   document.getElementById('beginningValue').textContent=fmt2(after.beginning);
   document.getElementById('year1Conversion').textContent=fmt2(after.firstConv);
-  document.getElementById('yearsToComplete').textContent=String(after.yearsToComplete);
+  document.getElementById('yearsToCompleteDisplay').textContent=`${after.yearsToComplete} YEARS`;
   document.getElementById('taxFreeEstate95').textContent=fmt2(after.taxFreeEstate);
   document.getElementById('taxFreeCoverageAge').textContent=String(taxFreeCoverageAge(after.details));
   document.getElementById('pfPremium').textContent=fmt2(after.premium);
