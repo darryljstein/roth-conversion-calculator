@@ -239,7 +239,7 @@
       <div class="card">
         <h2 class="section-title">Year-by-Year Tax Flow Preview</h2>
         <div class="small">This preview shows the first 15 years from the strategy scenario. The redesigned engine respects advisor-entered IRA withdrawals first, applies taxable and tax-free pension separately, then uses matured Roth money only after the 5-year ladder is available. Desired income now fills only the remaining gap instead of overriding the entered IRA draw.</div>
-        <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>IRA Withdrawal</th><th>NQ Withdrawal</th><th>Conversion</th><th>Conversion Taxes</th><th>Roth Income</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
+        <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Gross Income</th><th>IRA<br>Withdrawal</th><th>NQ<br>Withdrawal</th><th>Conversion</th><th>Conversion<br>Taxes</th><th>TAX-FREE<br>ROTH INCOME</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>TAX-FREE<br>ESTATE</th></tr></thead><tbody></tbody></table>
       </div>
 
       <div class="card">
@@ -645,13 +645,26 @@ function buildScenario(useStrategy){
     const bracketTarget = parseInt(document.getElementById('targetBracket').value,10);
     const taxableBaseBeforeConversion = Math.max(0, currentTaxableIncome + taxablePension + taxableSSIncome + plannedNqWithdrawal + iraWithdrawal - alimonyDeduction);
     if(useStrategy && year>=startYear && year<=conversionEndYear && ira>0){
-      const yearsRemainingInWindow = conversionEndYear - year + 1;
+      // RMD-aware scheduling: when possible, finish the conversion by the year before RMDs begin
+      // so the strategy does not leave a small IRA balance that creates an avoidable first RMD.
+      const rmdStartYr = Math.max(1, rmdAge - primaryAge + year);
+      const effectiveConversionEndYear = Math.min(conversionEndYear, Math.max(startYear, rmdStartYr - 1));
+      const yearsRemainingInWindow = Math.max(1, effectiveConversionEndYear - year + 1);
       const convertibleBalance = Math.max(0, ira - iraWithdrawal);
-      const scheduledConversion = yearsRemainingInWindow > 0 ? (convertibleBalance / yearsRemainingInWindow) : convertibleBalance;
+      const scheduledConversion = convertibleBalance / yearsRemainingInWindow;
       const bracketIncomeCap = (taxCfg.brackets[bracketTarget] || taxCfg.brackets[24]) + taxCfg.ded;
       const bracketRoom = Math.max(0, bracketIncomeCap - taxableBaseBeforeConversion);
       conversion = Math.max(0, Math.min(convertibleBalance, scheduledConversion, bracketRoom));
-      if(conversion>0 && yearsRemainingInWindow === 1) conversionFinishedYear = year;
+
+      // If this is the last practical pre-RMD conversion year, finish any small remaining IRA balance
+      // rather than creating an unnecessary RMD the following year.
+      if(year === effectiveConversionEndYear && convertibleBalance > 0){
+        const residualAfterCap = convertibleBalance - conversion;
+        if(residualAfterCap > 0 && residualAfterCap <= Math.max(25000, convertibleBalance * 0.12)){
+          conversion = convertibleBalance;
+        }
+      }
+      if(conversion>0 && (year === effectiveConversionEndYear || conversion >= convertibleBalance - 0.005)) conversionFinishedYear = year;
     }
     const taxableBaseAfterConversion = taxableBaseBeforeConversion + conversion;
     const baseTax = ordinaryTax(taxableBaseBeforeConversion, taxCfg);
@@ -1104,8 +1117,8 @@ async function generatePDF(){
   addPdfFooter(doc,6);
 
   // Page 7 onwards - detail tables
-  const beforeCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Gross Income','Taxable Income','Taxes','IRMAA','IRA']];
-  const afterCols = [['Year','Age','SS','Pension','IRA Withdrawal','NQ Withdrawal','Conversion','Conversion\nTaxes','TAX-FREE\nROTH INCOME','Gross Income','Taxable Income','Taxes','IRMAA','Tax-Free Assets']];
+  const beforeCols = [['Year','Age','SS','Pension','IRA\nWithdrawal','NQ\nWithdrawal','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','IRA']];
+  const afterCols = [['Year','Age','SS','Pension','IRA\nWithdrawal','NQ\nWithdrawal','Conversion','Conversion\nTaxes','TAX-FREE\nROTH INCOME','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','TAX-FREE\nESTATE']];
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
     doc.addPage('letter','l');
@@ -1120,15 +1133,27 @@ async function generatePDF(){
       margin:{bottom:85,left:24,right:24},
       tableWidth:'auto',
       didParseCell: function(data){
-        if(mode==='after' && data.section==='head' && data.column.index===8){
-          data.cell.styles.fillColor=[0,200,83];
-          data.cell.styles.textColor=[255,255,255];
-          data.cell.styles.fontStyle='bold';
+        if(data.section==='head'){
+          data.cell.styles.halign='center';
+          data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='body' && data.column.index===8){
+        if(data.section==='body'){
+          data.cell.styles.halign='center';
+          data.cell.styles.valign='middle';
+        }
+        if(mode==='after' && data.section==='head' && (data.column.index===8 || data.column.index===13)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
+          data.cell.styles.halign='center';
+          data.cell.styles.valign='middle';
+        }
+        if(mode==='after' && data.section==='body' && (data.column.index===8 || data.column.index===13)){
+          data.cell.styles.fillColor=[0,200,83];
+          data.cell.styles.textColor=[255,255,255];
+          data.cell.styles.fontStyle='bold';
+          data.cell.styles.halign='center';
+          data.cell.styles.valign='middle';
         }
       }
     });
