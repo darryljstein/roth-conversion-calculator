@@ -828,24 +828,18 @@ function taxFreeCoverageAge(details){
 }
 
 function renderDetailPreview(after){
-  const details = after.details.slice(0,15);
-  const showIraWithdrawal = hasAnyValue(after.details, 'iraWithdrawal');
-  const showNqWithdrawal = hasAnyValue(after.details, 'plannedNqWithdrawal');
-  const head = ['Year','Age','Gross<br>Income'];
-  if(showIraWithdrawal) head.push('IRA<br>Withdrawal');
-  if(showNqWithdrawal) head.push('NQ<br>Withdrawal');
-  head.push('Conversion','Conversion<br>Taxes','TAX-FREE<br>ROTH INCOME','Taxes','IRMAA','IRA','TAX-FREE<br>ESTATE');
+  const baseCfg = tableConfigFromDetails(after.details, 'after');
+  const tableCfg = removeZeroWithdrawalColumns(baseCfg);
   const table = document.getElementById('detailPreviewTable');
   if(!table) return;
-  table.querySelector('thead').innerHTML = `<tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>`;
-  table.querySelector('tbody').innerHTML = details.map(r=>{
-    const cells = [r.year, r.age, fmt2(r.grossIncome||r.income)];
-    if(showIraWithdrawal) cells.push(fmt2(r.iraWithdrawal||0));
-    if(showNqWithdrawal) cells.push(fmt2(r.plannedNqWithdrawal||0));
-    cells.push(fmt2(r.conversion||0), fmt2(r.conversionTax||0), fmt2(r.taxFreeIncome||0), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira), fmt2(r.roth));
-    return `<tr>${cells.map(c=>`<td>${c}</td>`).join('')}</tr>`;
-  }).join('');
+
+  const previewHeaders = tableCfg.cols[0].map(h => String(h).replace(/\n/g,'<br>'));
+  const previewRows = tableCfg.rows.slice(0,15);
+
+  table.querySelector('thead').innerHTML = `<tr>${previewHeaders.map(h=>`<th>${h}</th>`).join('')}</tr>`;
+  table.querySelector('tbody').innerHTML = previewRows.map(row => `<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
 }
+
 
 let latest=null;
 function calculate(){
@@ -904,6 +898,33 @@ function addTitle(doc, title, subtitle=''){
 }
 function hasAnyValue(details, key){
   return details.some(r => Math.abs(Number(r[key] || 0)) > 0.004);
+}
+
+
+function removeZeroWithdrawalColumns(tableCfg){
+  if(!tableCfg || !tableCfg.cols || !tableCfg.cols[0] || !tableCfg.rows) return tableCfg;
+  const headers = tableCfg.cols[0].slice();
+  const rows = tableCfg.rows.map(r => r.slice());
+
+  function isWithdrawalHeader(h){
+    const clean = String(h || '').replace(/\s+/g,' ').toLowerCase();
+    return clean.includes('ira withdrawal') || clean.includes('nq withdrawal');
+  }
+  function moneyToNumber(v){
+    if(typeof v === 'number') return v;
+    const n = parseFloat(String(v || '').replace(/[$,]/g,''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  const keep = headers.map((h, idx) => {
+    if(!isWithdrawalHeader(h)) return true;
+    return rows.some(r => Math.abs(moneyToNumber(r[idx])) > 0.004);
+  });
+
+  return {
+    cols: [headers.filter((_, idx) => keep[idx])],
+    rows: rows.map(r => r.filter((_, idx) => keep[idx]))
+  };
 }
 
 function tableConfigFromDetails(details, mode='before'){
@@ -1174,9 +1195,9 @@ async function generatePDF(){
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
     doc.addPage('letter','l');
-    addTitle(doc,title, mode==='before' ? 'Before page shows advisor-entered IRA withdrawals and taxable income through age 95.' : 'After page shows advisor-entered IRA withdrawals, conversion taxes, forced conversion scheduling, and Roth income through age 95.');
+    addTitle(doc,title, mode==='before' ? 'Before page shows taxable income and any applicable withdrawals through age 95.' : 'After page shows conversion taxes, Roth income, tax-free estate, and any applicable withdrawals through age 95.');
     addPdfLogo(doc);
-    const tableCfg = tableConfigFromDetails(details, mode);
+    let tableCfg = removeZeroWithdrawalColumns(tableConfigFromDetails(details, mode));
     const greenIncomeIndex = tableCfg.cols[0].indexOf('TAX-FREE\nROTH INCOME');
     const greenEstateIndex = tableCfg.cols[0].indexOf('TAX-FREE\nESTATE');
     doc.autoTable({
