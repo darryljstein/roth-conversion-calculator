@@ -814,12 +814,12 @@ function buildScenario(useStrategy){
 
 function fillMetricTable(id,scenario){
   const rows=[
-    [`Total Federal Taxes by Age ${after.horizonAge}`,fmt2(scenario.totalTaxes)],
-    [`Total Tax-Free Roth Withdrawals by Age ${after.horizonAge}`,fmt2(scenario.totalTaxFreeIncome)],
-    [`Total RMDs by Age ${after.horizonAge}`,fmt2(scenario.totalRMDs)],
-    [`Total IRMAA by Age ${after.horizonAge}`,fmt2(scenario.totalIRMAA)],
-    [`Taxable Estate by Age ${after.horizonAge}`,fmt2(scenario.taxableEstate)],
-    [`Tax-Free Estate by Age ${after.horizonAge}`,fmt2(scenario.taxFreeEstate)]
+    [`Total Federal Taxes by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxes)],
+    [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxFreeIncome)],
+    [`Total RMDs by Age ${planningHorizonAge()}`,fmt2(scenario.totalRMDs)],
+    [`Total IRMAA by Age ${planningHorizonAge()}`,fmt2(scenario.totalIRMAA)],
+    [`Taxable Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
+    [`Tax-Free Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxFreeEstate)]
   ];
   document.getElementById(id).innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 }
@@ -1072,12 +1072,12 @@ async function generatePDF(){
   addTitle(doc,'Before vs Fidelity Mutual Financial Strategy','');
   addPdfLogo(doc);
   const comparisonRows = [
-    [`Total Federal Taxes by Age ${after.horizonAge}`, before.totalTaxes, after.totalTaxes, before.totalTaxes - after.totalTaxes],
-    [`Total Tax-Free Roth Withdrawals by Age ${after.horizonAge}`, before.totalTaxFreeIncome, after.totalTaxFreeIncome, after.totalTaxFreeIncome - before.totalTaxFreeIncome],
-    [`Total RMDs by Age ${after.horizonAge}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
-    [`Total IRMAA by Age ${after.horizonAge}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
-    [`Taxable Estate by Age ${after.horizonAge}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
-    [`Tax-Free Estate by Age ${after.horizonAge}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
+    [`Total Federal Taxes by Age ${planningHorizonAge()}`, before.totalTaxes, after.totalTaxes, before.totalTaxes - after.totalTaxes],
+    [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, before.totalTaxFreeIncome, after.totalTaxFreeIncome, after.totalTaxFreeIncome - before.totalTaxFreeIncome],
+    [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
+    [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
+    [`Taxable Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
+    [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
   doc.autoTable({
@@ -1143,12 +1143,12 @@ async function generatePDF(){
   addTitle(doc,'Dual Tax Funding Comparison','Auto-runs both funding methods: taxes from conversion vs taxes from outside assets.');
   addPdfLogo(doc);
   const dualRows = [
-    [`Total Federal Taxes by Age ${after.horizonAge}`, conversionTaxScenario.totalTaxes, outsideTaxScenario.totalTaxes, conversionTaxScenario.totalTaxes - outsideTaxScenario.totalTaxes],
-    [`Total Tax-Free Roth Withdrawals by Age ${after.horizonAge}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
-    [`Total RMDs by Age ${after.horizonAge}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
-    [`Total IRMAA by Age ${after.horizonAge}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
-    [`Taxable Estate by Age ${after.horizonAge}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
-    [`Tax-Free Estate by Age ${after.horizonAge}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
+    [`Total Federal Taxes by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxes, outsideTaxScenario.totalTaxes, conversionTaxScenario.totalTaxes - outsideTaxScenario.totalTaxes],
+    [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
+    [`Total RMDs by Age ${planningHorizonAge()}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
+    [`Total IRMAA by Age ${planningHorizonAge()}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
+    [`Taxable Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
+    [`Tax-Free Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
   ];
   doc.autoTable({
     startY:78,
