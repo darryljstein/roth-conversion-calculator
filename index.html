@@ -1680,11 +1680,11 @@ function generatePDF(){
   if(document.getElementById('includeTaxFundingComparison')?.checked){
   // Page 5 - Tax Funding Comparison (auto-run both)
     const originalPayTaxesOutside = (document.getElementById('includeTaxFundingComparison')?.checked || false);
-    (document.getElementById('includeTaxFundingComparison')?.checked || false) = false;
+    document.getElementById('includeTaxFundingComparison').checked = false;
     const conversionTaxScenario = buildScenario(true);
-    (document.getElementById('includeTaxFundingComparison')?.checked || false) = true;
+    document.getElementById('includeTaxFundingComparison').checked = true;
     const outsideTaxScenario = buildScenario(true);
-    (document.getElementById('includeTaxFundingComparison')?.checked || false) = originalPayTaxesOutside;
+    document.getElementById('includeTaxFundingComparison').checked = originalPayTaxesOutside;
   
     doc.addPage();
     addTitle(doc,'Tax Funding Comparison','Optional comparison: taxes funded from conversion side versus outside assets.');
