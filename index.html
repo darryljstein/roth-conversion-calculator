@@ -705,10 +705,11 @@ function setupSpouseVisibility(){
   document.getElementById('deathAge').disabled = status!=='MFJ';
   ['applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor'].forEach(id=>{document.getElementById(id).disabled = status!=='MFJ';});
   if((document.getElementById('feeType')?.value || '')==='nofee'){
-    document.getElementById('feePct').value = '0';
-    document.getElementById('feePct').disabled = true;
+    const feePctEl = document.getElementById('feePct');
+    if(feePctEl){ feePctEl.value = '0'; feePctEl.disabled = true; }
   } else {
-    document.getElementById('feePct').disabled = false;
+    const feePctEl = document.getElementById('feePct');
+    if(feePctEl){ feePctEl.disabled = false; }
   }
 }
 function attachRecalc(ids){
