@@ -21,13 +21,11 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <option value="nonqualified">Non-Qualified</option>
       </select>
     </div>
-    <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>    <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>                <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
+    <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
+    <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
   `;
   container.appendChild(div);
-  div.querySelectorAll('input,select').forEach(el => {
-    el.addEventListener('input', calculate);
-    el.addEventListener('change', calculate);
-  });
+  bindAdditionalAccountInputs(div);
   calculate();
 });
 document.querySelectorAll('#additionalAccountsContainer input,#additionalAccountsContainer select').forEach(el => {
@@ -396,8 +394,16 @@ function refreshAllPensionLabels(){
 }
 function attachDynamicInput(el){
   if(!el) return;
-  el.addEventListener('change', ()=>{setupSpouseVisibility();refreshClientDisplay();calculate();});
-  el.addEventListener('input', calculate);
+  el.addEventListener('change', ()=>{
+    try{
+      setupSpouseVisibility();
+      refreshClientDisplay();
+      calculate();
+    }catch(e){ console.error(e); }
+  });
+  el.addEventListener('input', ()=>{
+    try{ calculate(); }catch(e){ console.error(e); }
+  });
 }
 function addPensionRow(){
   const container = document.getElementById('pensionRows');
@@ -535,7 +541,7 @@ function setupSpouseVisibility(){
   }
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','filingStatus','deathWho','deathAge','payTaxesOutside','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','additionalAccountFunds','additionalAccountType','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','filingStatus','deathWho','deathAge','payTaxesOutside','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
 allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();}));
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
@@ -609,6 +615,15 @@ function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
 
 
 
+
+function bindAdditionalAccountInputs(scope=document){
+  scope.querySelectorAll('#additionalAccountsContainer input,#additionalAccountsContainer select').forEach(el => {
+    if(el.dataset.boundRecalc === 'true') return;
+    el.dataset.boundRecalc = 'true';
+    el.addEventListener('input', ()=>{ try{ calculate(); }catch(e){ console.error(e); } });
+    el.addEventListener('change', ()=>{ try{ calculate(); }catch(e){ console.error(e); } });
+  });
+}
 
 function getAdditionalAccounts(){
   return Array.from(document.querySelectorAll('#additionalAccountsContainer .additional-account')).map((row, idx) => {
@@ -823,7 +838,7 @@ function buildScenario(useStrategy){
     rothBuckets.forEach(b => { b.balance = b.balance * Math.max(0, 1 + growth - effectiveFeeRate); });
     if(useStrategy && additionalRothAccounts.length){
       additionalRothAccounts.forEach(a=>{
-        const g = (a.growthPct || (growth*100)) / 100;
+        const g = (Number(a.growthPct) || 0) / 100;
         a.balance = a.balance * Math.max(0, 1 + g - effectiveFeeRate);
       });
       additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
@@ -1458,7 +1473,7 @@ async function generatePDF(){
 
   doc.save('fidelity-roth-planner-report.pdf');
 }
-window.addEventListener('DOMContentLoaded', () => { try { ['Title','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+window.addEventListener('DOMContentLoaded', () => { try { ['Title','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 
 document.getElementById('addAccountBtn').addEventListener('click', function(){
   const container = document.getElementById('additionalAccountsContainer');
