@@ -1607,6 +1607,38 @@ function rowsFromDetails(details, mode='before'){
 }
 
 
+
+function pensionPdfRows(){
+  if(typeof pensionRowCount !== 'function' || pensionRowCount() <= 0){
+    return [['No pensions entered','—','—','—','—','—','—']];
+  }
+
+  return Array.from({length:pensionRowCount()}, (_,i)=>{
+    const n = i + 1;
+    const taxable = typeof getPensionValue === 'function' ? getPensionValue(n,'Taxable') : 0;
+    const taxFree = typeof getPensionValue === 'function' ? getPensionValue(n,'TaxFree') : 0;
+    const startAge = typeof getPensionStartAge === 'function' ? getPensionStartAge(n) : 0;
+    const startMonth = typeof getPensionStartMonth === 'function' ? getPensionStartMonth(n) : 0;
+    const startLabel = typeof pensionStartMonthLabel === 'function' ? pensionStartMonthLabel(startMonth) : 'Full Year / Already Started';
+    const firstYearTaxable = typeof pensionFirstYearAmount === 'function' ? pensionFirstYearAmount(n, taxable) : taxable;
+    const cola = typeof getPensionCola === 'function' ? getPensionCola(n) : 0;
+    const survivorPct = typeof getPensionSurvivorPct === 'function' ? getPensionSurvivorPct(n) : 0;
+    const title = typeof getPensionTitle === 'function' ? getPensionTitle(n) : `Pension ${n}`;
+    const startText = startAge > 0 ? `Age ${startAge}${startMonth>0 ? ' / '+startLabel : ''}` : 'Already Started / Full Year';
+
+    return [
+      title,
+      startText,
+      fmt2(taxable),
+      fmt2(firstYearTaxable),
+      fmt2(taxFree),
+      `${Number(cola||0).toFixed(1)}%`,
+      `${(Number(survivorPct||0)*100).toFixed(0)}%`
+    ];
+  });
+}
+
+
 function generatePDF(){
   try{
   if(!latest) calculate();
