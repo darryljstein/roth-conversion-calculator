@@ -1639,6 +1639,70 @@ function pensionPdfRows(){
 }
 
 
+
+function buildMilestoneRowsFromDetails(details){
+  const rows = Array.isArray(details) ? details : [];
+  if(!rows.length) return [];
+
+  const horizon = planningHorizonAge();
+  const selected = [];
+  const seen = new Set();
+
+  function addRow(label, predicate){
+    const r = rows.find(predicate);
+    if(r && !seen.has(r.year)){
+      seen.add(r.year);
+      selected.push({
+        label,
+        age: r.age,
+        income: r.grossIncome || 0,
+        conversion: r.conversion || 0,
+        ira: r.ira || 0,
+        additionalAccountAssets: r.additionalRoth || 0,
+        taxFreeAssets: r.roth || 0
+      });
+    }
+  }
+
+  addRow('Year 1', r => r.year === 1);
+  addRow('Year 5', r => r.year === 5);
+
+  // Social Security milestone years: first year where SS jumps materially versus prior year.
+  rows.forEach((r, idx)=>{
+    if(idx > 0 && (r.ssIncome || 0) > ((rows[idx-1].ssIncome || 0) * 1.12)){
+      addRow('SS Year', x => x.year === r.year);
+    }
+  });
+
+  // Conversion completion: last year with conversion.
+  const convRows = rows.filter(r => Math.abs(Number(r.conversion || 0)) > 0.004);
+  if(convRows.length){
+    const lastConv = convRows[convRows.length - 1];
+    addRow('Conversion Complete', r => r.year === lastConv.year);
+  }
+
+  // RMD year: first year with IRA/RMD withdrawal.
+  addRow('RMD Year', r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
+
+  // Every 5 years through the selected horizon.
+  rows.forEach(r=>{
+    const ageNum = parseFloat(String(r.age).split('/')[0]);
+    if(r.year % 5 === 0 || (Number.isFinite(ageNum) && ageNum === horizon)){
+      addRow(`Year ${r.year}`, x => x.year === r.year);
+    }
+  });
+
+  // Sort by actual year order and limit duplicates.
+  selected.sort((a,b)=>{
+    const ay = rows.find(r=>r.age===a.age && Math.abs((r.grossIncome||0)-(a.income||0))<0.01)?.year || 0;
+    const by = rows.find(r=>r.age===b.age && Math.abs((r.grossIncome||0)-(b.income||0))<0.01)?.year || 0;
+    return ay - by;
+  });
+
+  return selected;
+}
+
+
 function generatePDF(){
   try{
   if(!latest) calculate();
@@ -1812,7 +1876,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Milestone Summary','Year 1, Year 5, Social Security years, RMD year, conversion completion, and every 5 years through the selected planning horizon.');
   addPdfLogo(doc);
-  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:after.milestones.map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2((m.additionalAccountAssets ?? m.additionalRoth) || 0),fmt2((m.taxFreeAssets ?? m.roth) || 0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
+  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:buildMilestoneRowsFromDetails(after.details).map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.additionalAccountAssets||0),fmt2(m.taxFreeAssets||0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
   addPdfFooter(doc,3);
 
   // Page 4
