@@ -41,6 +41,18 @@ document.querySelectorAll('#additionalAccountsContainer input,#additionalAccount
   el.addEventListener('change', calculate);
 });
 
+
+document.addEventListener('input', function(e){
+  if(e.target && e.target.closest && e.target.closest('#additionalAccountsContainer')){
+    try{ calculate(); }catch(err){ console.error(err); }
+  }
+});
+document.addEventListener('change', function(e){
+  if(e.target && e.target.closest && e.target.closest('#additionalAccountsContainer')){
+    try{ calculate(); }catch(err){ console.error(err); }
+  }
+});
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js">
 document.getElementById('addAccountBtn').addEventListener('click', function(){
@@ -565,9 +577,19 @@ function setupSpouseVisibility(){
     document.getElementById('feePct').disabled = false;
   }
 }
-function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
+function attachRecalc(ids){
+  ids.forEach(id => {
+    const node = document.getElementById(id);
+    if(!node) return;
+    node.addEventListener('input', ()=>{ try{ calculate(); }catch(e){ console.error(e); } });
+  });
+}
 const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
-allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();}));
+allIds.forEach(id => {
+  const node = document.getElementById(id);
+  if(!node) return;
+  node.addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();});
+});
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
 document.getElementById('hIra').addEventListener('input', syncPremiumToIraTotal);
