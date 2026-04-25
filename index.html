@@ -1520,7 +1520,9 @@ function createLineChartDataUrl(labels, series){
 }
 
 function generatePDF(){
+  try{
   if(!latest) calculate();
+  if(!latest || !latest.before || !latest.after){ alert('Please complete the inputs before generating the report.'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('l','pt','letter');
   const clientName=((document.getElementById('clientName')?.value || '')||displayClient1Name() + ((document.getElementById('filingStatus')?.value || 'MFJ')==='MFJ' ? (' & ' + displayClient2Name()) : '')).trim();
@@ -1606,7 +1608,7 @@ function generatePDF(){
   doc.setFontSize(10);
   doc.setTextColor(60,60,60);
   doc.text(doc.splitTextToSize(scenarioSummaryText(), 680), 44, summaryY + 24);
-  addPdfFooter(doc, currentPage++);
+  addPdfFooter(doc, doc.getNumberOfPages());
 
   // Page 2
   doc.addPage();
@@ -1640,7 +1642,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Milestone Summary','Year 1, Year 5, Social Security years, RMD year, conversion completion, and every 5 years through the selected planning horizon.');
   addPdfLogo(doc);
-  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:after.milestones.map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.taxFree)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
+  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:after.milestones.map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.additionalAccountAssets||0),fmt2(m.taxFreeAssets||0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
   addPdfFooter(doc,3);
 
   // Page 4
@@ -1787,7 +1789,7 @@ function generatePDF(){
   doc.setTextColor(90,90,90);
   const py = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 20 : 220;
   doc.text(doc.splitTextToSize('If a Start Month is entered, first-year pension income is automatically prorated. Example: August start means September through December income is counted, or 4 months.', 680), 44, py);
-  addPdfFooter(doc, currentPage++);
+  addPdfFooter(doc, doc.getNumberOfPages());
 
   // Visual Chart page
   doc.addPage();
@@ -1802,7 +1804,7 @@ function generatePDF(){
   doc.setFontSize(9);
   doc.setTextColor(90,90,90);
   doc.text(doc.splitTextToSize('This chart visually compares the declining IRA balance against the projected tax-free estate over the selected planning horizon.', 680), 50, 386);
-  addPdfFooter(doc, currentPage++);
+  addPdfFooter(doc, doc.getNumberOfPages());
 
   // Page 6
   doc.addPage();
@@ -1906,25 +1908,9 @@ function generatePDF(){
 }
 
 doc.save('fidelity-roth-planner-report.pdf');
+  }catch(e){ console.error('PDF generation error:', e); alert('PDF generation error: '+(e && e.message ? e.message : e)); }
 }
 window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
-
-document.getElementById('addAccountBtn').addEventListener('click', function(){
-  const container = document.getElementById('additionalAccountsContainer');
-  const div = document.createElement('div');
-  div.className = 'additional-account';
-  div.innerHTML = `
-    <div class="field"><label>Additional Account Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
-    <div class="field"><label>Account Type</label>
-      <select class="additionalAccountType">
-        <option value="roth">Roth</option>
-        <option value="traditional">Traditional IRA / Qualified Account</option>
-        <option value="nonqualified">Non-Qualified</option>
-      </select>
-    </div>
-  `;
-  container.appendChild(div);
-});
 
 </script>
 </body></html>
