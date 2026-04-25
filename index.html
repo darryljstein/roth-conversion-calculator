@@ -5,16 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fidelity Mutual Financial - Tax Efficient Retirement Strategy</title>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js">
+function removeAdditionalAccount(btn){
+  const row = btn && btn.closest ? btn.closest('.additional-account') : null;
+  const container = document.getElementById('additionalAccountsContainer');
+  if(row && container && container.querySelectorAll('.additional-account').length > 1){
+    row.remove();
+    calculate();
+  }
+}
 document.getElementById('addAccountBtn').addEventListener('click', function(){
   const container = document.getElementById('additionalAccountsContainer');
   const count = container.querySelectorAll('.additional-account').length + 1;
   const div = document.createElement('div');
-  div.className = 'additional-account inputs-grid';
-  div.style.cssText = 'border:1px solid var(--border);border-radius:14px;padding:14px;background:#fbfdff;margin-bottom:10px;';
+  div.className = 'additional-account';
   div.innerHTML = `
-    <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="Additional Account ${count}" placeholder="Example: Existing Roth Annuity" /></div>
-    <div class="field"><label>Account Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
-    <div class="field"><label>Account Type</label>
+    <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="Additional Account ${count}" placeholder="Existing Roth Annuity" /></div>
+    <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
+    <div class="field"><label>Type</label>
       <select class="additionalAccountType">
         <option value="roth">Roth</option>
         <option value="traditional">Traditional IRA / Qualified Account</option>
@@ -23,6 +30,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     </div>
     <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
     <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
+    <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
   `;
   container.appendChild(div);
   bindAdditionalAccountInputs(div);
@@ -71,6 +79,17 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     .client-box-title{font-size:18px;margin:0 0 12px;color:var(--blue)}
     .shared-grid{display:grid;grid-template-columns:repeat(2,minmax(150px,1fr));gap:12px}
     .pension-section{display:flex;flex-direction:column;gap:12px}
+    .account-panel{grid-column:1 / -1;border:1px solid var(--border);border-radius:18px;background:#fff;box-shadow:0 8px 22px rgba(16,24,40,.04);padding:16px;margin-top:4px}
+    .account-panel-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:10px}
+    .account-panel-title{font-size:14px;font-weight:800;color:var(--blue);letter-spacing:.02em;text-transform:uppercase}
+    .account-panel-subtitle{font-size:12px;color:var(--muted);margin-top:3px}
+    .additional-account{display:grid;grid-template-columns:1.35fr 1fr 1.15fr .65fr .65fr auto;gap:10px;align-items:end;border:1px solid #d7e0ea;border-radius:14px;padding:12px;background:#fbfdff;margin-bottom:10px}
+    .additional-account .field{margin:0}
+    .additional-account .field label{font-size:10px;letter-spacing:.06em}
+    .additional-account input,.additional-account select{height:38px;padding:8px 10px;font-size:13px}
+    .account-remove-btn{height:38px;padding:8px 10px;border-radius:10px;background:#f3f4f6;border:1px solid #d1d5db;color:#374151;font-weight:800;cursor:pointer}
+    @media (max-width:1200px){.additional-account{grid-template-columns:1fr 1fr}.account-remove-btn{width:100%}}
+
     .pension-row{border:1px solid var(--border);border-radius:14px;padding:14px;background:#fbfdff}
     .pension-row-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
     .pension-row-title{font-size:14px;font-weight:700;color:var(--blue)}
@@ -191,25 +210,31 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Additional 65+ Deduction (Per Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="1000000" step="1000" /></div>
-          <div class="field" style="grid-column:1 / -1">
-            <label>Additional Accounts</label>
+          <div class="account-panel">
+            <div class="account-panel-header">
+              <div>
+                <div class="account-panel-title">Additional Accounts</div>
+                <div class="account-panel-subtitle">Model extra Roth, Traditional/Qualified, or Non-Qualified assets with account-specific bonus and growth assumptions.</div>
+              </div>
+              <button type="button" id="addAccountBtn" class="mini-btn ghost">+ Add Account</button>
+            </div>
             <div id="additionalAccountsContainer">
-              <div class="additional-account inputs-grid" style="border:1px solid var(--border);border-radius:14px;padding:14px;background:#fbfdff;margin-bottom:10px;">
-                <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="Additional Account 1" placeholder="Example: Existing Roth Annuity" /></div>
-                <div class="field"><label>Account Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
-                <div class="field"><label>Account Type</label>
+              <div class="additional-account">
+                <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="Additional Account 1" placeholder="Existing Roth Annuity" /></div>
+                <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
+                <div class="field"><label>Type</label>
                   <select class="additionalAccountType">
                     <option value="roth" selected>Roth</option>
                     <option value="traditional">Traditional IRA / Qualified Account</option>
                     <option value="nonqualified">Non-Qualified</option>
                   </select>
                 </div>
-                <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>    <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>                <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
+                <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
+                <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
+                <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
               </div>
             </div>
-            <button type="button" id="addAccountBtn" class="mini-btn ghost" style="margin-top:8px;">+ Add Account</button>
           </div>
-          <div class="field"><label>Desired Annual Income</label><input id="desiredIncome" type="number" value="150000" step="1000" /></div>
           <div class="field"><label>Desired Income COLA %</label><input id="incomeCola" type="number" value="3.0" step="0.1" /></div>
           <div class="field"><label>Income Start Age</label><input id="incomeStartAge" type="number" value="65" min="40" max="95" step="1" /></div>
           <div class="field"><label>Planning Horizon / Life Expectancy Age</label><input id="planningHorizonAge" type="number" value="95" min="70" max="100" step="1" /></div>
@@ -244,7 +269,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Logo for PDF Output</label><input id="logoUpload" type="file" accept="image/*" /></div>
           <div class="field"><label>Logo Preview</label><div id="logoPreview" style="height:64px;border:1px dashed #cbd5e1;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;color:#64748b;font-size:12px;">No logo uploaded</div></div>
         </div>
-        <div class="checkbox-row"><input id="payTaxesOutside" type="checkbox" /><label for="payTaxesOutside">Pay taxes from outside assets</label></div>
+        <div class="checkbox-row"><input id="includeTaxFundingComparison" type="checkbox" /><label for="includeTaxFundingComparison">Pay taxes from outside assets</label></div>
         <div class="small" style="margin-top:10px;">Bonus is a one-time amount added to the premium up front and compounds inside the strategy. Conversion period is fully editable so you can plan around temporary income years.</div>
         <div class="btn-row"><button class="primary" onclick="calculate()">Run Analysis</button><button class="gold" onclick="generatePDF()">Generate PDF Report</button></div>
       </div>
@@ -271,7 +296,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <tr><td>Year 1 Planned Conversion</td><td id="pfConversion">$0</td></tr>
               <tr><td>Year 1 IRA Withdrawal</td><td id="pfIraSpend">$0</td></tr>
               <tr><td>Estimated Year 1 Taxes</td><td id="pfTaxes">$0</td></tr>
-              <tr><td>Tax Payment Source</td><td id="pfTaxSource">Outside Assets</td></tr>
+              <tr><td>Tax Funding Method</td><td id="pfTaxSource">Outside Assets</td></tr>
               <tr><td>Pension Continuation at First Death</td><td id="pfPensionContinuation">0%</td></tr>
               <tr><td>Annual Fee Display</td><td id="pfFeeDisplay">0.95% annual</td></tr>
             </tbody></table>
@@ -541,13 +566,13 @@ function setupSpouseVisibility(){
   }
 }
 function attachRecalc(ids){ ids.forEach(id => document.getElementById(id).addEventListener('input', calculate)); }
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','filingStatus','deathWho','deathAge','payTaxesOutside','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType'];
 allIds.forEach(id => document.getElementById(id).addEventListener('change',()=>{setupSpouseVisibility();refreshClientDisplay();calculate();}));
 document.getElementById('logoUpload').addEventListener('change', handleLogoUpload);
 document.getElementById('premium').addEventListener('input', ()=>{document.getElementById('premium').dataset.userEdited='true';});
 document.getElementById('hIra').addEventListener('input', syncPremiumToIraTotal);
 document.getElementById('wIra').addEventListener('input', syncPremiumToIraTotal);
-attachRecalc(allIds.filter(id => !['filingStatus','deathWho','payTaxesOutside','targetBracket','feeType'].includes(id)));
+attachRecalc(allIds.filter(id => !['filingStatus','deathWho','includeTaxFundingComparison','targetBracket','feeType'].includes(id)));
 
 function planningHorizonAge(){
   return Math.max(70, Math.min(100, Math.floor(num('planningHorizonAge') || 95)));
@@ -703,7 +728,7 @@ function buildScenario(useStrategy){
   const spousalFactor=percent('spousalFactor');
   const deathWho=document.getElementById('deathWho').value;
   const deathAge=Math.floor(num('deathAge'));
-  const payTaxesOutside=document.getElementById('payTaxesOutside').checked;
+  const includeTaxFundingComparison=document.getElementById('includeTaxFundingComparison').checked;
   const startYear=Math.max(1,Math.floor(num('startYear')||1));
   const conversionYears=Math.max(1,Math.floor(num('conversionYears')||6));
   const conversionEndYear=startYear + conversionYears - 1;
@@ -845,13 +870,13 @@ function buildScenario(useStrategy){
     }
 
     if(useStrategy){
-      const netToRoth = payTaxesOutside ? conversion : Math.max(0, conversion - conversionTax);
+      const netToRoth = includeTaxFundingComparison ? conversion : Math.max(0, conversion - conversionTax);
       if(netToRoth > 0){
         rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: netToRoth * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
       }
       roth = rothBuckets.reduce((s,b)=>s+b.balance,0) + additionalRoth;
       ira = Math.max(0, (ira - iraWithdrawal - conversion) * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)));
-      if(payTaxesOutside){
+      if(includeTaxFundingComparison){
         outside=Math.max(0, outside-totalTax-irmaa);
       }
       totalTaxFreeIncome += rothWithdrawal;
@@ -1016,7 +1041,7 @@ function calculate(){
   document.getElementById('pfConversion').textContent=fmt2(after.firstConv);
   document.getElementById('pfIraSpend').textContent=fmt2(after.details[0]?after.details[0].iraWithdrawal:0);
   document.getElementById('pfTaxes').textContent=fmt2(after.details[0]?after.details[0].tax:0);
-  document.getElementById('pfTaxSource').textContent=document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side';
+  document.getElementById('pfTaxSource').textContent=document.getElementById('includeTaxFundingComparison').checked?'Outside Assets':'From Conversion Side';
   document.getElementById('pfPensionContinuation').textContent=`Multiple pensions modeled individually`;
   document.getElementById('pfFeeDisplay').textContent=feeLabel();
   const pensionOwnerLabel = 'Each pension carries its own owner and survivor election';
@@ -1159,7 +1184,14 @@ function survivorRows(before, after){
     ['Tax-Free assets after death event', fmt2(b.roth||0), fmt2(a.roth||0), 'After strategy should be materially higher']
   ];
 }
-async function generatePDF(){
+async function scenarioHasSurvivorEvent(before, after){
+  return !!((before && before.survivorSnapshotBefore) || (after && after.survivorSnapshotAfter));
+}
+function hasAdditionalAccountsForPdf(after){
+  return !!(after && after.additionalAccounts && after.additionalAccounts.length);
+}
+
+function generatePDF(){
   if(!latest) calculate();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('l','pt','letter');
@@ -1235,7 +1267,7 @@ async function generatePDF(){
     ['Scheduled Conversion Completion Year', `Year ${after.conversionEndYear}`],
     ['IRA at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).ira || 0)],
     ['Tax-Free Assets at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).roth || 0)],
-    ['Tax Payment Source', document.getElementById('payTaxesOutside').checked?'Outside Assets':'From Conversion Side'],
+    ['Tax Funding Method', document.getElementById('includeTaxFundingComparison')?.checked?'Outside Assets Comparison Included':'From Conversion Side'],
     ['Pension Continuation at First Death', 'Each pension uses its own survivor continuation'],
     ['Displayed Annual Fee', feeLabel()],
     ['Desired Annual Income', fmt2(num('desiredIncome'))],
@@ -1314,65 +1346,68 @@ async function generatePDF(){
   doc.text(doc.splitTextToSize('Includes estimated federal tax savings, IRMAA savings, increased tax-free income, and increased tax-free estate.', 680), 46, finalY + 52);
   addPdfFooter(doc,4);
 
-  // Page 5 - Dual Tax Funding Comparison (auto-run both)
-  const originalPayTaxesOutside = document.getElementById('payTaxesOutside').checked;
-  document.getElementById('payTaxesOutside').checked = false;
-  const conversionTaxScenario = buildScenario(true);
-  document.getElementById('payTaxesOutside').checked = true;
-  const outsideTaxScenario = buildScenario(true);
-  document.getElementById('payTaxesOutside').checked = originalPayTaxesOutside;
-
-  doc.addPage();
-  addTitle(doc,'Dual Tax Funding Comparison','Auto-runs both funding methods: taxes from conversion vs taxes from outside assets.');
-  addPdfLogo(doc);
-  const dualRows = [
-    [`Total Federal Taxes by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxes, outsideTaxScenario.totalTaxes, conversionTaxScenario.totalTaxes - outsideTaxScenario.totalTaxes],
-    [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
-    [`Total RMDs by Age ${planningHorizonAge()}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
-    [`Total IRMAA by Age ${planningHorizonAge()}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
-    [`Taxable Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
-    [`Tax-Free Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
-  ];
-  doc.autoTable({
-    startY:78,
-    head:[[
-      {content:'Metric', styles:{fontStyle:'bold'}},
-      {content:'From Conversion', styles:{fillColor:[220,53,69], textColor:[255,255,255], fontStyle:'bold'}},
-      {content:'From Outside Assets', styles:{fillColor:[0,200,83], textColor:[255,255,255], fontStyle:'bold'}},
-      {content:'Difference', styles:{fillColor:[11,58,111], textColor:[255,255,255], fontStyle:'bold'}}
-    ]],
-    body: dualRows.map(r=>[r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]),
-    styles:{fontSize:10},
-    headStyles:{fillColor:[11,58,111]},
-    margin:{bottom:115},
-    didParseCell:function(data){
-      if(data.section==='body' && data.column.index===0){ data.cell.styles.fontStyle='bold'; }
-      if(data.section==='body' && data.column.index===1){ data.cell.styles.fillColor=[220,53,69]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
-      if(data.section==='body' && data.column.index===2){ data.cell.styles.fillColor=[0,200,83]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
-      if(data.section==='body' && data.column.index===3){
-        const raw = dualRows[data.row.index][3];
-        data.cell.styles.fillColor = raw >= 0 ? [0,200,83] : [220,53,69];
-        data.cell.styles.textColor = [255,255,255];
-        data.cell.styles.fontStyle = 'bold';
+  if(document.getElementById('includeTaxFundingComparison')?.checked){
+  // Page 5 - Tax Funding Comparison (auto-run both)
+    const originalPayTaxesOutside = document.getElementById('includeTaxFundingComparison').checked;
+    document.getElementById('includeTaxFundingComparison').checked = false;
+    const conversionTaxScenario = buildScenario(true);
+    document.getElementById('includeTaxFundingComparison').checked = true;
+    const outsideTaxScenario = buildScenario(true);
+    document.getElementById('includeTaxFundingComparison').checked = originalPayTaxesOutside;
+  
+    doc.addPage();
+    addTitle(doc,'Tax Funding Comparison','Optional comparison: taxes funded from conversion side versus outside assets.');
+    addPdfLogo(doc);
+    const dualRows = [
+      [`Total Federal Taxes by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxes, outsideTaxScenario.totalTaxes, conversionTaxScenario.totalTaxes - outsideTaxScenario.totalTaxes],
+      [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
+      [`Total RMDs by Age ${planningHorizonAge()}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
+      [`Total IRMAA by Age ${planningHorizonAge()}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
+      [`Taxable Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
+      [`Tax-Free Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
+    ];
+    doc.autoTable({
+      startY:78,
+      head:[[
+        {content:'Metric', styles:{fontStyle:'bold'}},
+        {content:'From Conversion', styles:{fillColor:[220,53,69], textColor:[255,255,255], fontStyle:'bold'}},
+        {content:'From Outside Assets', styles:{fillColor:[0,200,83], textColor:[255,255,255], fontStyle:'bold'}},
+        {content:'Difference', styles:{fillColor:[11,58,111], textColor:[255,255,255], fontStyle:'bold'}}
+      ]],
+      body: dualRows.map(r=>[r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]),
+      styles:{fontSize:10},
+      headStyles:{fillColor:[11,58,111]},
+      margin:{bottom:115},
+      didParseCell:function(data){
+        if(data.section==='body' && data.column.index===0){ data.cell.styles.fontStyle='bold'; }
+        if(data.section==='body' && data.column.index===1){ data.cell.styles.fillColor=[220,53,69]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
+        if(data.section==='body' && data.column.index===2){ data.cell.styles.fillColor=[0,200,83]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
+        if(data.section==='body' && data.column.index===3){
+          const raw = dualRows[data.row.index][3];
+          data.cell.styles.fillColor = raw >= 0 ? [0,200,83] : [220,53,69];
+          data.cell.styles.textColor = [255,255,255];
+          data.cell.styles.fontStyle = 'bold';
+        }
       }
-    }
-  });
-  const dualNetBenefit = (conversionTaxScenario.totalTaxes - outsideTaxScenario.totalTaxes) + (conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA) + (outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome) + (outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate);
-  const dualY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY : 220;
-  doc.setFillColor(11,58,111);
-  doc.roundedRect(36, dualY + 12, 720, 28, 4, 4, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont(undefined,'bold');
-  doc.setFontSize(12);
-  doc.text('Estimated Advantage of Paying Taxes From Outside Assets', 46, dualY + 30);
-  doc.setTextColor(0,200,83);
-  doc.setFontSize(18);
-  doc.text(fmt2(dualNetBenefit), 745, dualY + 30, {align:'right'});
-  doc.setTextColor(90,90,90);
-  doc.setFont(undefined,'normal');
-  doc.setFontSize(9);
-  doc.text(doc.splitTextToSize('Positive difference means the Outside Assets method creates a better projected outcome under the same inputs.', 680), 46, dualY + 52);
-  addPdfFooter(doc,5);
+    });
+    const dualNetBenefit = (conversionTaxScenario.totalTaxes - outsideTaxScenario.totalTaxes) + (conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA) + (outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome) + (outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate);
+    const dualY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY : 220;
+    doc.setFillColor(11,58,111);
+    doc.roundedRect(36, dualY + 12, 720, 28, 4, 4, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont(undefined,'bold');
+    doc.setFontSize(12);
+    doc.text('Estimated Advantage of Outside Tax Funding', 46, dualY + 30);
+    doc.setTextColor(0,200,83);
+    doc.setFontSize(18);
+    doc.text(fmt2(dualNetBenefit), 745, dualY + 30, {align:'right'});
+    doc.setTextColor(90,90,90);
+    doc.setFont(undefined,'normal');
+    doc.setFontSize(9);
+    doc.text(doc.splitTextToSize('Positive difference means the Outside Assets method creates a better projected outcome under the same inputs.', 680), 46, dualY + 52);
+    addPdfFooter(doc,5);
+  
+}
 
   // Page 6
   doc.addPage();
@@ -1456,22 +1491,26 @@ async function generatePDF(){
   detailPages('Year-by-Year Current Situation (Before Conversion)', before.details, 'before');
   detailPages('Year-by-Year Fidelity Strategy (After Conversion)', after.details, 'after');
 
+  if(scenarioHasSurvivorEvent(before, after)){
   // Survivor comparison page
-  const survivorPageNum = doc.getNumberOfPages()+1;
-  doc.addPage('letter','l');
-  addTitle(doc,'Survivor Tax Impact: Without and With Roth Conversion','Shows what happens tax-wise to the survivor after the entered Client 1 death age.');
-  addPdfLogo(doc);
-  doc.autoTable({
-    startY:78,
-    head:[['Metric','Without Roth Conversion','With Roth Conversion','Commentary']],
-    body: survivorRows(before, after),
-    styles:{fontSize:9},
-    headStyles:{fillColor:[11,58,111]},
-    margin:{bottom:85}
-  });
-  addPdfFooter(doc,survivorPageNum);
+    const survivorPageNum = doc.getNumberOfPages()+1;
+    doc.addPage('letter','l');
+    addTitle(doc,'Survivor Tax Impact: Without and With Roth Conversion','Shows what happens tax-wise to the survivor after the entered Client 1 death age.');
+    addPdfLogo(doc);
+    doc.autoTable({
+      startY:78,
+      head:[['Metric','Without Roth Conversion','With Roth Conversion','Commentary']],
+      body: survivorRows(before, after),
+      styles:{fontSize:9},
+      headStyles:{fillColor:[11,58,111]},
+      margin:{bottom:85}
+    });
+    addPdfFooter(doc,survivorPageNum);
+  
+    
+}
 
-  doc.save('fidelity-roth-planner-report.pdf');
+doc.save('fidelity-roth-planner-report.pdf');
 }
 window.addEventListener('DOMContentLoaded', () => { try { ['Title','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); calculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 
