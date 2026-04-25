@@ -944,10 +944,15 @@ function buildScenario(useStrategy){
   const additionalTotals = additionalAccountTotals();
   const additionalAccounts = additionalTotals.accounts;
   const additionalAccountFunds = additionalTotals.totalFunds;
-  let additionalRothAccounts = useStrategy ? additionalAccounts
+  let additionalRothAccounts = additionalAccounts
     .filter(a=>a.type==='roth')
-    .map(a=>({title:a.title, balance:a.funds*(1+a.bonusPct/100), growthPct:a.growthPct, bonusPct:a.bonusPct, funds:a.funds}))
-    : [];
+    .map(a=>({
+      title:a.title,
+      balance:a.funds * (useStrategy ? (1+a.bonusPct/100) : 1),
+      growthPct:a.growthPct,
+      bonusPct:a.bonusPct,
+      funds:a.funds
+    }));
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   let additionalTraditional = additionalTotals.traditional;
   let additionalNq = additionalTotals.nonqualified;
@@ -1117,7 +1122,7 @@ function buildScenario(useStrategy){
     }
 
     rothBuckets.forEach(b => { b.balance = b.balance * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)); });
-    if(useStrategy && additionalRothAccounts.length){
+    if(additionalRothAccounts.length){
       additionalRothAccounts.forEach(a=>{
         const g = (Number(a.growthPct) || 0) / 100;
         a.balance = a.balance * Math.max(0, (1 + g) * (1 - effectiveFeeRate));
@@ -1137,7 +1142,7 @@ function buildScenario(useStrategy){
       }
       totalTaxFreeIncome += rothWithdrawal;
     } else {
-      roth = 0;
+      roth = additionalRoth;
       ira = Math.max(0, (ira - iraWithdrawal) * (1+growth));
       outside=Math.max(0, outside-totalTax-irmaa);
     }
@@ -1374,60 +1379,7 @@ function removeZeroWithdrawalColumns(tableCfg){
   };
 }
 
-function tableConfigFromDetails(details, mode='before'){
-  const showIraWithdrawal = hasAnyValue(details, 'iraWithdrawal');
-  const showNqWithdrawal = hasAnyValue(details, 'plannedNqWithdrawal');
 
-  if(mode === 'before'){
-    const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
-    if(showIraWithdrawal) cols.push('RMD\nRequired Withdrawal');
-    if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
-    cols.push('Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','IRA');
-    const rows = details.map(r => {
-      const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
-      if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
-      if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0));
-      row.push(fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira));
-      return row;
-    });
-    return {cols:[cols], rows};
-  }
-
-  const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
-  if(showIraWithdrawal) cols.push('RMD\nRequired Withdrawal');
-  if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
-  cols.push('Conversion','Conversion\nTaxes','TAX-FREE\nROTH INCOME','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','TAX-FREE\nESTATE');
-  const rows = details.map(r => {
-    const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
-    if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
-    if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0));
-    row.push(fmt2(r.conversion), fmt2(r.conversionTax||0), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.roth));
-    return row;
-  });
-  return {cols:[cols], rows};
-}
-
-function pensionPdfRows(){
-  if(!pensionRowCount()) return [['No pensions entered','—','—','—','—','—']];
-  return Array.from({length:pensionRowCount()}, (_,i)=>{
-    const n=i+1;
-    const taxable = getPensionValue(n,'Taxable');
-    const taxFree = getPensionValue(n,'TaxFree');
-    const startAge = getPensionStartAge(n);
-    const startMonth = getPensionStartMonth(n);
-    const firstYearTaxable = pensionFirstYearAmount(n, taxable);
-    const startText = startAge > 0 ? `Age ${startAge}${startMonth>0 ? ' / '+pensionStartMonthLabel(startMonth) : ''}` : 'Already Started / Full Year';
-    return [
-      getPensionTitle(n),
-      startText,
-      fmt2(taxable),
-      fmt2(firstYearTaxable),
-      fmt2(taxFree),
-      `${getPensionCola(n).toFixed(1)}%`,
-      `${(getPensionSurvivorPct(n)*100).toFixed(0)}%`
-    ];
-  });
-}
 
 function additionalAccountPdfRows(after=null){
   const accounts = after && after.additionalAccounts ? after.additionalAccounts : getAdditionalAccounts();
@@ -1442,6 +1394,7 @@ function additionalAccountPdfRows(after=null){
       fmt2(a.funds),
       `${Number(a.bonusPct||0).toFixed(1)}%`,
       `${Number(a.growthPct||0).toFixed(1)}%`,
+      fmt2(a.funds),
       fmt2(startWithBonus)
     ];
   });
@@ -1600,6 +1553,59 @@ function createLegacyBarChartDataUrl(beforeNet, afterNet){
   ctx.textAlign = 'left';
   return canvas.toDataURL('image/png');
 }
+
+
+
+
+
+
+function tableConfigFromDetails(details, mode='before'){
+  const rowsData = Array.isArray(details) ? details : [];
+  const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
+  const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
+  const showAdditionalAssets = rowsData.some(r => Math.abs(Number(r.additionalRoth || 0)) > 0.004);
+
+  if(mode === 'before'){
+    const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+    if(showIraWithdrawal) cols.push('RMD\nRequired Withdrawal');
+    if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
+    cols.push('Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','IRA');
+    if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
+
+    const rows = rowsData.map(r => {
+      const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
+      if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
+      if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0));
+      row.push(fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira));
+      if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+      return row;
+    });
+    return {cols:[cols], rows};
+  }
+
+  const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+  if(showIraWithdrawal) cols.push('RMD\nRequired Withdrawal');
+  if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
+  cols.push('Conversion','Conversion\nTaxes','TAX-FREE\nROTH INCOME','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA');
+  if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
+  cols.push('TAX-FREE\nESTATE');
+
+  const rows = rowsData.map(r => {
+    const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
+    if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
+    if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0));
+    row.push(fmt2(r.conversion), fmt2(r.conversionTax||0), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa));
+    if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+    row.push(fmt2(r.roth));
+    return row;
+  });
+  return {cols:[cols], rows};
+}
+
+function rowsFromDetails(details, mode='before'){
+  return tableConfigFromDetails(details, mode).rows;
+}
+
 
 function generatePDF(){
   try{
@@ -1942,7 +1948,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account can use its own bonus percentage and its own growth rate, is modeled with the same fee assumption, and is not reduced by conversion taxes. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -1952,9 +1958,10 @@ function generatePDF(){
     doc.addPage('letter','l');
     addTitle(doc,title, mode==='before' ? 'Before page shows taxable income and any applicable withdrawals through the selected planning horizon. IRMAA uses inflated thresholds and a two-year MAGI lookback.' : 'After page shows conversion taxes, Roth income, tax-free estate, and any applicable withdrawals through the selected planning horizon. IRMAA uses inflated thresholds and a two-year MAGI lookback.');
     addPdfLogo(doc);
-    let tableCfg = removeZeroWithdrawalColumns(tableConfigFromDetails(details, mode));
+    let tableCfg = tableConfigFromDetails(details, mode);
     const greenIncomeIndex = tableCfg.cols[0].indexOf('TAX-FREE\nROTH INCOME');
     const greenEstateIndex = tableCfg.cols[0].indexOf('TAX-FREE\nESTATE');
+    const additionalAssetsIndex = tableCfg.cols[0].indexOf('ADDITIONAL\nACCOUNT ASSETS');
     doc.autoTable({
       startY:78,
       head: tableCfg.cols,
@@ -2050,7 +2057,7 @@ function generatePDF(){
   doc.text('Please call anytime with questions.', 90, 238);
   doc.setFont(undefined,'bold');
   doc.setTextColor(11,58,111);
-  doc.text('Fidelity Mutual Financial - Darryl Stein - 888-947-0555 - www.TheFidelityMutual.com - www.TheFidelityMutual.com', 90, 282);
+  doc.text('Fidelity Mutual Financial - Darryl Stein - 888-947-0555 - www.TheFidelityMutual.com', 90, 282);
   addPdfFooter(doc, doc.getNumberOfPages());
 
 doc.save(`${cleanFilePart(householdName)}_${cleanFilePart(cleanScenario)}_fidelity-roth-planner-report.pdf`);
