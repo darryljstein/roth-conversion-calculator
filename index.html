@@ -1812,7 +1812,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Milestone Summary','Year 1, Year 5, Social Security years, RMD year, conversion completion, and every 5 years through the selected planning horizon.');
   addPdfLogo(doc);
-  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:after.milestones.map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.additionalAccountAssets||0),fmt2(m.taxFreeAssets||0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
+  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:after.milestones.map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2((m.additionalAccountAssets ?? m.additionalRoth) || 0),fmt2((m.taxFreeAssets ?? m.roth) || 0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
   addPdfFooter(doc,3);
 
   // Page 4
