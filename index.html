@@ -99,6 +99,49 @@ document.addEventListener('change', function(e){
   document.addEventListener('change', delegatedLiveHandler, true);
 })();
 
+
+(function(){
+  if(window.__fmfStartupAndLiveCalcBound) return;
+  window.__fmfStartupAndLiveCalcBound = true;
+
+  function runStartupCalculation(){
+    try{
+      if(typeof setupSpouseVisibility === 'function') setupSpouseVisibility();
+      if(typeof refreshClientDisplay === 'function') refreshClientDisplay();
+      if(typeof renderLogoPreview === 'function') renderLogoPreview();
+      if(typeof syncPremiumToIraTotal === 'function') syncPremiumToIraTotal();
+      if(typeof bindAdditionalAccountInputs === 'function') bindAdditionalAccountInputs();
+      safeCalculate();
+    }catch(e){
+      showCalcError(e);
+    }
+  }
+
+  function liveHandler(e){
+    const t = e.target;
+    if(!t || !t.matches || !t.matches('input, select, textarea')) return;
+    if(t.id === 'logoUpload') return;
+    try{
+      if(typeof setupSpouseVisibility === 'function') setupSpouseVisibility();
+      if(typeof refreshClientDisplay === 'function') refreshClientDisplay();
+      if(typeof syncPremiumToIraTotal === 'function' && (t.id === 'hIra' || t.id === 'wIra')) syncPremiumToIraTotal();
+      if(typeof refreshAllPensionLabels === 'function' && String(t.id || '').includes('pension')) refreshAllPensionLabels();
+      safeCalculate();
+    }catch(e){
+      showCalcError(e);
+    }
+  }
+
+  document.addEventListener('input', liveHandler, true);
+  document.addEventListener('change', liveHandler, true);
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', runStartupCalculation);
+  }else{
+    runStartupCalculation();
+  }
+  setTimeout(runStartupCalculation, 0);
+})();
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js">
 document.getElementById('addAccountBtn').addEventListener('click', function(){
@@ -672,11 +715,28 @@ function attachRecalc(ids){
   });
 }
 
+function showCalcError(e){
+  console.error('Calculation error:', e);
+  let box = document.getElementById('calcErrorBox');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'calcErrorBox';
+    box.style.cssText = 'margin:12px 0;padding:12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:10px;font-size:13px;';
+    const target = document.querySelector('.container') || document.body;
+    target.prepend(box);
+  }
+  box.textContent = 'Calculation error: ' + (e && e.message ? e.message : e);
+}
+function clearCalcError(){
+  const box = document.getElementById('calcErrorBox');
+  if(box) box.remove();
+}
 function safeCalculate(){
   try{
     calculate();
+    clearCalcError();
   }catch(e){
-    console.error('Calculation error:', e);
+    showCalcError(e);
   }
 }
 
@@ -875,7 +935,7 @@ function buildScenario(useStrategy){
   const spousalFactor=percent('spousalFactor');
   const deathWho=document.getElementById('deathWho').value;
   const deathAge=Math.floor(num('deathAge'));
-  const includeTaxFundingComparison=document.getElementById('includeTaxFundingComparison').checked;
+  const includeTaxFundingComparison=(document.getElementById('includeTaxFundingComparison')?.checked || false);
   const startYear=Math.max(1,Math.floor(num('startYear')||1));
   const conversionYears=Math.max(1,Math.floor(num('conversionYears')||6));
   const conversionEndYear=startYear + conversionYears - 1;
@@ -1188,7 +1248,7 @@ function calculate(){
   document.getElementById('pfConversion').textContent=fmt2(after.firstConv);
   document.getElementById('pfIraSpend').textContent=fmt2(after.details[0]?after.details[0].iraWithdrawal:0);
   document.getElementById('pfTaxes').textContent=fmt2(after.details[0]?after.details[0].tax:0);
-  document.getElementById('pfTaxSource').textContent=document.getElementById('includeTaxFundingComparison').checked?'Outside Assets':'From Conversion Side';
+  document.getElementById('pfTaxSource').textContent=(document.getElementById('includeTaxFundingComparison')?.checked || false)?'Outside Assets':'From Conversion Side';
   document.getElementById('pfPensionContinuation').textContent=`Multiple pensions modeled individually`;
   document.getElementById('pfFeeDisplay').textContent=feeLabel();
   const pensionOwnerLabel = 'Each pension carries its own owner and survivor election';
@@ -1619,12 +1679,12 @@ function generatePDF(){
 
   if(document.getElementById('includeTaxFundingComparison')?.checked){
   // Page 5 - Tax Funding Comparison (auto-run both)
-    const originalPayTaxesOutside = document.getElementById('includeTaxFundingComparison').checked;
-    document.getElementById('includeTaxFundingComparison').checked = false;
+    const originalPayTaxesOutside = (document.getElementById('includeTaxFundingComparison')?.checked || false);
+    (document.getElementById('includeTaxFundingComparison')?.checked || false) = false;
     const conversionTaxScenario = buildScenario(true);
-    document.getElementById('includeTaxFundingComparison').checked = true;
+    (document.getElementById('includeTaxFundingComparison')?.checked || false) = true;
     const outsideTaxScenario = buildScenario(true);
-    document.getElementById('includeTaxFundingComparison').checked = originalPayTaxesOutside;
+    (document.getElementById('includeTaxFundingComparison')?.checked || false) = originalPayTaxesOutside;
   
     doc.addPage();
     addTitle(doc,'Tax Funding Comparison','Optional comparison: taxes funded from conversion side versus outside assets.');
