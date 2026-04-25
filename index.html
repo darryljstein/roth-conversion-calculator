@@ -222,6 +222,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 </div>
                 <div class="inputs-grid">
                   <div class="field"><label>Pension Title</label><input id="pension1Title" type="text" value="Pension 1" placeholder="Example: GE Pension" /></div>
+                  <div class="field"><label>Pension Begins Age</label><input id="pension1StartAge" type="number" value="0" min="0" max="100" step="1" placeholder="Leave 0 if already started" /></div>
+                  <div class="field"><label>Start Month</label><select id="pension1StartMonth"><option value="0" selected>Full Year / Already Started</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
                   <div class="field"><label>Taxable Pension Annual</label><input id="pension1Taxable" type="number" value="0" step="1000" /></div>
                   <div class="field"><label>Tax-Free Pension Annual</label><input id="pension1TaxFree" type="number" value="0" step="1000" /></div>
                   <div class="field"><label>Pension Owner</label><select id="pension1Owner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
@@ -414,6 +416,35 @@ function getPensionTitle(index){
   const el = document.getElementById(`pension${index}Title`);
   return el && el.value.trim() ? el.value.trim() : `Pension ${index}`;
 }
+function getPensionStartAge(index){
+  const el = document.getElementById(`pension${index}StartAge`);
+  const v = el ? parseFloat(el.value) : 0;
+  return isNaN(v) ? 0 : v;
+}
+function getPensionStartMonth(index){
+  const el = document.getElementById(`pension${index}StartMonth`);
+  const v = el ? parseInt(el.value,10) : 0;
+  return isNaN(v) ? 0 : v;
+}
+function pensionStartMonthLabel(month){
+  const labels = ['Full Year / Already Started','January','February','March','April','May','June','July','August','September','October','November','December'];
+  return labels[Number(month)||0] || 'Full Year / Already Started';
+}
+function pensionProrationFactor(index, primaryAge){
+  const startAge = getPensionStartAge(index);
+  const startMonth = getPensionStartMonth(index);
+  if(!startAge || startAge <= 0) return 1;
+  if(primaryAge < startAge) return 0;
+  if(primaryAge > startAge) return 1;
+  if(startMonth <= 0) return 1;
+  const monthsPaid = Math.max(0, 12 - startMonth);
+  return monthsPaid / 12;
+}
+function pensionFirstYearAmount(index, annualAmount){
+  const startMonth = getPensionStartMonth(index);
+  if(startMonth <= 0) return annualAmount;
+  return annualAmount * Math.max(0, 12 - startMonth) / 12;
+}
 function getPensionValue(index, suffix){
   const el = document.getElementById(`pension${index}${suffix}`);
   if(!el) return 0;
@@ -478,6 +509,8 @@ function addPensionRow(){
     </div>
     <div class="inputs-grid">
       <div class="field"><label>Pension Title</label><input id="pension${next}Title" type="text" value="Pension ${next}" placeholder="Example: Pension / Annuity Name" /></div>
+      <div class="field"><label>Pension Begins Age</label><input id="pension${next}StartAge" type="number" value="0" min="0" max="100" step="1" placeholder="Leave 0 if already started" /></div>
+      <div class="field"><label>Start Month</label><select id="pension${next}StartMonth"><option value="0" selected>Full Year / Already Started</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
       <div class="field"><label>Taxable Pension Annual</label><input id="pension${next}Taxable" type="number" value="0" step="1000" /></div>
       <div class="field"><label>Tax-Free Pension Annual</label><input id="pension${next}TaxFree" type="number" value="0" step="1000" /></div>
       <div class="field"><label>Pension Owner</label><select id="pension${next}Owner"><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
@@ -485,7 +518,7 @@ function addPensionRow(){
       <div class="field hidden" id="pension${next}CustomWrap"><label>Custom Survivor %</label><input id="pension${next}SurvivorCustom" type="number" value="0" min="0" max="100" step="1" /></div>
     </div>`;
   container.appendChild(row);
-  ['Title','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension${next}${suffix}`)));
+  ['Title','StartAge','StartMonth','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension${next}${suffix}`)));
   refreshAllPensionLabels();
   setupSpouseVisibility();
   calculate();
@@ -506,6 +539,8 @@ function removePensionRow(index){
       </div>
       <div class="inputs-grid">
         <div class="field"><label>Pension Title</label><input id="pension${n}Title" type="text" value="${getPensionTitle(Number(old))}" placeholder="Example: Pension / Annuity Name" /></div>
+        <div class="field"><label>Pension Begins Age</label><input id="pension${n}StartAge" type="number" value="${getPensionStartAge(Number(old))}" min="0" max="100" step="1" placeholder="Leave 0 if already started" /></div>
+        <div class="field"><label>Start Month</label><select id="pension${n}StartMonth"><option value="0">Full Year / Already Started</option><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6">June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select></div>
         <div class="field"><label>Taxable Pension Annual</label><input id="pension${n}Taxable" type="number" value="${getPensionValue(Number(old),'Taxable')}" step="1000" /></div>
         <div class="field"><label>Tax-Free Pension Annual</label><input id="pension${n}TaxFree" type="number" value="${getPensionValue(Number(old),'TaxFree')}" step="1000" /></div>
         <div class="field"><label>Pension Owner</label><select id="pension${n}Owner"><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
@@ -517,9 +552,11 @@ function removePensionRow(index){
     const n = idx + 1;
     const owner = document.getElementById(`pension${n}Owner`);
     if(owner) owner.value = getPensionOwnerValue(n);
+    const startMonth = document.getElementById(`pension${n}StartMonth`);
+    if(startMonth) startMonth.value = String(getPensionStartMonth(n));
     const surv = document.getElementById(`pension${n}SurvivorPct`);
     if(surv) surv.value = String(getPensionSurvivorPct(n)*100).replace('.0','');
-    ['Title','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension${n}${suffix}`)));
+    ['Title','StartAge','StartMonth','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension${n}${suffix}`)));
     refreshPensionRowVisibility(n);
   });
   refreshAllPensionLabels();
@@ -533,8 +570,9 @@ function getPensionStreams(year, filingStart, deathApplied, deathWho, status, hA
     const owner = getPensionOwnerValue(i);
     const ownerDied = deathApplied && filingStart==='MFJ' && deathWho===owner;
     const continuation = ownerDied ? getPensionSurvivorPct(i) : 1;
-    taxablePension += getPensionValue(i,'Taxable') * Math.pow(1+percent('cola'),year-1) * continuation;
-    taxFreePension += getPensionValue(i,'TaxFree') * Math.pow(1+percent('cola'),year-1) * continuation;
+    const proration = pensionProrationFactor(i, primaryAge);
+    taxablePension += getPensionValue(i,'Taxable') * Math.pow(1+percent('cola'),year-1) * continuation * proration;
+    taxFreePension += getPensionValue(i,'TaxFree') * Math.pow(1+percent('cola'),year-1) * continuation * proration;
   }
   return {taxablePension, taxFreePension, totalPension: taxablePension + taxFreePension};
 }
@@ -1224,6 +1262,27 @@ function tableConfigFromDetails(details, mode='before'){
   return {cols:[cols], rows};
 }
 
+function pensionPdfRows(){
+  if(!pensionRowCount()) return [['No pensions entered','—','—','—','—','—']];
+  return Array.from({length:pensionRowCount()}, (_,i)=>{
+    const n=i+1;
+    const taxable = getPensionValue(n,'Taxable');
+    const taxFree = getPensionValue(n,'TaxFree');
+    const startAge = getPensionStartAge(n);
+    const startMonth = getPensionStartMonth(n);
+    const firstYearTaxable = pensionFirstYearAmount(n, taxable);
+    const startText = startAge > 0 ? `Age ${startAge}${startMonth>0 ? ' / '+pensionStartMonthLabel(startMonth) : ''}` : 'Already Started / Full Year';
+    return [
+      getPensionTitle(n),
+      startText,
+      fmt2(taxable),
+      fmt2(firstYearTaxable),
+      fmt2(taxFree),
+      `${(getPensionSurvivorPct(n)*100).toFixed(0)}%`
+    ];
+  });
+}
+
 function additionalAccountPdfRows(after=null){
   const accounts = after && after.additionalAccounts ? after.additionalAccounts : getAdditionalAccounts();
   if(!accounts || !accounts.length){
@@ -1375,7 +1434,7 @@ function generatePDF(){
     ...getAdditionalAccounts().map(a => [a.title, `${fmt2(a.funds)} / ${a.typeLabel} / Bonus ${Number(a.bonusPct||0).toFixed(1)}% / Growth ${Number(a.growthPct||0).toFixed(1)}%`]),
     ...Array.from({length:pensionRowCount()}, (_,i)=>{
       const n=i+1;
-      return [getPensionTitle(n), `Taxable ${fmt2(getPensionValue(n,'Taxable'))} / Tax-Free ${fmt2(getPensionValue(n,'TaxFree'))} / Survivor ${(getPensionSurvivorPct(n)*100).toFixed(0)}%`];
+      return [getPensionTitle(n), `Starts ${getPensionStartAge(n)>0 ? 'Age '+getPensionStartAge(n)+' / '+pensionStartMonthLabel(getPensionStartMonth(n)) : 'Full Year'} / Taxable ${fmt2(getPensionValue(n,'Taxable'))} / First Year ${fmt2(pensionFirstYearAmount(n,getPensionValue(n,'Taxable')))} / Survivor ${(getPensionSurvivorPct(n)*100).toFixed(0)}%`];
     }),
     ['Planned IRA Withdrawal', fmt2(num('plannedIraWithdrawal'))],
     ['IRA Withdrawal Stops At Age', String(Math.floor(num('plannedIraEndAge')||70))],
@@ -1593,6 +1652,25 @@ function generatePDF(){
   
 }
 
+  // Pension Details page
+  doc.addPage();
+  addTitle(doc,'Pension Details','Shows start timing, annual amounts, first-year proration, and survivor continuation by pension.');
+  addPdfLogo(doc);
+  doc.autoTable({
+    startY:78,
+    head:[['Pension Title','Start Timing','Annual Taxable','First-Year Taxable','Annual Tax-Free','Survivor %']],
+    body:pensionPdfRows(),
+    styles:{fontSize:8,cellPadding:3,overflow:'linebreak',halign:'center',valign:'middle'},
+    headStyles:{fillColor:[0,61,115],textColor:255,fontStyle:'bold',halign:'center'},
+    alternateRowStyles:{fillColor:[245,247,250]},
+    margin:{left:40,right:40}
+  });
+  doc.setFontSize(9);
+  doc.setTextColor(90,90,90);
+  const py = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 20 : 220;
+  doc.text(doc.splitTextToSize('If a Start Month is entered, first-year pension income is automatically prorated. Example: August start means September through December income is counted, or 4 months.', 680), 44, py);
+  addPdfFooter(doc, currentPage++);
+
   // Visual Chart page
   doc.addPage();
   addTitle(doc,'Visual Strategy Summary','Projected tax-free estate and IRA balance over time.');
@@ -1612,7 +1690,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account can use its own bonus percentage and its own growth rate, is modeled with the same fee assumption, and is not reduced by conversion taxes. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension start timing, partial-year proration, survivor continuation, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account can use its own bonus percentage and its own growth rate, is modeled with the same fee assumption, and is not reduced by conversion taxes. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -1711,7 +1789,7 @@ function generatePDF(){
 
 doc.save('fidelity-roth-planner-report.pdf');
 }
-window.addEventListener('DOMContentLoaded', () => { try { ['Title','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 
 document.getElementById('addAccountBtn').addEventListener('click', function(){
   const container = document.getElementById('additionalAccountsContainer');
