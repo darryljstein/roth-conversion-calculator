@@ -38,7 +38,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 });
 document.querySelectorAll('#additionalAccountsContainer input,#additionalAccountsContainer select').forEach(el => {
   el.addEventListener('input', safeCalculate);
-  el.addEventListener('change', calculate);
+  el.addEventListener('change', safeCalculate);
 });
 
 
@@ -72,6 +72,31 @@ document.addEventListener('change', function(e){
   };
   document.addEventListener('input', liveHandler, true);
   document.addEventListener('change', liveHandler, true);
+})();
+
+
+(function(){
+  if(window.__fmfDelegatedLiveCalcBound) return;
+  window.__fmfDelegatedLiveCalcBound = true;
+
+  function delegatedLiveHandler(e){
+    const t = e.target;
+    if(!t || !t.matches || !t.matches('input, select, textarea')) return;
+    if(t.id === 'logoUpload') return;
+
+    try{
+      if(typeof setupSpouseVisibility === 'function') setupSpouseVisibility();
+      if(typeof refreshClientDisplay === 'function') refreshClientDisplay();
+      if(typeof syncPremiumToIraTotal === 'function' && (t.id === 'hIra' || t.id === 'wIra')) syncPremiumToIraTotal();
+      if(typeof refreshAllPensionLabels === 'function' && String(t.id || '').includes('pension')) refreshAllPensionLabels();
+      safeCalculate();
+    }catch(err){
+      console.error('Live calculation error:', err);
+    }
+  }
+
+  document.addEventListener('input', delegatedLiveHandler, true);
+  document.addEventListener('change', delegatedLiveHandler, true);
 })();
 
 </script>
@@ -483,18 +508,18 @@ function refreshAllPensionLabels(){
   });
 }
 function attachDynamicInput(el){
-  if(!el) return;
+  if(!el || el.dataset.boundDynamicInput === 'true') return;
+  el.dataset.boundDynamicInput = 'true';
   el.addEventListener('change', ()=>{
     try{
       setupSpouseVisibility();
       refreshClientDisplay();
-      calculate();
+      safeCalculate();
     }catch(e){ console.error(e); }
   });
-  el.addEventListener('input', ()=>{
-    try{ calculate(); }catch(e){ console.error(e); }
-  });
+  el.addEventListener('input', safeCalculate);
 }
+
 function addPensionRow(){
   const container = document.getElementById('pensionRows');
   if(!container) return;
@@ -640,10 +665,13 @@ function setupSpouseVisibility(){
 function attachRecalc(ids){
   ids.forEach(id => {
     const node = document.getElementById(id);
-    if(!node) return;
-    node.addEventListener('input', ()=>{ try{ calculate(); }catch(e){ console.error(e); } });
+    if(!node || node.dataset.boundRecalc === 'true') return;
+    node.dataset.boundRecalc = 'true';
+    node.addEventListener('input', safeCalculate);
+    node.addEventListener('change', safeCalculate);
   });
 }
+
 function safeCalculate(){
   try{
     calculate();
