@@ -311,6 +311,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
           <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Tax Bracket Inflation %</label><input id="taxInflation" type="number" value="2.6" step="0.1" /></div>
+                  <div class="field"><label>Assumed Heir Tax Rate %</label><input id="heirTaxRate" type="number" value="24" step="1" /></div>
           <div class="field"><label>Additional 65+ Deduction (Per Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="1000000" step="1000" /></div>
@@ -944,15 +945,15 @@ function buildScenario(useStrategy){
   const additionalTotals = additionalAccountTotals();
   const additionalAccounts = additionalTotals.accounts;
   const additionalAccountFunds = additionalTotals.totalFunds;
-  let additionalRothAccounts = additionalAccounts
-    .filter(a=>a.type==='roth')
-    .map(a=>({
-      title:a.title,
-      balance:a.funds * (useStrategy ? (1+a.bonusPct/100) : 1),
-      growthPct:a.growthPct,
-      bonusPct:a.bonusPct,
-      funds:a.funds
-    }));
+  let additionalModeledAccounts = additionalAccounts.map(a=>({
+    title:a.title,
+    type:a.type,
+    balance:a.funds * (useStrategy ? (1+a.bonusPct/100) : 1),
+    growthPct:a.growthPct,
+    bonusPct:a.bonusPct,
+    funds:a.funds
+  }));
+  let additionalRothAccounts = additionalModeledAccounts.filter(a=>a.type==='roth');
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   let additionalTraditional = additionalTotals.traditional;
   let additionalNq = additionalTotals.nonqualified;
@@ -1122,11 +1123,12 @@ function buildScenario(useStrategy){
     }
 
     rothBuckets.forEach(b => { b.balance = b.balance * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)); });
-    if(additionalRothAccounts.length){
-      additionalRothAccounts.forEach(a=>{
+    if(additionalModeledAccounts.length){
+      additionalModeledAccounts.forEach(a=>{
         const g = (Number(a.growthPct) || 0) / 100;
         a.balance = a.balance * Math.max(0, (1 + g) * (1 - effectiveFeeRate));
       });
+      additionalRothAccounts = additionalModeledAccounts.filter(a=>a.type==='roth');
       additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
     }
 
@@ -1204,7 +1206,7 @@ function buildScenario(useStrategy){
       currentTaxableIncome,
       alimonyDeduction,
       additionalRoth,
-      additionalAccounts: additionalRothAccounts.map(a=>({title:a.title, balance:a.balance, growthPct:a.growthPct, bonusPct:a.bonusPct, funds:a.funds}))
+      additionalAccounts: additionalModeledAccounts.map(a=>({title:a.title, type:a.type, balance:a.balance, growthPct:a.growthPct, bonusPct:a.bonusPct, funds:a.funds}))
     });
 
     if(filingStart==='MFJ' && !deathApplied && deathWho && deathAge){
@@ -1259,7 +1261,7 @@ function fillMetricTable(id,scenario){
     [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxFreeIncome)],
     [`Total RMDs by Age ${planningHorizonAge()}`,fmt2(scenario.totalRMDs)],
     [`Total IRMAA by Age ${planningHorizonAge()}`,fmt2(scenario.totalIRMAA)],
-    [`Taxable Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
+    [`Remaining Taxable Retirement Assets by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxFreeEstate)]
   ];
   document.getElementById(id).innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -1561,47 +1563,28 @@ function createLegacyBarChartDataUrl(beforeNet, afterNet){
 
 
 
-function activeAdditionalRothAccountNames(details){
+
+function activeAdditionalAccountNames(details){
   const rows = Array.isArray(details) ? details : [];
   const names = [];
   const seen = new Set();
-
   rows.forEach(r=>{
     const accounts = Array.isArray(r.additionalAccounts) ? r.additionalAccounts : [];
     accounts.forEach(a=>{
       const title = String(a.title || 'Additional Account').trim() || 'Additional Account';
-      const value = Number(a.balance || 0);
-      if(Math.abs(value) > 0.004 && !seen.has(title)){
+      if(Math.abs(Number(a.balance || 0)) > 0.004 && !seen.has(title)){
         seen.add(title);
         names.push(title);
       }
     });
   });
-
-  if(!names.length && rows.some(r=>Math.abs(Number(r.additionalRoth || 0)) > 0.004)){
-    names.push(additionalAccountColumnTitle());
-  }
-
   return names;
-}
-
-function additionalAccountColumnTitle(){
-  try{
-    const accounts = (typeof getAdditionalAccounts === 'function') ? getAdditionalAccounts().filter(a=>a.type==='roth') : [];
-    if(accounts.length === 1){
-      return String(accounts[0].title || 'Additional Account').trim() || 'Additional Account';
-    }
-    if(accounts.length > 1) return 'Additional Assets';
-  }catch(e){}
-  return 'Additional Assets';
 }
 
 function additionalAccountValueForRow(row, title){
   const accounts = Array.isArray(row.additionalAccounts) ? row.additionalAccounts : [];
   const found = accounts.find(a => String(a.title || 'Additional Account').trim() === title);
-  if(found) return Number(found.balance || 0);
-  if(title === additionalAccountColumnTitle()) return Number(row.additionalRoth || 0);
-  return 0;
+  return found ? Number(found.balance || 0) : 0;
 }
 
 function cleanPdfHeaderText(s){
@@ -1610,17 +1593,130 @@ function cleanPdfHeaderText(s){
 
 
 
+
+
+
+
+function splitHeader(label){
+  const text = String(label || '').replace(/\\n/g, '\n');
+  return text.includes('\n') ? text.split('\n') : text;
+}
+
+function splitHeaderRow(cols){
+  return (cols || []).map(splitHeader);
+}
+
+function compactTableStyles(fontSize=7.2){
+  return {
+    fontSize,
+    cellPadding:{top:2.2,right:2.4,bottom:2.2,left:2.4},
+    overflow:'linebreak',
+    valign:'middle',
+    halign:'right',
+    lineColor:[232,236,242],
+    lineWidth:0.15
+  };
+}
+
+function compactHeadStyles(){
+  return {
+    fillColor:[11,58,111],
+    textColor:[255,255,255],
+    fontStyle:'bold',
+    halign:'center',
+    valign:'middle',
+    cellPadding:{top:3,right:2.4,bottom:3,left:2.4},
+    lineColor:[255,255,255],
+    lineWidth:0.2
+  };
+}
+
+function compactAlternateRows(){
+  return {fillColor:[247,249,252]};
+}
+
+
+
+
+function headerToText(h){
+  if(Array.isArray(h)) return h.join(' ');
+  return String(h || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function normalizeHeaderLabel(h){
+  return headerToText(h).toLowerCase();
+}
+
+function isTaxFreeColumnLabel(label){
+  const v = normalizeHeaderLabel(label);
+  return v === 'tax-free roth income' || v === 'tax-free estate' || v === 'tax-free assets';
+}
+
+function isRmdColumnLabel(label){
+  return normalizeHeaderLabel(label) === 'rmd';
+}
+
+function isTaxableRetirementMetric(label){
+  const v = String(label || '').toLowerCase();
+  return v.includes('remaining taxable retirement') || v.includes('taxable estate') || v.includes('taxable retirement');
+}
+
+function applyStrategyCellStyling(data){
+  const headers = data.table && data.table.head && data.table.head[0] ? data.table.head[0].cells || data.table.head[0] : [];
+  let label = '';
+  if(Array.isArray(headers)){
+    const h = headers[data.column.index];
+    label = h && h.raw !== undefined ? h.raw : h;
+  }
+  label = headerToText(label);
+
+  if(data.section === 'body' && isRmdColumnLabel(label)){
+    data.cell.styles.textColor = [192,0,0];
+    data.cell.styles.fontStyle = 'bold';
+  }
+
+  if(data.section === 'body' && isTaxFreeColumnLabel(label)){
+    data.cell.styles.fillColor = [232,245,233];
+    data.cell.styles.textColor = [0,100,0];
+    data.cell.styles.fontStyle = 'bold';
+  }
+
+  if(data.section === 'head' && isTaxFreeColumnLabel(label)){
+    data.cell.styles.fillColor = [0,150,80];
+    data.cell.styles.textColor = [255,255,255];
+    data.cell.styles.fontStyle = 'bold';
+  }
+
+  if(data.section === 'head' && isRmdColumnLabel(label)){
+    data.cell.styles.textColor = [255,210,210];
+    data.cell.styles.fontStyle = 'bold';
+  }
+}
+
+function formatImprovementValue(metric, value){
+  const n = Number(value || 0);
+  if(isTaxableRetirementMetric(metric) && Math.abs(n) < 0.005) return 'ELIMINATED';
+  return fmt2(n);
+}
+
+function assumedHeirTaxRate(){
+  const el = document.getElementById('heirTaxRate');
+  const v = el ? parseFloat(el.value) : 24;
+  return isNaN(v) ? 24 : v;
+}
+
+
 function tableConfigFromDetails(details, mode='before'){
   const rowsData = Array.isArray(details) ? details : [];
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
-  const accountNames = activeAdditionalRothAccountNames(rowsData);
+  const accountNames = activeAdditionalAccountNames(rowsData);
 
   if(mode === 'before'){
-    const cols = ['Year','Age','SS','Taxable\\nSS','Pension'];
+    const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
     if(showIraWithdrawal) cols.push('RMD');
-    if(showNqWithdrawal) cols.push('NQ\\nWithdrawal');
-    cols.push('Gross\\nIncome','Taxable\\nIncome','Taxes','IRMAA','IRA');
+    if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
+    cols.push('Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','IRA');
     accountNames.forEach(name => cols.push(cleanPdfHeaderText(name)));
 
     const rows = rowsData.map(r => {
@@ -1631,15 +1727,15 @@ function tableConfigFromDetails(details, mode='before'){
       accountNames.forEach(name => row.push(fmt2(additionalAccountValueForRow(r, name))));
       return row;
     });
-    return {cols:[cols], rows};
+    return {cols:[splitHeaderRow(cols)], rows};
   }
 
-  const cols = ['Year','Age','SS','Taxable\\nSS','Pension'];
+  const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
   if(showIraWithdrawal) cols.push('RMD');
-  if(showNqWithdrawal) cols.push('NQ\\nWithdrawal');
-  cols.push('Conversion','Conversion\\nTaxes','TAX-FREE\\nROTH INCOME','Gross\\nIncome','Taxable\\nIncome','Taxes','IRMAA');
+  if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
+  cols.push('Conversion','Conv.\nTaxes','Tax-Free\nRoth Income','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA');
   accountNames.forEach(name => cols.push(cleanPdfHeaderText(name)));
-  cols.push('TAX-FREE\\nESTATE');
+  cols.push('Tax-Free\nEstate');
 
   const rows = rowsData.map(r => {
     const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
@@ -1650,12 +1746,16 @@ function tableConfigFromDetails(details, mode='before'){
     row.push(fmt2(r.roth));
     return row;
   });
-  return {cols:[cols], rows};
+  return {cols:[splitHeaderRow(cols)], rows};
 }
 
 function rowsFromDetails(details, mode='before'){
   return tableConfigFromDetails(details, mode).rows;
 }
+
+
+
+
 
 
 
@@ -1749,6 +1849,81 @@ function buildMilestoneRowsFromDetails(details){
 }
 
 
+
+
+
+function addLegacyImpactPage(doc, before, after){
+  const heirRate = assumedHeirTaxRate() / 100;
+  const beforeTaxable = Number(before.taxableEstate || 0);
+  const afterTaxable = Number(after.taxableEstate || 0);
+  const beforeTaxOnHeirs = beforeTaxable * heirRate;
+  const afterTaxOnHeirs = afterTaxable * heirRate;
+  const beforeNetTaxable = beforeTaxable - beforeTaxOnHeirs;
+  const afterNetTaxable = afterTaxable - afterTaxOnHeirs;
+  const beforeTaxFree = Number(before.taxFreeEstate || 0);
+  const afterTaxFree = Number(after.taxFreeEstate || 0);
+  const beforeNetLegacy = beforeNetTaxable + beforeTaxFree;
+  const afterNetLegacy = afterNetTaxable + afterTaxFree;
+  const improvement = afterNetLegacy - beforeNetLegacy;
+
+  doc.addPage();
+  addTitle(doc,'Legacy Impact','Illustrates how shifting taxable retirement assets toward Roth assets may improve what beneficiaries receive.');
+  addPdfLogo(doc);
+
+  doc.setFontSize(10.5);
+  doc.setTextColor(80,80,80);
+  const intro = `Based on an assumed ${(heirRate*100).toFixed(0)}% future heir tax rate, taxable retirement assets may be reduced by approximately ${(heirRate*100).toFixed(0)}% before reaching beneficiaries. Roth and tax-free assets are shown without that assumed income-tax reduction.`;
+  doc.text(doc.splitTextToSize(intro, 690), 54, 74);
+
+  const body = [
+    ['Remaining Taxable Retirement Assets', fmt2(beforeTaxable), fmt2(afterTaxable), fmt2(afterTaxable-beforeTaxable)],
+    [`Estimated Heir Tax at ${(heirRate*100).toFixed(0)}%`, '-'+fmt2(beforeTaxOnHeirs), '-'+fmt2(afterTaxOnHeirs), fmt2(beforeTaxOnHeirs-afterTaxOnHeirs)],
+    ['Estimated Net Taxable Assets to Heirs', fmt2(beforeNetTaxable), fmt2(afterNetTaxable), fmt2(afterNetTaxable-beforeNetTaxable)],
+    ['Tax-Free / Roth Assets', fmt2(beforeTaxFree), fmt2(afterTaxFree), fmt2(afterTaxFree-beforeTaxFree)],
+    ['Estimated Net Legacy to Heirs', fmt2(beforeNetLegacy), fmt2(afterNetLegacy), fmt2(improvement)]
+  ];
+
+  doc.autoTable({
+    startY:124,
+    head:[['Legacy Metric','Before Strategy','After Strategy','Estimated Impact']],
+    body,
+    theme:'plain',
+    styles:{fontSize:9.5,cellPadding:{top:4,right:4,bottom:4,left:4},lineColor:[232,236,242],lineWidth:0.2,halign:'right'},
+    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold',halign:'center'},
+    alternateRowStyles:{fillColor:[247,249,252]},
+    margin:{left:42,right:42,bottom:85},
+    didParseCell:function(data){
+      if(data.section==='body'){
+        const metric = data.row.raw[0] || '';
+        if(data.column.index===0){ data.cell.styles.halign='left'; }
+        if(String(metric).includes('Tax-Free') || String(metric).includes('Net Legacy')){
+          if(data.column.index===2 || data.column.index===3){
+            data.cell.styles.fillColor=[232,245,233];
+            data.cell.styles.textColor=[0,100,0];
+            data.cell.styles.fontStyle='bold';
+          }
+        }
+        if(isTaxableRetirementMetric(metric) && data.column.index===2 && Math.abs(afterTaxable) < 0.005){
+          data.cell.text=['ELIMINATED'];
+          data.cell.styles.fillColor=[232,245,233];
+          data.cell.styles.textColor=[0,100,0];
+          data.cell.styles.fontStyle='bold';
+        }
+      }
+    }
+  });
+
+  doc.setFontSize(11);
+  doc.setTextColor(11,58,111);
+  doc.setFont(undefined,'bold');
+  doc.text('Plain-English takeaway', 54, doc.lastAutoTable.finalY + 34);
+  doc.setFont(undefined,'normal');
+  doc.setTextColor(80,80,80);
+  const takeaway = 'This strategy is designed to shift more of the family legacy from taxable retirement assets into tax-free Roth assets, helping beneficiaries potentially keep more of what is left to them.';
+  doc.text(doc.splitTextToSize(takeaway, 690), 54, doc.lastAutoTable.finalY + 56);
+
+  addPdfFooter(doc, doc.getNumberOfPages());
+}
 
 
 function generatePDF(){
@@ -1845,7 +2020,7 @@ function generatePDF(){
     head:[['Summary Item','Result']],
     body:summaryRows,
     styles:{fontSize:10,cellPadding:4,overflow:'linebreak'},
-    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold',halign:'center'},
     alternateRowStyles:{fillColor:[245,247,250]},
     columnStyles:{0:{fontStyle:'bold',cellWidth:210},1:{cellWidth:470}},
     margin:{left:40,right:40}
@@ -1867,14 +2042,14 @@ function generatePDF(){
     startY:76,
     head:[['Legacy Metric','Before Strategy','After Strategy','Estimated Impact']],
     body:[
-      ['Taxable Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
+      ['Remaining Taxable Retirement Assets', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
       ['Tax-Free / Roth Estate', fmt2(before.taxFreeEstate||0), fmt2(after.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)-(before.taxFreeEstate||0))],
       ['Estimated Net Legacy Value', fmt2(beforeNetLegacy), fmt2(afterNetLegacy), fmt2(legacyImprovement)]
     ],
     styles:{fontSize:10,cellPadding:4,halign:'center'},
-    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold',halign:'center'},
     alternateRowStyles:{fillColor:[245,247,250]},
-    didParseCell:function(data){
+    didParseCell:function(data){ applyStrategyCellStyling(data);
       if(data.section==='body' && data.row.index===2){
         data.cell.styles.fontStyle='bold';
         if(data.column.index===2 || data.column.index===3){
@@ -1891,6 +2066,7 @@ function generatePDF(){
   doc.setTextColor(90,90,90);
   doc.text(doc.splitTextToSize('This page is an illustration only. Taxable retirement assets may create income tax exposure for heirs, while Roth assets may provide a more tax-efficient legacy. Actual results depend on future tax law, beneficiary circumstances, account performance, distributions, and estate planning choices.', 680), 58, 470);
   addPdfFooter(doc, doc.getNumberOfPages());
+  addLegacyImpactPage(doc,before,after);
 
   // Page 2
   doc.addPage();
@@ -1925,8 +2101,8 @@ function generatePDF(){
   addTitle(doc,'Milestone Summary','Year 1, Year 5, Social Security years, RMD year, conversion completion, and every 5 years through the selected planning horizon.');
   addPdfLogo(doc);
   const milestoneRows = buildMilestoneRowsFromDetails(after.details);
-  const milestoneAccountNames = activeAdditionalRothAccountNames(after.details);
-  const milestoneHead = [['Milestone','Age','Income','Conversion','IRA',...milestoneAccountNames.map(cleanPdfHeaderText),'Tax-Free Assets']];
+  const milestoneAccountNames = activeAdditionalAccountNames(after.details);
+  const milestoneHead = [splitHeaderRow(['Milestone','Age','Income','Conversion','IRA',...milestoneAccountNames.map(cleanPdfHeaderText),'Tax-Free\nAssets'])];
   const milestoneBody = milestoneRows.map(m=>[
     m.label,
     m.age,
@@ -1936,7 +2112,7 @@ function generatePDF(){
     ...milestoneAccountNames.map(name=>fmt2(additionalAccountValueForRow(m,name))),
     fmt2(m.taxFreeAssets||0)
   ]);
-  doc.autoTable({startY:78, head:milestoneHead, body:milestoneBody, styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
+  doc.autoTable({startY:78, head:milestoneHead, body:milestoneBody, theme:'plain', styles:compactTableStyles(8.2), headStyles:compactHeadStyles(), alternateRowStyles:compactAlternateRows(), margin:{left:40,right:40,bottom:85}});
   addPdfFooter(doc,3);
 
   // Page 4
@@ -1948,7 +2124,7 @@ function generatePDF(){
     [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, before.totalTaxFreeIncome, after.totalTaxFreeIncome, after.totalTaxFreeIncome - before.totalTaxFreeIncome],
     [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
     [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
-    [`Taxable Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
+    [`Remaining Taxable Retirement Assets by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
@@ -1964,7 +2140,7 @@ function generatePDF(){
     styles:{fontSize:10},
     headStyles:{fillColor:[11,58,111]},
     margin:{bottom:115},
-    didParseCell:function(data){
+    didParseCell:function(data){ applyStrategyCellStyling(data);
       if(data.section==='body' && data.column.index===0){
         data.cell.styles.fontStyle='bold';
       }
@@ -2020,7 +2196,7 @@ function generatePDF(){
       [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
       [`Total RMDs by Age ${planningHorizonAge()}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
       [`Total IRMAA by Age ${planningHorizonAge()}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
-      [`Taxable Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
+      [`Remaining Taxable Retirement Assets by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
       [`Tax-Free Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
     ];
     doc.autoTable({
@@ -2035,7 +2211,7 @@ function generatePDF(){
       styles:{fontSize:10},
       headStyles:{fillColor:[11,58,111]},
       margin:{bottom:115},
-      didParseCell:function(data){
+      didParseCell:function(data){ applyStrategyCellStyling(data);
         if(data.section==='body' && data.column.index===0){ data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===1){ data.cell.styles.fillColor=[220,53,69]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===2){ data.cell.styles.fillColor=[0,200,83]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
@@ -2104,7 +2280,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show each titled additional account separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately by title in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. Additional Account Funds are modeled on the Before side at the entered value and own growth rate without bonus, and on the Strategy side with the entered bonus percentage and growth rate when applicable. The year-by-year pages show each titled additional account separately for transparency, while the comparison page intentionally combines Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately by title in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
