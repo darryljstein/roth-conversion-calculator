@@ -1203,7 +1203,8 @@ function buildScenario(useStrategy){
       taxableIncome: taxableBaseAfterConversion,
       currentTaxableIncome,
       alimonyDeduction,
-      additionalRoth
+      additionalRoth,
+      additionalAccounts: additionalRothAccounts.map(a=>({title:a.title, balance:a.balance, growthPct:a.growthPct, bonusPct:a.bonusPct, funds:a.funds}))
     });
 
     if(filingStart==='MFJ' && !deathApplied && deathWho && deathAge){
@@ -1559,43 +1560,93 @@ function createLegacyBarChartDataUrl(beforeNet, afterNet){
 
 
 
+
+function activeAdditionalRothAccountNames(details){
+  const rows = Array.isArray(details) ? details : [];
+  const names = [];
+  const seen = new Set();
+
+  rows.forEach(r=>{
+    const accounts = Array.isArray(r.additionalAccounts) ? r.additionalAccounts : [];
+    accounts.forEach(a=>{
+      const title = String(a.title || 'Additional Account').trim() || 'Additional Account';
+      const value = Number(a.balance || 0);
+      if(Math.abs(value) > 0.004 && !seen.has(title)){
+        seen.add(title);
+        names.push(title);
+      }
+    });
+  });
+
+  if(!names.length && rows.some(r=>Math.abs(Number(r.additionalRoth || 0)) > 0.004)){
+    names.push(additionalAccountColumnTitle());
+  }
+
+  return names;
+}
+
+function additionalAccountColumnTitle(){
+  try{
+    const accounts = (typeof getAdditionalAccounts === 'function') ? getAdditionalAccounts().filter(a=>a.type==='roth') : [];
+    if(accounts.length === 1){
+      return String(accounts[0].title || 'Additional Account').trim() || 'Additional Account';
+    }
+    if(accounts.length > 1) return 'Additional Assets';
+  }catch(e){}
+  return 'Additional Assets';
+}
+
+function additionalAccountValueForRow(row, title){
+  const accounts = Array.isArray(row.additionalAccounts) ? row.additionalAccounts : [];
+  const found = accounts.find(a => String(a.title || 'Additional Account').trim() === title);
+  if(found) return Number(found.balance || 0);
+  if(title === additionalAccountColumnTitle()) return Number(row.additionalRoth || 0);
+  return 0;
+}
+
+function cleanPdfHeaderText(s){
+  return String(s || '').replace(/\s+/g, ' ').trim();
+}
+
+
+
 function tableConfigFromDetails(details, mode='before'){
   const rowsData = Array.isArray(details) ? details : [];
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
-  const showAdditionalAssets = rowsData.some(r => Math.abs(Number(r.additionalRoth || 0)) > 0.004);
+  const accountNames = activeAdditionalRothAccountNames(rowsData);
 
   if(mode === 'before'){
-    const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
-    if(showIraWithdrawal) cols.push('RMD\nRequired Withdrawal');
-    if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
-    cols.push('Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','IRA');
-    if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
+    const cols = ['Year','Age','SS','Taxable\\nSS','Pension'];
+    if(showIraWithdrawal) cols.push('RMD');
+    if(showNqWithdrawal) cols.push('NQ\\nWithdrawal');
+    cols.push('Gross\\nIncome','Taxable\\nIncome','Taxes','IRMAA','IRA');
+    accountNames.forEach(name => cols.push(cleanPdfHeaderText(name)));
 
     const rows = rowsData.map(r => {
       const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
       if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
       if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0));
       row.push(fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa), fmt2(r.ira));
-      if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+      accountNames.forEach(name => row.push(fmt2(additionalAccountValueForRow(r, name))));
       return row;
     });
     return {cols:[cols], rows};
   }
 
-  const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
-  if(showIraWithdrawal) cols.push('RMD\nRequired Withdrawal');
-  if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
-  cols.push('Conversion','Conversion\nTaxes','TAX-FREE\nROTH INCOME','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA');
-  if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
-  cols.push('TAX-FREE\nESTATE');
+  const cols = ['Year','Age','SS','Taxable\\nSS','Pension'];
+  if(showIraWithdrawal) cols.push('RMD');
+  if(showNqWithdrawal) cols.push('NQ\\nWithdrawal');
+  cols.push('Conversion','Conversion\\nTaxes','TAX-FREE\\nROTH INCOME','Gross\\nIncome','Taxable\\nIncome','Taxes','IRMAA');
+  accountNames.forEach(name => cols.push(cleanPdfHeaderText(name)));
+  cols.push('TAX-FREE\\nESTATE');
 
   const rows = rowsData.map(r => {
     const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
     if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
     if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0));
     row.push(fmt2(r.conversion), fmt2(r.conversionTax||0), fmt2(r.taxFreeIncome), fmt2(r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.irmaa));
-    if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+    accountNames.forEach(name => row.push(fmt2(additionalAccountValueForRow(r, name))));
     row.push(fmt2(r.roth));
     return row;
   });
@@ -1605,6 +1656,8 @@ function tableConfigFromDetails(details, mode='before'){
 function rowsFromDetails(details, mode='before'){
   return tableConfigFromDetails(details, mode).rows;
 }
+
+
 
 
 
@@ -1640,6 +1693,7 @@ function pensionPdfRows(){
 
 
 
+
 function buildMilestoneRowsFromDetails(details){
   const rows = Array.isArray(details) ? details : [];
   if(!rows.length) return [];
@@ -1654,11 +1708,13 @@ function buildMilestoneRowsFromDetails(details){
       seen.add(r.year);
       selected.push({
         label,
+        year: r.year,
         age: r.age,
         income: r.grossIncome || 0,
         conversion: r.conversion || 0,
         ira: r.ira || 0,
         additionalAccountAssets: r.additionalRoth || 0,
+        additionalAccounts: Array.isArray(r.additionalAccounts) ? r.additionalAccounts : [],
         taxFreeAssets: r.roth || 0
       });
     }
@@ -1667,24 +1723,20 @@ function buildMilestoneRowsFromDetails(details){
   addRow('Year 1', r => r.year === 1);
   addRow('Year 5', r => r.year === 5);
 
-  // Social Security milestone years: first year where SS jumps materially versus prior year.
   rows.forEach((r, idx)=>{
     if(idx > 0 && (r.ssIncome || 0) > ((rows[idx-1].ssIncome || 0) * 1.12)){
       addRow('SS Year', x => x.year === r.year);
     }
   });
 
-  // Conversion completion: last year with conversion.
   const convRows = rows.filter(r => Math.abs(Number(r.conversion || 0)) > 0.004);
   if(convRows.length){
     const lastConv = convRows[convRows.length - 1];
     addRow('Conversion Complete', r => r.year === lastConv.year);
   }
 
-  // RMD year: first year with IRA/RMD withdrawal.
   addRow('RMD Year', r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
 
-  // Every 5 years through the selected horizon.
   rows.forEach(r=>{
     const ageNum = parseFloat(String(r.age).split('/')[0]);
     if(r.year % 5 === 0 || (Number.isFinite(ageNum) && ageNum === horizon)){
@@ -1692,15 +1744,11 @@ function buildMilestoneRowsFromDetails(details){
     }
   });
 
-  // Sort by actual year order and limit duplicates.
-  selected.sort((a,b)=>{
-    const ay = rows.find(r=>r.age===a.age && Math.abs((r.grossIncome||0)-(a.income||0))<0.01)?.year || 0;
-    const by = rows.find(r=>r.age===b.age && Math.abs((r.grossIncome||0)-(b.income||0))<0.01)?.year || 0;
-    return ay - by;
-  });
-
+  selected.sort((a,b)=>(a.year||0)-(b.year||0));
   return selected;
 }
+
+
 
 
 function generatePDF(){
@@ -1876,7 +1924,19 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Milestone Summary','Year 1, Year 5, Social Security years, RMD year, conversion completion, and every 5 years through the selected planning horizon.');
   addPdfLogo(doc);
-  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:buildMilestoneRowsFromDetails(after.details).map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.additionalAccountAssets||0),fmt2(m.taxFreeAssets||0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
+  const milestoneRows = buildMilestoneRowsFromDetails(after.details);
+  const milestoneAccountNames = activeAdditionalRothAccountNames(after.details);
+  const milestoneHead = [['Milestone','Age','Income','Conversion','IRA',...milestoneAccountNames.map(cleanPdfHeaderText),'Tax-Free Assets']];
+  const milestoneBody = milestoneRows.map(m=>[
+    m.label,
+    m.age,
+    fmt2(m.income),
+    fmt2(m.conversion),
+    fmt2(m.ira),
+    ...milestoneAccountNames.map(name=>fmt2(additionalAccountValueForRow(m,name))),
+    fmt2(m.taxFreeAssets||0)
+  ]);
+  doc.autoTable({startY:78, head:milestoneHead, body:milestoneBody, styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
   addPdfFooter(doc,3);
 
   // Page 4
@@ -2044,7 +2104,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show each titled additional account separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately by title in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -2067,7 +2127,7 @@ function generatePDF(){
       margin:{bottom:85,left:24,right:24},
       tableWidth:'auto',
       didParseCell: function(data){
-        const rmdColIndex = tableCfg && tableCfg.cols && tableCfg.cols[0] ? tableCfg.cols[0].indexOf('RMD\nRequired Withdrawal') : -1;
+        const rmdColIndex = tableCfg && tableCfg.cols && tableCfg.cols[0] ? tableCfg.cols[0].indexOf('RMD') : -1;
         if(data.section==='head' && data.column.index===rmdColIndex){
           data.cell.styles.textColor=[200,0,0];
           data.cell.styles.fontStyle='bold';
@@ -2086,11 +2146,11 @@ function generatePDF(){
           }
         }
 
-        if(data.section==='head' && String(data.cell.raw).includes('RMD\nRequired Withdrawal')){
+        if(data.section==='head' && String(data.cell.raw).includes('RMD')){
           data.cell.styles.textColor=[200,0,0];
           data.cell.styles.fontStyle='bold';
         }
-        if(data.section==='body' && data.column.index===tableCfg.cols[0].indexOf('RMD\nRequired Withdrawal')){
+        if(data.section==='body' && data.column.index===tableCfg.cols[0].indexOf('RMD')){
           data.cell.styles.textColor=[200,0,0];
         }
 
