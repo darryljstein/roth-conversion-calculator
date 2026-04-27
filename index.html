@@ -30,7 +30,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     </div>
     <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
     <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
-    <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
+    <section id="taxFlowPreview" class="card"></section>
+<button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
   `;
   container.appendChild(div);
   bindAdditionalAccountInputs(div);
@@ -147,6 +148,22 @@ setTimeout(()=>{ try{ colorizePreviewTaxFreeColumns(); }catch(e){} }, 250);
 document.addEventListener('input', ()=>setTimeout(()=>{ try{ colorizePreviewTaxFreeColumns(); }catch(e){} }, 150));
 document.addEventListener('change', ()=>setTimeout(()=>{ try{ colorizePreviewTaxFreeColumns(); }catch(e){} }, 150));
 
+
+setTimeout(()=>{ try{ ensurePreviewRender(); }catch(e){} }, 250);
+document.addEventListener('input', ()=>setTimeout(()=>{ try{ ensurePreviewRender(); }catch(e){} }, 150));
+document.addEventListener('change', ()=>setTimeout(()=>{ try{ ensurePreviewRender(); }catch(e){} }, 150));
+
+
+function generatePDF(){
+  try{
+    return generatePDF_original();
+  }catch(e){
+    console.error('generate PDF report error:', e);
+    alert('Generate PDF report error: ' + (e && e.message ? e.message : e));
+  }
+}
+function generatePDF_safeWrapper(){ return generatePDF(); }
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js">
 document.getElementById('addAccountBtn').addEventListener('click', function(){
@@ -237,6 +254,20 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 .taxfree-preview-head{background:#009650!important;color:#fff!important;font-weight:800;}
 </style>
 
+
+<style>
+.preview-table-wrap{overflow:auto;margin-top:10px;}
+.preview-tax-table{width:100%;border-collapse:collapse;font-size:12px;}
+.preview-tax-table th{background:#f5f7fa;color:#0b3a6f;text-align:center;padding:8px 6px;border-bottom:1px solid #dce3ec;vertical-align:middle;white-space:normal;}
+.preview-tax-table td{padding:7px 6px;border-bottom:1px solid #e6ebf2;text-align:right;white-space:nowrap;}
+.preview-tax-table td:first-child,.preview-tax-table th:first-child{text-align:left;}
+.stacked-th{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;text-align:center;white-space:normal;}
+.stacked-th span{display:block;}
+.taxfree-preview-col{background:#e8f5e9!important;color:#006400!important;font-weight:700!important;}
+.taxfree-preview-head{background:#009650!important;color:#fff!important;font-weight:800!important;}
+.error{color:#b00020;background:#fff3f3;border:1px solid #ffcdd2;padding:8px;border-radius:6px;}
+</style>
+
 </head>
 <body>
 <div class="container">
@@ -322,7 +353,26 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Alimony / Other Deduction Annual</label><input id="alimonyDeduction" type="number" value="0" step="1000" /></div>
           <div class="field"><label>Last Deduction Age</label><input id="alimonyEndAge" type="number" value="72" min="40" max="95" step="1" /></div>
           <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
-          <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
+          
+                  <div class="field"><label>During Conversion Target Bracket</label>
+                    <select id="conversionTargetBracket">
+                      <option value="12">12%</option>
+                      <option value="22">22%</option>
+                      <option value="24" selected>24%</option>
+                      <option value="32">32%</option>
+                      <option value="35">35%</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>After Conversion Target Bracket</label>
+                    <select id="postConversionTargetBracket">
+                      <option value="12">12%</option>
+                      <option value="22" selected>22%</option>
+                      <option value="24">24%</option>
+                      <option value="32">32%</option>
+                      <option value="35">35%</option>
+                    </select>
+                  </div>
+<div class="field"><label>Legacy Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Tax Bracket Inflation %</label><input id="taxInflation" type="number" value="2.6" step="0.1" /></div>
                   <div class="field"><label>Assumed Heir Tax Rate %</label><input id="heirTaxRate" type="number" value="24" step="1" /></div>
           <div class="field"><label>Additional 65+ Deduction (Per Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /></div>
@@ -943,6 +993,19 @@ function scenarioSummaryText(){
   return 'Base scenario: uses the selected inputs with a modest bracket cushion.';
 }
 
+
+
+function selectedConversionBracket(){
+  const el = document.getElementById('conversionTargetBracket');
+  const legacy = document.getElementById('targetBracket');
+  const v = el ? parseFloat(el.value) : (legacy ? parseFloat(legacy.value) : 24);
+  return isNaN(v) ? 24 : v;
+}
+function selectedPostConversionBracket(){
+  const el = document.getElementById('postConversionTargetBracket');
+  const v = el ? parseFloat(el.value) : 22;
+  return isNaN(v) ? 22 : v;
+}
 
 function getScenarioMode(){
   const el = document.getElementById('scenarioMode');
@@ -1988,7 +2051,93 @@ function repairTaxFreeRothIncomeFlow(scenario){
   return scenario;
 }
 
-function generatePDF(){
+
+function safePdfText(doc, text, x, y, opts){
+  try{ doc.text(String(text || ''), x, y, opts || {}); }catch(e){}
+}
+
+function safeAddPdfLogo(doc){
+  try{
+    if(typeof addPdfLogo === 'function') return addPdfLogo(doc);
+  }catch(e){}
+}
+
+function safeAddTitle(doc, title, subtitle){
+  try{
+    if(typeof addTitle === 'function') return addTitle(doc,title,subtitle);
+  }catch(e){}
+  try{
+    doc.setFontSize(18);
+    doc.setTextColor(11,58,111);
+    doc.text(String(title || ''), 40, 42);
+    if(subtitle){
+      doc.setFontSize(9.5);
+      doc.setTextColor(90,90,90);
+      doc.text(doc.splitTextToSize(String(subtitle), 720), 40, 60);
+    }
+  }catch(e){}
+}
+
+function safeAddPdfFooter(doc, pageNumber){
+  try{
+    if(typeof addPdfFooter === 'function') return addPdfFooter(doc,pageNumber);
+  }catch(e){}
+  try{
+    doc.setFontSize(7);
+    doc.setTextColor(90,90,90);
+    doc.text(`Page ${pageNumber || doc.getNumberOfPages()}`, 760, 575, {align:'right'});
+  }catch(e){}
+}
+
+
+function safeMoney(n){
+  try{ return fmt2(Number(n || 0)); }catch(e){
+    return (Number(n || 0)).toLocaleString('en-US',{style:'currency',currency:'USD'});
+  }
+}
+
+function previewHeaderHtml(label){
+  const txt = String(label || '').replace(/\\n/g,'\n').replace(/,/g,'\n');
+  const parts = txt.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(parts.length <= 1) return parts[0] || '';
+  return `<span class="stacked-th">${parts.map(p=>`<span>${p}</span>`).join('')}</span>`;
+}
+
+function renderYearByYearPreview(){
+  const host = document.getElementById('taxFlowPreview') || document.getElementById('yearByYearPreview') || document.querySelector('[data-preview="tax-flow"]');
+  if(!host) return;
+  try{
+    const after = repairTaxFreeRothIncomeFlow(buildScenario(true));
+    const rows = (after && Array.isArray(after.details)) ? after.details.slice(0,15) : [];
+    const cfg = tableConfigFromDetails(after.details || rows, 'after');
+    const headers = (cfg.cols && cfg.cols[0]) ? cfg.cols[0] : ['Year','Age','SS',['Taxable','SS'],'Pension','RMD','Conversion',['Conv.','Taxes'],['Tax-Free','Roth Income'],['Gross','Income'],['Taxable','Income'],'Taxes','IRMAA',['Tax-Free','Estate']];
+    const body = (cfg.rows || []).slice(0,15);
+    const greenIndexes = headers.map((h,i)=>({h:plainHeader ? plainHeader(h) : String(h),i})).filter(o=>{
+      const v = String(o.h).toLowerCase();
+      return v === 'tax-free roth income' || v === 'tax-free estate';
+    }).map(o=>o.i);
+
+    host.innerHTML = `
+      <h2>Year-by-Year Tax Flow Preview</h2>
+      <p>This preview shows the first 15 years from the strategy scenario. The redesigned engine respects advisor-entered IRA withdrawals first, applies taxable and tax-free pension separately, then uses matured Roth money only after the 5-year ladder is available.</p>
+      <div class="preview-table-wrap">
+        <table class="preview-tax-table">
+          <thead><tr>${headers.map((h,i)=>`<th class="${greenIndexes.includes(i)?'taxfree-preview-head':''}">${previewHeaderHtml(Array.isArray(h)?h.join('\\n'):h)}</th>`).join('')}</tr></thead>
+          <tbody>${body.map(r=>`<tr>${r.map((c,i)=>`<td class="${greenIndexes.includes(i)?'taxfree-preview-col':''}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+    if(typeof colorizePreviewTaxFreeColumns === 'function') colorizePreviewTaxFreeColumns();
+  }catch(e){
+    host.innerHTML = `<h2>Year-by-Year Tax Flow Preview</h2><p class="error">Preview error: ${e && e.message ? e.message : e}</p>`;
+    console.error('Preview render error:', e);
+  }
+}
+
+function ensurePreviewRender(){
+  try{ renderYearByYearPreview(); }catch(e){ console.error(e); }
+}
+
+function generatePDF_original(){
   try{
   if(!latest) calculate();
   if(!latest || !latest.before || !latest.after){ alert('Please complete the inputs before generating the report.'); return; }
@@ -2339,7 +2488,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. Additional Account Funds are modeled on the Before side at the entered value and own growth rate without bonus, and on the Strategy side with the entered bonus percentage and growth rate when applicable. The year-by-year pages show each titled additional account separately for transparency, while the comparison page intentionally combines Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately by title in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. Additional Account Funds are modeled on the Before side at the entered value and own growth rate without bonus, and on the Strategy side with the entered bonus percentage and growth rate when applicable. The year-by-year pages show each titled additional account separately for transparency, while the comparison page intentionally combines Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately by title in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
