@@ -1597,107 +1597,12 @@ function cleanPdfHeaderText(s){
 
 
 
-function splitHeader(label){
-  const text = String(label || '').replace(/\\n/g, '\n');
-  return text.includes('\n') ? text.split('\n') : text;
-}
-
-function splitHeaderRow(cols){
-  return (cols || []).map(splitHeader);
-}
-
-function compactTableStyles(fontSize=7.2){
-  return {
-    fontSize,
-    cellPadding:{top:2.2,right:2.4,bottom:2.2,left:2.4},
-    overflow:'linebreak',
-    valign:'middle',
-    halign:'right',
-    lineColor:[232,236,242],
-    lineWidth:0.15
-  };
-}
-
-function compactHeadStyles(){
-  return {
-    fillColor:[11,58,111],
-    textColor:[255,255,255],
-    fontStyle:'bold',
-    halign:'center',
-    valign:'middle',
-    cellPadding:{top:3,right:2.4,bottom:3,left:2.4},
-    lineColor:[255,255,255],
-    lineWidth:0.2
-  };
-}
-
-function compactAlternateRows(){
-  return {fillColor:[247,249,252]};
-}
 
 
 
 
-function headerToText(h){
-  if(Array.isArray(h)) return h.join(' ');
-  return String(h || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/\s+/g,' ').trim();
-}
 
-function normalizeHeaderLabel(h){
-  return headerToText(h).toLowerCase();
-}
 
-function isTaxFreeColumnLabel(label){
-  const v = normalizeHeaderLabel(label);
-  return v === 'tax-free roth income' || v === 'tax-free estate' || v === 'tax-free assets';
-}
-
-function isRmdColumnLabel(label){
-  return normalizeHeaderLabel(label) === 'rmd';
-}
-
-function isTaxableRetirementMetric(label){
-  const v = String(label || '').toLowerCase();
-  return v.includes('remaining taxable retirement') || v.includes('taxable estate') || v.includes('taxable retirement');
-}
-
-function applyStrategyCellStyling(data){
-  const headers = data.table && data.table.head && data.table.head[0] ? data.table.head[0].cells || data.table.head[0] : [];
-  let label = '';
-  if(Array.isArray(headers)){
-    const h = headers[data.column.index];
-    label = h && h.raw !== undefined ? h.raw : h;
-  }
-  label = headerToText(label);
-
-  if(data.section === 'body' && isRmdColumnLabel(label)){
-    data.cell.styles.textColor = [192,0,0];
-    data.cell.styles.fontStyle = 'bold';
-  }
-
-  if(data.section === 'body' && isTaxFreeColumnLabel(label)){
-    data.cell.styles.fillColor = [232,245,233];
-    data.cell.styles.textColor = [0,100,0];
-    data.cell.styles.fontStyle = 'bold';
-  }
-
-  if(data.section === 'head' && isTaxFreeColumnLabel(label)){
-    data.cell.styles.fillColor = [0,150,80];
-    data.cell.styles.textColor = [255,255,255];
-    data.cell.styles.fontStyle = 'bold';
-  }
-
-  if(data.section === 'head' && isRmdColumnLabel(label)){
-    data.cell.styles.textColor = [255,210,210];
-    data.cell.styles.fontStyle = 'bold';
-  }
-}
-
-function formatImprovementValue(metric, value){
-  const n = Number(value || 0);
-  if(isTaxableRetirementMetric(metric) && Math.abs(n) < 0.005) return 'ELIMINATED';
-  return fmt2(n);
-}
 
 function assumedHeirTaxRate(){
   const el = document.getElementById('heirTaxRate');
@@ -1706,19 +1611,75 @@ function assumedHeirTaxRate(){
 }
 
 
+
+function makeHeader(label){
+  if(Array.isArray(label)) return label;
+  const text = String(label || '').replace(/\\n/g, '\n');
+  if(text.includes(',')) return text.split(',').map(x=>x.trim()).filter(Boolean);
+  if(text.includes('\n')) return text.split('\n').map(x=>x.trim()).filter(Boolean);
+  return text.trim();
+}
+function makeHeaderRow(cols){ return (cols || []).map(makeHeader); }
+function headerToText(h){
+  if(h && h.raw !== undefined) h = h.raw;
+  if(Array.isArray(h)) return h.join(' ');
+  return String(h || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/,/g,' ').replace(/\s+/g,' ').trim();
+}
+function normalizeHeaderLabel(h){ return headerToText(h).toLowerCase(); }
+function isTaxFreeColumnLabel(label){
+  const v = normalizeHeaderLabel(label);
+  return v === 'tax-free roth income' || v === 'tax-free estate' || v === 'tax-free assets';
+}
+function isRmdColumnLabel(label){ return normalizeHeaderLabel(label) === 'rmd'; }
+function isTaxableRetirementMetric(label){
+  const v = String(label || '').toLowerCase();
+  return v.includes('remaining taxable retirement') || v.includes('taxable estate') || v.includes('taxable retirement');
+}
+function compactTableStyles(fontSize=7.0){
+  return {fontSize,cellPadding:{top:2.2,right:2.3,bottom:2.2,left:2.3},overflow:'linebreak',valign:'middle',halign:'right',lineColor:[232,236,242],lineWidth:0.15};
+}
+function compactHeadStyles(){
+  return {fillColor:[11,58,111],textColor:[255,255,255],fontStyle:'bold',halign:'center',valign:'middle',cellPadding:{top:3,right:2.2,bottom:3,left:2.2},lineColor:[255,255,255],lineWidth:0.2};
+}
+function compactAlternateRows(){ return {fillColor:[247,249,252]}; }
+function getHeaderLabelFromAutoTable(data){
+  try{
+    const headRow = data.table && data.table.head && data.table.head[0];
+    if(headRow && headRow.cells && headRow.cells[data.column.index]) return headerToText(headRow.cells[data.column.index].raw);
+    if(Array.isArray(headRow)) return headerToText(headRow[data.column.index]);
+  }catch(e){}
+  return '';
+}
+function applyStrategyCellStyling(data){
+  const label = getHeaderLabelFromAutoTable(data);
+  if(data.section === 'body' && isRmdColumnLabel(label)){
+    data.cell.styles.textColor = [192,0,0]; data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'body' && isTaxFreeColumnLabel(label)){
+    data.cell.styles.fillColor = [232,245,233]; data.cell.styles.textColor = [0,100,0]; data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'head' && isTaxFreeColumnLabel(label)){
+    data.cell.styles.fillColor = [0,150,80]; data.cell.styles.textColor = [255,255,255]; data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'head' && isRmdColumnLabel(label)){
+    data.cell.styles.textColor = [255,210,210]; data.cell.styles.fontStyle = 'bold';
+  }
+}
+function cleanPdfHeaderText(s){ return String(s || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/,/g,' ').replace(/\s+/g,' ').trim(); }
+
+
 function tableConfigFromDetails(details, mode='before'){
   const rowsData = Array.isArray(details) ? details : [];
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
-  const accountNames = activeAdditionalAccountNames(rowsData);
+  const accountNames = (typeof activeAdditionalAccountNames === 'function') ? activeAdditionalAccountNames(rowsData) : [];
 
   if(mode === 'before'){
-    const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+    const cols = ['Year','Age','SS',['Taxable','SS'],'Pension'];
     if(showIraWithdrawal) cols.push('RMD');
-    if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
-    cols.push('Gross\nIncome','Taxable\nIncome','Taxes','IRMAA','IRA');
+    if(showNqWithdrawal) cols.push(['NQ','Withdrawal']);
+    cols.push(['Gross','Income'],['Taxable','Income'],'Taxes','IRMAA','IRA');
     accountNames.forEach(name => cols.push(cleanPdfHeaderText(name)));
-
     const rows = rowsData.map(r => {
       const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
       if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
@@ -1727,16 +1688,15 @@ function tableConfigFromDetails(details, mode='before'){
       accountNames.forEach(name => row.push(fmt2(additionalAccountValueForRow(r, name))));
       return row;
     });
-    return {cols:[splitHeaderRow(cols)], rows};
+    return {cols:[makeHeaderRow(cols)], rows};
   }
 
-  const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+  const cols = ['Year','Age','SS',['Taxable','SS'],'Pension'];
   if(showIraWithdrawal) cols.push('RMD');
-  if(showNqWithdrawal) cols.push('NQ\nWithdrawal');
-  cols.push('Conversion','Conv.\nTaxes','Tax-Free\nRoth Income','Gross\nIncome','Taxable\nIncome','Taxes','IRMAA');
+  if(showNqWithdrawal) cols.push(['NQ','Withdrawal']);
+  cols.push('Conversion',['Conv.','Taxes'],['Tax-Free','Roth Income'],['Gross','Income'],['Taxable','Income'],'Taxes','IRMAA');
   accountNames.forEach(name => cols.push(cleanPdfHeaderText(name)));
-  cols.push('Tax-Free\nEstate');
-
+  cols.push(['Tax-Free','Estate']);
   const rows = rowsData.map(r => {
     const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
     if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
@@ -1746,12 +1706,10 @@ function tableConfigFromDetails(details, mode='before'){
     row.push(fmt2(r.roth));
     return row;
   });
-  return {cols:[splitHeaderRow(cols)], rows};
+  return {cols:[makeHeaderRow(cols)], rows};
 }
+function rowsFromDetails(details, mode='before'){ return tableConfigFromDetails(details, mode).rows; }
 
-function rowsFromDetails(details, mode='before'){
-  return tableConfigFromDetails(details, mode).rows;
-}
 
 
 
@@ -1892,7 +1850,7 @@ function addLegacyImpactPage(doc, before, after){
     headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold',halign:'center'},
     alternateRowStyles:{fillColor:[247,249,252]},
     margin:{left:42,right:42,bottom:85},
-    didParseCell:function(data){
+    didParseCell:function(data){ applyStrategyCellStyling(data); 
       if(data.section==='body'){
         const metric = data.row.raw[0] || '';
         if(data.column.index===0){ data.cell.styles.halign='left'; }
@@ -2049,8 +2007,7 @@ function generatePDF(){
     styles:{fontSize:10,cellPadding:4,halign:'center'},
     headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold',halign:'center'},
     alternateRowStyles:{fillColor:[245,247,250]},
-    didParseCell:function(data){ applyStrategyCellStyling(data);
-      if(data.section==='body' && data.row.index===2){
+    didParseCell:function(data){ applyStrategyCellStyling(data); if(data.section==='body' && data.row.index===2){
         data.cell.styles.fontStyle='bold';
         if(data.column.index===2 || data.column.index===3){
           data.cell.styles.fillColor=[0,200,83];
@@ -2102,7 +2059,7 @@ function generatePDF(){
   addPdfLogo(doc);
   const milestoneRows = buildMilestoneRowsFromDetails(after.details);
   const milestoneAccountNames = activeAdditionalAccountNames(after.details);
-  const milestoneHead = [splitHeaderRow(['Milestone','Age','Income','Conversion','IRA',...milestoneAccountNames.map(cleanPdfHeaderText),'Tax-Free\nAssets'])];
+  const milestoneHead = [makeHeaderRow(['Milestone','Age','Income','Conversion','IRA',...milestoneAccountNames.map(cleanPdfHeaderText),['Tax-Free','Assets']])];
   const milestoneBody = milestoneRows.map(m=>[
     m.label,
     m.age,
@@ -2140,8 +2097,7 @@ function generatePDF(){
     styles:{fontSize:10},
     headStyles:{fillColor:[11,58,111]},
     margin:{bottom:115},
-    didParseCell:function(data){ applyStrategyCellStyling(data);
-      if(data.section==='body' && data.column.index===0){
+    didParseCell:function(data){ applyStrategyCellStyling(data); if(data.section==='body' && data.column.index===0){
         data.cell.styles.fontStyle='bold';
       }
       if(data.section==='body' && data.column.index===1){
@@ -2211,8 +2167,7 @@ function generatePDF(){
       styles:{fontSize:10},
       headStyles:{fillColor:[11,58,111]},
       margin:{bottom:115},
-      didParseCell:function(data){ applyStrategyCellStyling(data);
-        if(data.section==='body' && data.column.index===0){ data.cell.styles.fontStyle='bold'; }
+      didParseCell:function(data){ applyStrategyCellStyling(data); if(data.section==='body' && data.column.index===0){ data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===1){ data.cell.styles.fillColor=[220,53,69]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===2){ data.cell.styles.fillColor=[0,200,83]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===3){
