@@ -154,15 +154,183 @@ document.addEventListener('input', ()=>setTimeout(()=>{ try{ ensurePreviewRender
 document.addEventListener('change', ()=>setTimeout(()=>{ try{ ensurePreviewRender(); }catch(e){} }, 150));
 
 
-function generatePDF(){
+
+/* ===== Runtime repair: preview + PDF fallback ===== */
+function __money(n){
+  try { return fmt2(Number(n || 0)); }
+  catch(e){ return (Number(n || 0)).toLocaleString('en-US',{style:'currency',currency:'USD'}); }
+}
+function __text(v){ return String(v ?? ''); }
+function __householdName(){
+  try { if(typeof householdReportName === 'function') return householdReportName(); } catch(e){}
+  const ids = ['householdName','clientName','reportName','client1Name','husbandName'];
+  for(const id of ids){ const el=document.getElementById(id); if(el && String(el.value||'').trim()) return String(el.value).trim(); }
+  return 'Client 1 & Client 2';
+}
+function __scenarioMode(){
+  const el=document.getElementById('scenarioMode');
+  return el ? el.value : 'Base';
+}
+function __plainHeader(h){
+  if(Array.isArray(h)) return h.join(' ');
+  return String(h || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/,/g,' ').replace(/\s+/g,' ').trim();
+}
+function __stackHeader(h){
+  const raw = Array.isArray(h) ? h.join('\n') : String(h || '').replace(/\\n/g,'\n').replace(/,/g,'\n');
+  const parts = raw.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(parts.length <= 1) return parts[0] || '';
+  return '<span class="stacked-th">' + parts.map(p=>'<span>'+p+'</span>').join('') + '</span>';
+}
+function __isTaxFreeHeader(h){
+  const v = __plainHeader(h).toLowerCase();
+  return v === 'tax-free roth income' || v === 'tax-free estate' || v === 'tax-free assets';
+}
+function __isRmdHeader(h){ return __plainHeader(h).toLowerCase() === 'rmd'; }
+function __getAfterScenario(){
+  let s = null;
+  if(typeof buildScenario === 'function'){
+    s = buildScenario(true);
+    if(typeof repairTaxFreeRothIncomeFlow === 'function') s = repairTaxFreeRothIncomeFlow(s);
+  }
+  return s || {details:[]};
+}
+function __getBeforeScenario(){
+  return (typeof buildScenario === 'function') ? buildScenario(false) : {details:[]};
+}
+function __detailRowsForPreview(details){
+  return (Array.isArray(details)?details:[]).slice(0,15).map(r=>[
+    'Year '+(r.year ?? ''),
+    r.age ?? '',
+    __money(r.ssIncome),
+    __money(r.taxableSSIncome || 0),
+    __money(r.pension),
+    __money(r.iraWithdrawal || 0),
+    __money(r.conversion || 0),
+    __money(r.conversionTax || 0),
+    __money(r.taxFreeIncome || 0),
+    __money(r.grossIncome),
+    __money(r.taxableIncome),
+    __money(r.tax),
+    __money(r.irmaa),
+    __money(r.roth)
+  ]);
+}
+function renderYearByYearPreview(){
+  const host = document.getElementById('taxFlowPreview') || document.getElementById('yearByYearPreview') || document.querySelector('[data-preview="tax-flow"]');
+  if(!host) return;
   try{
-    return generatePDF_original();
+    const after = __getAfterScenario();
+    const headers = ['Year','Age','SS',['Taxable','SS'],'Pension','RMD','Conversion',['Conv.','Taxes'],['Tax-Free','Roth Income'],['Gross','Income'],['Taxable','Income'],'Taxes','IRMAA',['Tax-Free','Estate']];
+    const greenIndexes = headers.map((h,i)=>__isTaxFreeHeader(h)?i:-1).filter(i=>i>=0);
+    const rmdIndex = headers.findIndex(__isRmdHeader);
+    const rows = __detailRowsForPreview(after.details);
+    host.innerHTML = `
+      <h2>Year-by-Year Tax Flow Preview</h2>
+      <p>This preview shows the first 15 years from the strategy scenario. The engine respects advisor-entered IRA withdrawals first, applies taxable and tax-free pension separately, then uses matured Roth money only after the 5-year ladder is available.</p>
+      <div class="preview-table-wrap">
+        <table class="preview-tax-table">
+          <thead><tr>${headers.map((h,i)=>`<th class="${greenIndexes.includes(i)?'taxfree-preview-head':''}">${__stackHeader(h)}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(row=>`<tr>${row.map((c,i)=>`<td class="${greenIndexes.includes(i)?'taxfree-preview-col':''} ${i===rmdIndex?'rmd-preview-col':''}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>`;
   }catch(e){
-    console.error('generate PDF report error:', e);
-    alert('Generate PDF report error: ' + (e && e.message ? e.message : e));
+    console.error('Preview error:', e);
+    host.innerHTML = '<h2>Year-by-Year Tax Flow Preview</h2><p class="error">Preview error: '+(e && e.message ? e.message : e)+'</p>';
   }
 }
-function generatePDF_safeWrapper(){ return generatePDF(); }
+function __applyPdfStyles(data){
+  try{
+    const raw = data.table.head[0].cells[data.column.index].raw;
+    if(data.section === 'head' && __isTaxFreeHeader(raw)){
+      data.cell.styles.fillColor=[0,150,80]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold';
+    }
+    if(data.section === 'body' && __isTaxFreeHeader(raw)){
+      data.cell.styles.fillColor=[232,245,233]; data.cell.styles.textColor=[0,100,0]; data.cell.styles.fontStyle='bold';
+    }
+    if(data.section === 'head' && __isRmdHeader(raw)){
+      data.cell.styles.textColor=[255,210,210]; data.cell.styles.fontStyle='bold';
+    }
+    if(data.section === 'body' && __isRmdHeader(raw)){
+      data.cell.styles.textColor=[192,0,0]; data.cell.styles.fontStyle='bold';
+    }
+  }catch(e){}
+}
+function __fallbackGeneratePDF(){
+  const jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : window.jsPDF;
+  if(!jsPDFCtor) throw new Error('jsPDF library is not loaded.');
+  const doc = new jsPDFCtor({orientation:'landscape',unit:'pt',format:'letter'});
+  const before = __getBeforeScenario();
+  const after = __getAfterScenario();
+  const name = __householdName();
+  const scenario = __scenarioMode();
+
+  function footer(){
+    doc.setFontSize(7);
+    doc.setTextColor(90,90,90);
+    doc.text('Fidelity Mutual Financial - Darryl Stein - 888-947-0555 - www.TheFidelityMutual.com', 396, 585, {align:'center'});
+    doc.text('Page '+doc.getNumberOfPages(), 760, 585, {align:'right'});
+  }
+  function title(t, sub){
+    doc.setFontSize(20); doc.setTextColor(11,58,111); doc.text(t, 36, 42);
+    doc.setFontSize(10); doc.setTextColor(90,90,90); if(sub) doc.text(doc.splitTextToSize(sub, 720), 36, 60);
+  }
+  function table(startY, head, body, fontSize){
+    doc.autoTable({
+      startY, head:[head], body, theme:'plain',
+      styles:{fontSize:fontSize||7,cellPadding:{top:2.2,right:2.3,bottom:2.2,left:2.3},overflow:'linebreak',halign:'right',lineColor:[232,236,242],lineWidth:0.15},
+      headStyles:{fillColor:[11,58,111],textColor:[255,255,255],fontStyle:'bold',halign:'center',valign:'middle'},
+      alternateRowStyles:{fillColor:[247,249,252]},
+      margin:{left:14,right:14,bottom:70},
+      didParseCell:__applyPdfStyles
+    });
+  }
+
+  title('Tax Efficient Retirement Strategy', 'Strategic Roth Conversion Analysis');
+  doc.setFontSize(12); doc.setTextColor(30,30,30);
+  doc.text('Prepared for: '+name, 36, 112);
+  doc.text('Scenario: '+scenario, 36, 132);
+  const summary = [
+    ['Planning Horizon Age', String((typeof planningHorizonAge==='function') ? planningHorizonAge() : '')],
+    ['Total Tax-Free Roth Withdrawals', __money(after.totalTaxFreeIncome || after.totalTaxFreeRothWithdrawals || 0)],
+    ['Tax-Free Estate at Horizon', __money(after.taxFreeEstate || 0)],
+    ['Remaining Taxable Retirement Assets', __money(after.taxableEstate || 0)]
+  ];
+  table(160, ['Summary Item','Result'], summary, 10);
+  footer();
+
+  doc.addPage();
+  title('Year-by-Year Current Situation (Before Conversion)', 'Before page shows taxable income and applicable withdrawals.');
+  const beforeHead = ['Year','Age','SS',['Taxable','SS'],'Pension','RMD',['Gross','Income'],['Taxable','Income'],'Taxes','IRMAA','IRA'].map(h=>Array.isArray(h)?h.join('\n'):h);
+  const beforeRows = (before.details||[]).map(r=>['Year '+r.year,r.age,__money(r.ssIncome),__money(r.taxableSSIncome||0),__money(r.pension),__money(r.iraWithdrawal||0),__money(r.grossIncome),__money(r.taxableIncome),__money(r.tax),__money(r.irmaa),__money(r.ira)]);
+  table(84, beforeHead, beforeRows.slice(0,28), 6.6);
+  footer();
+  if(beforeRows.length>28){ doc.addPage(); table(36, beforeHead, beforeRows.slice(28), 6.6); footer(); }
+
+  doc.addPage();
+  title('Year-by-Year Fidelity Strategy (After Conversion)', 'After page shows conversion taxes, Roth income, tax-free estate, and applicable withdrawals.');
+  const afterHead = ['Year','Age','SS',['Taxable','SS'],'Pension','RMD','Conversion',['Conv.','Taxes'],['Tax-Free','Roth Income'],['Gross','Income'],['Taxable','Income'],'Taxes','IRMAA',['Tax-Free','Estate']].map(h=>Array.isArray(h)?h.join('\n'):h);
+  const afterRows = (after.details||[]).map(r=>['Year '+r.year,r.age,__money(r.ssIncome),__money(r.taxableSSIncome||0),__money(r.pension),__money(r.iraWithdrawal||0),__money(r.conversion||0),__money(r.conversionTax||0),__money(r.taxFreeIncome||0),__money(r.grossIncome),__money(r.taxableIncome),__money(r.tax),__money(r.irmaa),__money(r.roth)]);
+  table(84, afterHead, afterRows.slice(0,28), 6.0);
+  footer();
+  if(afterRows.length>28){ doc.addPage(); table(36, afterHead, afterRows.slice(28), 6.0); footer(); }
+
+  const file = (typeof cleanFilePart==='function' ? cleanFilePart(name) : name.replace(/[^a-z0-9]+/gi,'_')) + '_' + scenario + '_fidelity-roth-planner-report.pdf';
+  doc.save(file);
+}
+function generatePDF(){
+  try{
+    if(typeof generatePDF_original === 'function') return generatePDF_original();
+    if(typeof generatePDF_core === 'function') return generatePDF_core();
+  }catch(e){
+    console.warn('Original PDF failed; using fallback:', e);
+  }
+  try{ return __fallbackGeneratePDF(); }
+  catch(e){ console.error('Generate PDF failed:', e); alert('Generate PDF report error: '+(e && e.message ? e.message : e)); }
+}
+function ensurePreviewRender(){ try{ renderYearByYearPreview(); }catch(e){ console.error(e); } }
+setTimeout(ensurePreviewRender, 250);
+document.addEventListener('input', ()=>setTimeout(ensurePreviewRender, 120));
+document.addEventListener('change', ()=>setTimeout(ensurePreviewRender, 120));
 
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js">
