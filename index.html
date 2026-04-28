@@ -1052,6 +1052,9 @@ function buildScenario(useStrategy){
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   let additionalTraditional = additionalTotals.traditional;
   let additionalNq = additionalTotals.nonqualified;
+  // NQ-first spending support: non-qualified additional accounts are available
+  // as a spend-first bucket before IRA withdrawals.
+  let nqBalance = Math.max(0, additionalNq);
   ira += additionalTraditional;
   outside += additionalNq;
   const plannedIraWithdrawalBase=num('plannedIraWithdrawal');
@@ -1138,8 +1141,16 @@ function buildScenario(useStrategy){
 
     let rothWithdrawal = 0;
     let extraIraGapWithdrawal = 0;
-    const baseCashFlow = currentGrossIncome + pension + ssIncome + plannedIraWithdrawal + plannedNqWithdrawal;
-    let remainingNeed = Math.max(0, desiredIncome - baseCashFlow);
+    // Spend-order engine: base income first, then NQ assets, then IRA, then Roth,
+    // then any extra IRA gap-fill if Roth is unavailable.
+    const baseIncome = currentGrossIncome + pension + ssIncome;
+    const nqAvailableForYear = nqBalance > 0 ? Math.min(plannedNqWithdrawal, nqBalance) : plannedNqWithdrawal;
+    let nqUsed = Math.min(nqAvailableForYear, Math.max(0, desiredIncome - baseIncome));
+
+    let iraGapNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed));
+    let iraUsedForIncome = Math.min(plannedIraWithdrawal, iraGapNeed, Math.max(0, ira));
+
+    let remainingNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed + iraUsedForIncome));
 
     const availableRoth = rothBuckets.reduce((sum,b)=> sum + (year >= b.availableYear ? b.balance : 0), 0);
     if(useStrategy && remainingNeed > 0 && availableRoth > 0){
@@ -1148,16 +1159,16 @@ function buildScenario(useStrategy){
     }
 
     if(remainingNeed > 0){
-      extraIraGapWithdrawal = Math.min(Math.max(0, ira - plannedIraWithdrawal), remainingNeed);
+      extraIraGapWithdrawal = Math.min(Math.max(0, ira - iraUsedForIncome), remainingNeed);
       remainingNeed -= extraIraGapWithdrawal;
     }
 
-    let iraWithdrawal = Math.max(rmd, plannedIraWithdrawal + extraIraGapWithdrawal);
+    let iraWithdrawal = Math.max(rmd, iraUsedForIncome + extraIraGapWithdrawal);
     iraWithdrawal = Math.min(ira, Math.max(0, iraWithdrawal));
 
     // User-entered taxable income portions exclude Social Security.
     // Taxable Social Security is calculated separately from provisional income.
-    const taxableNonSSBeforeConversion = currentTaxableIncome + taxablePension + plannedNqWithdrawal + iraWithdrawal - alimonyDeduction;
+    const taxableNonSSBeforeConversion = currentTaxableIncome + taxablePension + nqUsed + iraWithdrawal - alimonyDeduction;
     const taxableSSIncome = taxableSS(ssIncome, taxableNonSSBeforeConversion, currentStatus);
 
     let conversion=0;
@@ -1226,6 +1237,12 @@ function buildScenario(useStrategy){
       additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
     }
 
+    // Reduce NQ/outside assets by the actual NQ amount used for income this year.
+    if(nqUsed > 0){
+      if(nqBalance > 0) nqBalance = Math.max(0, nqBalance - nqUsed);
+      outside = Math.max(0, outside - nqUsed);
+    }
+
     if(useStrategy){
       const netToRoth = includeTaxFundingComparison ? conversion : Math.max(0, conversion - conversionTax);
       if(netToRoth > 0){
@@ -1247,7 +1264,7 @@ function buildScenario(useStrategy){
     totalIRMAA += irmaa;
     totalRMDs += rmd;
 
-    const displayedIncome = currentGrossIncome + pension + ssIncome + plannedNqWithdrawal + iraWithdrawal + rothWithdrawal;
+    const displayedIncome = currentGrossIncome + pension + ssIncome + nqUsed + iraWithdrawal + rothWithdrawal;
 
     if(useStrategy && ira<=0.005 && conversionFinishedYear===null) conversionFinishedYear = year;
 
@@ -1274,7 +1291,8 @@ function buildScenario(useStrategy){
       grossIncome: displayedIncome,
       iraWithdrawal,
       plannedIraWithdrawal,
-      plannedNqWithdrawal,
+      plannedNqWithdrawal: nqUsed,
+      plannedNqWithdrawalPlanned: plannedNqWithdrawal,
       extraIraGapWithdrawal,
       rmd,
       conversion,
