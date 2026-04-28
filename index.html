@@ -332,6 +332,15 @@ setTimeout(ensurePreviewRender, 250);
 document.addEventListener('input', ()=>setTimeout(ensurePreviewRender, 120));
 document.addEventListener('change', ()=>setTimeout(ensurePreviewRender, 120));
 
+
+/* Compatibility aliases for older preview/PDF calls */
+if (typeof tableConfigFromDetails === 'function' && typeof TableConfigFromDetails === 'undefined') {
+  window.TableConfigFromDetails = tableConfigFromDetails;
+}
+if (typeof rowsFromDetails === 'function' && typeof RowsFromDetails === 'undefined') {
+  window.RowsFromDetails = rowsFromDetails;
+}
+
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js">
 document.getElementById('addAccountBtn').addEventListener('click', function(){
