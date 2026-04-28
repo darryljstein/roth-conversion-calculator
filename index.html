@@ -224,6 +224,13 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
     @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
   </style>
+
+<style>
+.taxfree-highlight-cell{background:#e8f5e9!important;color:#006400!important;font-weight:700!important;}
+.taxfree-highlight-head{background:#009650!important;color:#fff!important;font-weight:800!important;}
+.rmd-highlight-cell{color:#c00000!important;font-weight:700!important;}
+</style>
+
 </head>
 <body>
 <div class="container">
@@ -309,7 +316,26 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Alimony / Other Deduction Annual</label><input id="alimonyDeduction" type="number" value="0" step="1000" /></div>
           <div class="field"><label>Last Deduction Age</label><input id="alimonyEndAge" type="number" value="72" min="40" max="95" step="1" /></div>
           <div class="field"><label>Income COLA %</label><input id="cola" type="number" value="2.5" step="0.1" /></div>
-          <div class="field"><label>Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
+          
+                  <div class="field"><label>During Conversion Target Bracket</label>
+                    <select id="conversionTargetBracket">
+                      <option value="12">12%</option>
+                      <option value="22">22%</option>
+                      <option value="24" selected>24%</option>
+                      <option value="32">32%</option>
+                      <option value="35">35%</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>After Conversion Target Bracket</label>
+                    <select id="postConversionTargetBracket">
+                      <option value="12">12%</option>
+                      <option value="22" selected>22%</option>
+                      <option value="24">24%</option>
+                      <option value="32">32%</option>
+                      <option value="35">35%</option>
+                    </select>
+                  </div>
+<div class="field"><label>Legacy Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Tax Bracket Inflation %</label><input id="taxInflation" type="number" value="2.6" step="0.1" /></div>
           <div class="field"><label>Additional 65+ Deduction (Per Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
@@ -788,10 +814,9 @@ function calcIRMAA(magi,status,hAge,wAge,year=1){
   const singleEligible = (status !== 'MFJ') ? (Number(hAge) >= 65) : false;
   if(!(husbandEligible || wifeEligible || singleEligible)) return 0;
 
-  // FIX #1: Inflate IRMAA income thresholds each projection year using
-  // the same annual tax-bracket inflation assumption entered in the planner.
-  const irmaaInflation = percent('taxInflation') || 0;
-  const factor = Math.pow(1 + irmaaInflation, Math.max(0, year - 1));
+  // IRMAA brackets inflate annually using the Tax Bracket Inflation field.
+  // Default is 2.6% when the field is blank.
+  const factor = Math.pow(1 + taxBracketInflationRate(), Math.max(0, Number(year || 1) - 1));
 
   if(status === 'MFJ'){
     if(magi <= 218000 * factor) return 0;
@@ -927,6 +952,77 @@ function scenarioSummaryText(){
   if(mode === 'optimized') return 'Optimized scenario: aims to use the available target-bracket room more fully and assumes a modestly stronger growth path.';
   if(mode === 'conservative') return 'Conservative scenario: leaves additional bracket cushion and assumes a modestly lower growth path.';
   return 'Base scenario: uses the selected inputs with a modest bracket cushion.';
+}
+
+
+function getScenarioMode(){
+  const el = document.getElementById('scenarioMode');
+  return el ? el.value : 'Base';
+}
+function selectedConversionBracket(){
+  const el = document.getElementById('conversionTargetBracket');
+  const legacy = document.getElementById('targetBracket');
+  const v = el ? parseFloat(el.value) : (legacy ? parseFloat(legacy.value) : 24);
+  return isNaN(v) ? 24 : v;
+}
+function selectedPostConversionBracket(){
+  const el = document.getElementById('postConversionTargetBracket');
+  const v = el ? parseFloat(el.value) : 22;
+  return isNaN(v) ? 22 : v;
+}
+function scenarioGrowthMultiplier(){
+  const mode = getScenarioMode();
+  if(mode === 'Optimized') return 1.10;
+  if(mode === 'Conservative') return 0.90;
+  return 1.00;
+}
+function scenarioConversionCushion(){
+  const mode = getScenarioMode();
+  if(mode === 'Optimized') return 1.00;
+  if(mode === 'Conservative') return 0.85;
+  return 0.92;
+}
+function taxBracketInflationRate(){
+  const el = document.getElementById('taxInflation');
+  const v = el ? parseFloat(el.value) : 2.6;
+  return (isNaN(v) ? 2.6 : v) / 100;
+}
+function headerPlainText(h){
+  if(Array.isArray(h)) return h.join(' ');
+  return String(h || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/,/g,' ').replace(/\s+/g,' ').trim();
+}
+function isTaxFreeReportColumn(h){
+  const v = headerPlainText(h).toLowerCase();
+  return v === 'tax-free roth income' || v === 'tax-free estate' || v === 'tax-free assets';
+}
+function isRmdReportColumn(h){
+  return headerPlainText(h).toLowerCase() === 'rmd';
+}
+function applyFinalReportColumnStyling(data){
+  let raw = '';
+  try{
+    const headRow = data.table && data.table.head && data.table.head[0];
+    if(headRow && headRow.cells && headRow.cells[data.column.index]){
+      raw = headRow.cells[data.column.index].raw;
+    }
+  }catch(e){}
+  if(data.section === 'head' && isTaxFreeReportColumn(raw)){
+    data.cell.styles.fillColor = [0,150,80];
+    data.cell.styles.textColor = [255,255,255];
+    data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'body' && isTaxFreeReportColumn(raw)){
+    data.cell.styles.fillColor = [232,245,233];
+    data.cell.styles.textColor = [0,100,0];
+    data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'body' && isRmdReportColumn(raw)){
+    data.cell.styles.textColor = [192,0,0];
+    data.cell.styles.fontStyle = 'bold';
+  }
+}
+function cleanFilePart(s){
+  return String(s || 'Client').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'Client';
 }
 
 function buildScenario(useStrategy){
@@ -1872,7 +1968,7 @@ function generatePDF(){
     styles:{fontSize:10,cellPadding:4,halign:'center'},
     headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[245,247,250]},
-    didParseCell:function(data){
+    didParseCell:function(data){ applyFinalReportColumnStyling(data); 
       if(data.section==='body' && data.row.index===2){
         data.cell.styles.fontStyle='bold';
         if(data.column.index===2 || data.column.index===3){
@@ -1950,7 +2046,7 @@ function generatePDF(){
     styles:{fontSize:10},
     headStyles:{fillColor:[11,58,111]},
     margin:{bottom:115},
-    didParseCell:function(data){
+    didParseCell:function(data){ applyFinalReportColumnStyling(data); 
       if(data.section==='body' && data.column.index===0){
         data.cell.styles.fontStyle='bold';
       }
@@ -2021,7 +2117,7 @@ function generatePDF(){
       styles:{fontSize:10},
       headStyles:{fillColor:[11,58,111]},
       margin:{bottom:115},
-      didParseCell:function(data){
+      didParseCell:function(data){ applyFinalReportColumnStyling(data); 
         if(data.section==='body' && data.column.index===0){ data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===1){ data.cell.styles.fillColor=[220,53,69]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
         if(data.section==='body' && data.column.index===2){ data.cell.styles.fillColor=[0,200,83]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; }
@@ -2090,7 +2186,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA thresholds are inflated annually and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active year is capped by the selected bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -2202,7 +2298,7 @@ function generatePDF(){
   doc.text('Fidelity Mutual Financial - Darryl Stein - 888-947-0555 - www.TheFidelityMutual.com', 90, 282);
   addPdfFooter(doc, doc.getNumberOfPages());
 
-doc.save(`${cleanFilePart(householdName)}_${cleanFilePart(cleanScenario)}_fidelity-roth-planner-report.pdf`);
+doc.save(`${cleanFilePart(typeof householdReportName === 'function' ? householdReportName() : (document.getElementById('householdName')?.value || 'Client'))}_${cleanFilePart(getScenarioMode())}_fidelity-roth-planner-report.pdf`);
   }catch(e){ console.error('PDF generation error:', e); alert('PDF generation error: '+(e && e.message ? e.message : e)); }
 }
 window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
