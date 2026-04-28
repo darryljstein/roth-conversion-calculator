@@ -1219,8 +1219,13 @@ function buildScenario(useStrategy){
 
     // User-entered taxable income portions exclude Social Security.
     // Taxable Social Security is calculated separately from provisional income.
+    // IMPORTANT: Roth conversions count in provisional income for Social Security taxation.
+    // We first calculate the no-conversion taxable SS amount for the base tax, then
+    // recalculate it after the conversion is selected so the report and taxes reflect
+    // the conversion-driven Social Security taxability correctly.
     const taxableNonSSBeforeConversion = currentTaxableIncome + taxablePension + nqUsed + iraWithdrawal - alimonyDeduction;
-    const taxableSSIncome = taxableSS(ssIncome, taxableNonSSBeforeConversion, currentStatus);
+    const taxableSSBeforeConversion = taxableSS(ssIncome, taxableNonSSBeforeConversion, currentStatus);
+    let taxableSSIncome = taxableSSBeforeConversion;
 
     let conversion=0;
     let conversionTax=0;
@@ -1255,7 +1260,9 @@ function buildScenario(useStrategy){
       }
       if(conversion>0 && (year === effectiveConversionEndYear || conversion >= convertibleBalance - 0.005)) conversionFinishedYear = year;
     }
-    const taxableBaseAfterConversion = taxableBaseBeforeConversion + conversion;
+    const taxableSSAfterConversion = taxableSS(ssIncome, taxableNonSSBeforeConversion + conversion, currentStatus);
+    taxableSSIncome = useStrategy ? taxableSSAfterConversion : taxableSSBeforeConversion;
+    const taxableBaseAfterConversion = Math.max(0, taxableNonSSBeforeConversion + conversion + taxableSSAfterConversion);
     const baseTax = ordinaryTax(taxableBaseBeforeConversion, taxCfg);
     const totalTaxWithConversion = ordinaryTax(taxableBaseAfterConversion, taxCfg);
     conversionTax = Math.max(0, totalTaxWithConversion - baseTax);
