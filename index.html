@@ -1703,6 +1703,52 @@ function buildMilestoneRowsFromDetails(details){
 }
 
 
+
+function rothIncomeAvailableYear(){
+  const start = Number(document.getElementById('conversionStartYear')?.value || 1);
+  return Math.max(1, start + 5);
+}
+
+function desiredIncomeForYear(year){
+  const base = Number(
+    document.getElementById('desiredIncome')?.value ||
+    document.getElementById('incomeGoal')?.value ||
+    document.getElementById('incomeGoalAmount')?.value ||
+    0
+  );
+  const cola = Number(document.getElementById('incomeCola')?.value || document.getElementById('desiredIncomeCola')?.value || 0) / 100;
+  return Math.max(0, base * Math.pow(1 + cola, Math.max(0, Number(year || 1) - 1)));
+}
+
+function repairTaxFreeRothIncomeFlow(scenario){
+  if(!scenario || !Array.isArray(scenario.details)) return scenario;
+  const availableYear = rothIncomeAvailableYear();
+
+  scenario.details.forEach(r=>{
+    const year = Number(r.year || 0);
+    if(year < availableYear) return;
+
+    const currentTaxFree = Number(r.taxFreeIncome || 0);
+    const rmd = Number(r.rmd || r.requiredRmd || 0);
+    const iraWithdrawal = Number(r.iraWithdrawal || 0);
+    const rothBalance = Number(r.roth || 0);
+
+    // RMD stays RMD. Only voluntary IRA withdrawals above RMD move to Roth income.
+    const voluntaryIraDraw = Math.max(0, iraWithdrawal - rmd);
+    const shift = Math.min(voluntaryIraDraw, rothBalance);
+
+    if(shift > 0){
+      r.taxFreeIncome = currentTaxFree + shift;
+      r.iraWithdrawal = Math.max(rmd, iraWithdrawal - shift);
+      r.taxableIncome = Math.max(0, Number(r.taxableIncome || 0) - shift);
+    }
+  });
+
+  scenario.totalTaxFreeIncome = scenario.details.reduce((s,r)=>s + Number(r.taxFreeIncome || 0), 0);
+  scenario.totalTaxFreeRothWithdrawals = scenario.totalTaxFreeIncome;
+  return scenario;
+}
+
 function generatePDF(){
   try{
   if(!latest) calculate();
@@ -1788,9 +1834,9 @@ function generatePDF(){
     ['Recommended Strategy', 'Tax-efficient Roth conversion strategy with bracket-aware conversion controls'],
     ['Conversion Window', `Starts Year ${Math.max(1,Math.floor(num('startYear')||1))}; scheduled over ${Math.max(1,Math.floor(num('conversionYears')||6))} years`],
     ['First Tax-Free Income Year', firstPositiveYear(after.details, 'taxFreeIncome')],
-    ['Total Tax-Free Roth Withdrawals', fmt2(after.totalTaxFreeIncome || 0)],
+    ['Total Tax-Free Roth Withdrawals', fmt2((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) || 0)],
     ['Tax-Free Estate at Horizon', fmt2(after.taxFreeEstate || 0)],
-    ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + (before.totalIRMAA-after.totalIRMAA) + (after.totalTaxFreeIncome-before.totalTaxFreeIncome) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
+    ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + (before.totalIRMAA-after.totalIRMAA) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0)-before.totalTaxFreeIncome) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
   ];
   doc.autoTable({
     startY:78,
@@ -1885,7 +1931,7 @@ function generatePDF(){
   addPdfLogo(doc);
   const comparisonRows = [
     [`Total Federal Taxes by Age ${planningHorizonAge()}`, before.totalTaxes, after.totalTaxes, before.totalTaxes - after.totalTaxes],
-    [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, before.totalTaxFreeIncome, after.totalTaxFreeIncome, after.totalTaxFreeIncome - before.totalTaxFreeIncome],
+    [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, before.totalTaxFreeIncome, (after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0), (after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome],
     [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
     [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
     [`Taxable Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
@@ -1926,7 +1972,7 @@ function generatePDF(){
       }
     }
   });
-  const totalNetBenefit = (before.totalTaxes - after.totalTaxes) + (before.totalIRMAA - after.totalIRMAA) + (after.totalTaxFreeIncome - before.totalTaxFreeIncome) + (after.taxFreeEstate - before.taxFreeEstate);
+  const totalNetBenefit = (before.totalTaxes - after.totalTaxes) + (before.totalIRMAA - after.totalIRMAA) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome) + (after.taxFreeEstate - before.taxFreeEstate);
   const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY : 220;
   doc.setFillColor(11,58,111);
   doc.roundedRect(36, finalY + 12, 720, 28, 4, 4, 'F');
