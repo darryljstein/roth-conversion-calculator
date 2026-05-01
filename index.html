@@ -223,7 +223,13 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col,.client-box-grid{grid-template-columns:1fr}.social-security-card .inputs-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
     @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
-  </style>
+  
+.annuity-compare-card{background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:16px;margin-top:16px}
+.annuity-side-by-side{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.annuity-current{border-left:5px solid #dc2626;background:#fff1f2}
+.annuity-proposed{border-left:5px solid #16a34a;background:#ecfdf5}
+@media (max-width:900px){.annuity-side-by-side{grid-template-columns:1fr}}
+</style>
 
 <style>
 .taxfree-highlight-cell{background:#e8f5e9!important;color:#006400!important;font-weight:700!important;}
@@ -308,6 +314,28 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div class="field"><label>Post-SS Starts Age</label><input id="iraPostStartAge" type="number" value="70" min="40" max="95" step="1" /></div>
           </div>
           <div class="small" style="margin-top:10px;">Use the button to populate the case: age 64, retirement at 67, pension $21,600, widow SS $18,000, own SS at 70 $45,000, IRA $1,000,000, income goal $130,000 with 3% COLA, and an optional FIA income layer.</div>
+        </div>
+
+        <div class="account-panel annuity-compare-card">
+          <div class="account-panel-header">
+            <div>
+              <div class="account-panel-title">Existing Annuity Rider Comparison / Mind Map</div>
+              <div class="account-panel-subtitle">Shows the client’s current taxable annuity income riders on the Before side versus your Roth-converted / tax-free income plan on the Strategy side.</div>
+            </div>
+          </div>
+          <div class="inputs-grid">
+            <div class="field"><label>Enable Existing Annuity Comparison</label><select id="existingAnnuityCompareEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+            <div class="field"><label>Current Rider Income Taxable %</label><input id="existingAnnuityTaxablePct" type="number" value="100" min="0" max="100" step="1" /></div>
+            <div class="field"><label>Annuity 1 Title</label><input id="existingAnnuity1Title" type="text" value="Existing FIA 1" /></div>
+            <div class="field"><label>Annuity 1 Account Value</label><input id="existingAnnuity1Value" type="number" value="0" step="1000" /></div>
+            <div class="field"><label>Annuity 1 Rider Income Annual</label><input id="existingAnnuity1Income" type="number" value="0" step="100" /></div>
+            <div class="field"><label>Annuity 1 Income Start Age</label><input id="existingAnnuity1StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
+            <div class="field"><label>Annuity 2 Title</label><input id="existingAnnuity2Title" type="text" value="Existing FIA 2" /></div>
+            <div class="field"><label>Annuity 2 Account Value</label><input id="existingAnnuity2Value" type="number" value="0" step="1000" /></div>
+            <div class="field"><label>Annuity 2 Rider Income Annual</label><input id="existingAnnuity2Income" type="number" value="0" step="100" /></div>
+            <div class="field"><label>Annuity 2 Income Start Age</label><input id="existingAnnuity2StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
+          </div>
+          <div class="small" style="margin-top:10px;">When enabled, the Before side treats these rider payments as taxable income streams. The Strategy side assumes those accounts are replaced through the Roth conversion / tax-free income strategy, so the report can show why the proposed plan may reduce taxable income and improve legacy value.</div>
         </div>
 
         <div class="shared-grid">
@@ -869,6 +897,36 @@ function getGuaranteedTaxFreeIncome(year, useStrategy, filingStart, deathApplied
   const cola = percent('fiaCola');
   return Math.max(0, num('fiaAnnualIncome')) * Math.pow(1 + cola, Math.max(0, year - startYear)) * continuation;
 }
+function existingAnnuityComparisonEnabled(){
+  return (document.getElementById('existingAnnuityCompareEnabled')?.value || 'no') === 'yes';
+}
+function getExistingAnnuityRiders(){
+  const taxablePct = Math.max(0, Math.min(1, num('existingAnnuityTaxablePct') / 100 || 0));
+  const riders = [1,2].map(i => ({
+    title: (document.getElementById(`existingAnnuity${i}Title`)?.value || `Existing FIA ${i}`).trim() || `Existing FIA ${i}`,
+    value: num(`existingAnnuity${i}Value`),
+    income: num(`existingAnnuity${i}Income`),
+    startAge: Math.floor(num(`existingAnnuity${i}StartAge`) || 67),
+    taxablePct
+  })).filter(r => r.value > 0 || r.income > 0);
+  return riders;
+}
+function getExistingAnnuityIncomeForAge(primaryAge){
+  if(!existingAnnuityComparisonEnabled()) return {gross:0, taxable:0, riders:[]};
+  const riders = getExistingAnnuityRiders();
+  let gross = 0, taxable = 0;
+  riders.forEach(r => {
+    if(primaryAge >= r.startAge){ gross += Math.max(0,r.income); taxable += Math.max(0,r.income) * r.taxablePct; }
+  });
+  return {gross, taxable, riders};
+}
+function existingAnnuityComparisonRows(){
+  const riders = getExistingAnnuityRiders();
+  if(!riders.length) return [['No existing riders entered','—','—','—','—']];
+  return riders.map(r => [r.title, fmt2(r.value), fmt2(r.income), `Age ${r.startAge}`, `${(r.taxablePct*100).toFixed(0)}% taxable`]);
+}
+function sumExistingAnnuityValue(){ return getExistingAnnuityRiders().reduce((s,r)=>s + Math.max(0,r.value),0); }
+function sumExistingAnnuityIncome(){ return getExistingAnnuityRiders().reduce((s,r)=>s + Math.max(0,r.income),0); }
 function getPensionContinuationPct(){
   return 0;
 }
@@ -968,7 +1026,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1290,8 +1348,12 @@ function buildScenario(useStrategy){
   for(let year=1; year<=40; year++){
     const currentStatus=status;
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
-    const {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
+    let {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
     const guaranteedTaxFreeIncome = getGuaranteedTaxFreeIncome(year, useStrategy, filingStart, deathApplied, deathWho);
+    const existingAnnuityInfo = (!useStrategy) ? getExistingAnnuityIncomeForAge(primaryAge) : {gross:0,taxable:0,riders:[]};
+    const existingAnnuityIncome = existingAnnuityInfo.gross || 0;
+    const existingAnnuityTaxableIncome = existingAnnuityInfo.taxable || 0;
+    if(existingAnnuityIncome > 0){ pension += existingAnnuityIncome; taxablePension += existingAnnuityTaxableIncome; }
 
     const hIncomeEndAge = Math.floor(num('hIncomeEndAge') || 65);
     const wIncomeEndAge = Math.floor(num('wIncomeEndAge') || 65);
@@ -1510,6 +1572,8 @@ function buildScenario(useStrategy){
       pension,
       taxablePension,
       taxFreePension,
+      existingAnnuityIncome,
+      existingAnnuityTaxableIncome,
       ssIncome,
       taxableSSIncome,
       completionYear: completionYear ? 'Yes' : '',
@@ -2285,6 +2349,9 @@ function generatePDF(){
     ['Year 1 Planned Conversion', fmt2(after.firstConv)],
     ['Year 1 IRA Withdrawal', fmt2((after.details[0]||{}).iraWithdrawal || 0)],
     ['Guaranteed Tax-Free Income', `${(document.getElementById('fiaEnabled')?.value || 'no') === 'yes' ? fmt2(num('fiaAnnualIncome')) + ' starting Year ' + Math.max(1,Math.floor(num('fiaStartYear')||6)) : 'Not enabled'}`],
+    ['Existing Rider Comparison', existingAnnuityComparisonEnabled() ? 'Enabled' : 'Not enabled'],
+    ['Existing Rider Account Value', fmt2(sumExistingAnnuityValue())],
+    ['Existing Rider Annual Taxable Income', fmt2(sumExistingAnnuityIncome())],
     ['Tax-Free Income Through Age', String(taxFreeCoverageAge(after.details))],
     ['Scheduled Conversion Completion Year', `Year ${after.conversionEndYear}`],
     ['IRA at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).ira || 0)],
@@ -2368,6 +2435,65 @@ function generatePDF(){
   doc.setFontSize(9);
   doc.text(doc.splitTextToSize('Includes estimated federal tax savings, IRMAA savings, increased tax-free income, and increased tax-free estate.', 680), 46, finalY + 52);
   addPdfFooter(doc,4);
+
+  if(existingAnnuityComparisonEnabled()){
+    doc.addPage();
+    addTitle(doc,'Annuity Income Rider Comparison','Current taxable income riders versus proposed Roth-converted / tax-free income strategy.');
+    addPdfLogo(doc);
+    const annuityRows = existingAnnuityComparisonRows();
+    doc.autoTable({
+      startY:74,
+      head:[['Existing Account','Account Value','Current Rider Income','Income Starts','Tax Treatment']],
+      body:annuityRows,
+      styles:{fontSize:9,cellPadding:4,halign:'center'},
+      headStyles:{fillColor:[220,53,69],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[255,241,242]},
+      margin:{left:40,right:40}
+    });
+    const yA = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 18 : 170;
+    const firstAfter = after.details.find(r => (r.guaranteedTaxFreeIncome||0)>0 || (r.taxFreeIncome||0)>0) || after.details[0] || {};
+    const proposedTaxFreeIncome = Math.max(num('fiaAnnualIncome'), firstAfter.guaranteedTaxFreeIncome || firstAfter.taxFreeIncome || 0);
+    const beforeTaxable = sumExistingAnnuityIncome();
+    const annualTaxableReduction = beforeTaxable;
+
+    // Mind map style left/right boxes
+    doc.setFont(undefined,'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(220,53,69);
+    doc.text('CURRENT PLAN: Taxable Rider Income', 68, yA+22);
+    doc.setTextColor(0,150,80);
+    doc.text('PROPOSED PLAN: Roth / Tax-Free Strategy', 445, yA+22);
+    doc.setDrawColor(220,53,69); doc.setFillColor(255,241,242);
+    doc.roundedRect(52, yA+34, 310, 220, 10, 10, 'FD');
+    doc.setDrawColor(0,150,80); doc.setFillColor(236,253,245);
+    doc.roundedRect(430, yA+34, 310, 220, 10, 10, 'FD');
+    doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(30,30,30);
+    const leftLines = [
+      `Two existing FIA contracts: ${fmt2(sumExistingAnnuityValue())}`,
+      `Annual rider income: ${fmt2(beforeTaxable)}`,
+      `Income tax treatment: ${num('existingAnnuityTaxablePct').toFixed(0)}% taxable`,
+      'Income increases provisional income and taxable income.',
+      'Legacy remains inside the existing taxable structure.'
+    ];
+    const rightLines = [
+      `Premium / conversion base: ${fmt2(after.premium)}`,
+      `Bonus modeled: ${fmt2(after.bonus)}`,
+      `Projected tax-free estate: ${fmt2(after.taxFreeEstate)}`,
+      `Tax-free income modeled: ${fmt2(proposedTaxFreeIncome)}`,
+      'Roth / tax-free income is designed to reduce future taxable income and improve legacy efficiency.'
+    ];
+    leftLines.forEach((t,i)=>doc.text(doc.splitTextToSize('• '+t, 270), 72, yA+64+i*34));
+    rightLines.forEach((t,i)=>doc.text(doc.splitTextToSize('• '+t, 270), 450, yA+64+i*34));
+    doc.setDrawColor(120,120,120);
+    doc.line(372, yA+144, 420, yA+144);
+    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.setTextColor(11,58,111);
+    doc.text('Replace taxable rider income with a tax-free strategy', 396, yA+132, {align:'center', maxWidth:120});
+    doc.setFillColor(11,58,111);
+    doc.roundedRect(52, yA+270, 688, 34, 6, 6, 'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(11);
+    doc.text(`Illustrated Annual Taxable Income Shift: ${fmt2(annualTaxableReduction)} of current rider income moves off the taxable-income story when replaced by the proposed Roth/tax-free strategy.`, 64, yA+292, {maxWidth:665});
+    addPdfFooter(doc, doc.getNumberOfPages());
+  }
 
   if(document.getElementById('includeTaxFundingComparison')?.checked){
   // Page 5 - Tax Funding Comparison (auto-run both)
