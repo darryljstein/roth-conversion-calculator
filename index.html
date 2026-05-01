@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fidelity Mutual Financial - Tax Efficient Retirement Strategy</title>
@@ -1759,47 +1758,104 @@ function createLineChartDataUrl(labels, series){
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle = '#d1d5db';
-  ctx.lineWidth = 1;
   ctx.font = '12px Arial';
   ctx.fillStyle = '#374151';
 
-  const pad = {l:70,r:30,t:28,b:48};
+  const pad = {l:70,r:30,t:34,b:50};
   const w = canvas.width - pad.l - pad.r;
   const h = canvas.height - pad.t - pad.b;
   const allVals = series.flatMap(s => s.values).filter(v => isFinite(v));
   const max = Math.max(1, ...allVals);
   const min = 0;
 
-  // grid
+  // grid and y-axis labels
   for(let i=0;i<=4;i++){
     const y = pad.t + h - (h*i/4);
     ctx.strokeStyle = '#e5e7eb';
-    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l,y);
+    ctx.lineTo(pad.l+w,y);
+    ctx.stroke();
     ctx.fillStyle = '#6b7280';
+    ctx.font = '12px Arial';
     ctx.fillText(fmt2(max*i/4).replace('.00',''), 8, y+4);
   }
 
-  const colors = ['#003d73','#00a651','#c81e1e','#6b7280'];
+  function colorForSeries(name){
+    const n = String(name || '').toLowerCase();
+    if(n.includes('tax-free')) return '#16a34a';
+    if(n.includes('ira')) return '#dc2626';
+    return '#0b3a6f';
+  }
+
   series.forEach((s, si) => {
-    ctx.strokeStyle = colors[si % colors.length];
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    s.values.forEach((v, i) => {
-      const x = pad.l + (labels.length <= 1 ? 0 : (w*i/(labels.length-1)));
-      const y = pad.t + h - ((v-min)/(max-min))*h;
-      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    });
-    ctx.stroke();
+    const name = String(s.name || '');
+    const lower = name.toLowerCase();
+    const isIra = lower.includes('ira');
+    const isTaxFree = lower.includes('tax-free');
+    const baseColor = colorForSeries(name);
+
+    // Draw the main series. IRA is drawn segment-by-segment so it visibly fades out over time.
+    if(isIra){
+      const vals = s.values || [];
+      for(let i=1;i<vals.length;i++){
+        const v0 = vals[i-1];
+        const v1 = vals[i];
+        if(!isFinite(v0) || !isFinite(v1)) continue;
+        const x0 = pad.l + (labels.length <= 1 ? 0 : (w*(i-1)/(labels.length-1)));
+        const y0 = pad.t + h - ((v0-min)/(max-min))*h;
+        const x1 = pad.l + (labels.length <= 1 ? 0 : (w*i/(labels.length-1)));
+        const y1 = pad.t + h - ((v1-min)/(max-min))*h;
+        const alpha = Math.max(0.18, 1 - (i / Math.max(1, vals.length-1)) * 0.72);
+        ctx.strokeStyle = `rgba(220,38,38,${alpha.toFixed(3)})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x0,y0);
+        ctx.lineTo(x1,y1);
+        ctx.stroke();
+      }
+    } else {
+      ctx.strokeStyle = baseColor;
+      ctx.lineWidth = isTaxFree ? 4 : 3;
+      ctx.beginPath();
+      (s.values || []).forEach((v, i) => {
+        if(!isFinite(v)) return;
+        const x = pad.l + (labels.length <= 1 ? 0 : (w*i/(labels.length-1)));
+        const y = pad.t + h - ((v-min)/(max-min))*h;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+    }
+
+    // Small endpoint dots for clarity
+    const vals = (s.values || []).filter(v => isFinite(v));
+    if(vals.length){
+      const lastIdx = (s.values || []).length - 1;
+      const lastVal = (s.values || [])[lastIdx];
+      const x = pad.l + (labels.length <= 1 ? 0 : (w*lastIdx/(labels.length-1)));
+      const y = pad.t + h - ((lastVal-min)/(max-min))*h;
+      ctx.fillStyle = isIra ? 'rgba(220,38,38,0.35)' : baseColor;
+      ctx.beginPath();
+      ctx.arc(x, y, isTaxFree ? 4 : 3, 0, Math.PI*2);
+      ctx.fill();
+    }
 
     // legend
-    const lx = pad.l + si*210;
-    const ly = 18;
-    ctx.fillStyle = colors[si % colors.length];
-    ctx.fillRect(lx, ly-9, 18, 5);
+    const lx = pad.l + si*220;
+    const ly = 20;
+    if(isIra){
+      const grad = ctx.createLinearGradient(lx, ly-9, lx+26, ly-9);
+      grad.addColorStop(0, 'rgba(220,38,38,1)');
+      grad.addColorStop(1, 'rgba(220,38,38,0.25)');
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = baseColor;
+    }
+    ctx.fillRect(lx, ly-9, 24, 5);
     ctx.fillStyle = '#111827';
     ctx.font = '13px Arial';
-    ctx.fillText(s.name, lx+24, ly-4);
+    ctx.fillText(s.name, lx+32, ly-4);
   });
 
   // x labels sparse
@@ -2400,50 +2456,10 @@ function generatePDF(){
   addTitle(doc,'Visual Strategy Summary','Projected tax-free estate and IRA balance over time.');
   addPdfLogo(doc);
   const chartLabels = after.details.map(r => r.age);
-  const canvas = document.createElement('canvas');
-canvas.width = 800;
-canvas.height = 300;
-const ctx = canvas.getContext('2d');
-
-const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-gradient.addColorStop(0, 'rgba(220,38,38,1)');
-gradient.addColorStop(1, 'rgba(220,38,38,0.15)');
-
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: chartLabels,
-    datasets: [
-      {
-        label: 'Tax-Free Estate',
-        data: after.details.map(r => Number(r.roth || 0)),
-        borderColor: '#16a34a',
-        borderWidth: 4,
-        tension: 0.35,
-        fill: false
-      },
-      {
-        label: 'IRA Balance',
-        data: after.details.map(r => Number(r.ira || 0)),
-        borderColor: gradient,
-        borderWidth: 3,
-        tension: 0.35,
-        fill: false
-      }
-    ]
-  },
-  options: {
-    responsive: false,
-    plugins: {
-      legend: { display: true }
-    },
-    scales: {
-      y: { beginAtZero: true }
-    }
-  }
-});
-
-const chartUrl = canvas.toDataURL('image/png');
+  const chartUrl = createLineChartDataUrl(chartLabels, [
+    {name:'Tax-Free Estate', values: after.details.map(r=>Number(r.roth||0))},
+    {name:'IRA Balance', values: after.details.map(r=>Number(r.ira||0))}
+  ]);
   doc.addImage(chartUrl, 'PNG', 50, 86, 700, 280);
   doc.setFontSize(9);
   doc.setTextColor(90,90,90);
