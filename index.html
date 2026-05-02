@@ -248,6 +248,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 <style>
 .taxfree-highlight-cell{background:#e8f5e9!important;color:#006400!important;font-weight:700!important;}
 .taxfree-highlight-head{background:#009650!important;color:#fff!important;font-weight:800!important;}
+.taxable-highlight-cell{background:#fff1f2!important;color:#b91c1c!important;font-weight:700!important;}
+.taxable-highlight-head{background:#b91c1c!important;color:#fff!important;font-weight:800!important;}
 .rmd-highlight-cell{color:#c00000!important;font-weight:700!important;}
 </style>
 
@@ -1293,19 +1295,38 @@ function headerPlainText(h){
 }
 function isTaxFreeReportColumn(h){
   const v = headerPlainText(h).toLowerCase();
-  return v === 'tax-free roth income' || v === 'guaranteed tax-free income' || v === 'tax-free estate' || v === 'tax-free assets';
+  return v === 'tax-free roth income'
+    || v === 'guaranteed tax-free income'
+    || v === 'tax-free estate'
+    || v === 'tax-free assets'
+    || v === 'total tax-free assets'
+    || v === 'existing roth component'
+    || v === 'converted roth component'
+    || v === 'additional account assets';
+}
+function isTaxableReportColumn(h){
+  const v = headerPlainText(h).toLowerCase();
+  return v === 'taxable ss'
+    || v === 'taxable annuity income'
+    || v === 'taxable income'
+    || v === 'taxes'
+    || v === 'conversion taxes'
+    || v === 'rmd required withdrawal'
+    || v === 'pension';
 }
 function isRmdReportColumn(h){
-  return headerPlainText(h).toLowerCase() === 'rmd';
+  return headerPlainText(h).toLowerCase() === 'rmd' || headerPlainText(h).toLowerCase() === 'rmd required withdrawal';
 }
-function applyFinalReportColumnStyling(data){
+function reportColumnRaw(data){
   let raw = '';
   try{
     const headRow = data.table && data.table.head && data.table.head[0];
-    if(headRow && headRow.cells && headRow.cells[data.column.index]){
-      raw = headRow.cells[data.column.index].raw;
-    }
+    if(headRow && headRow.cells && headRow.cells[data.column.index]) raw = headRow.cells[data.column.index].raw;
   }catch(e){}
+  return raw;
+}
+function applyFinalReportColumnStyling(data){
+  const raw = reportColumnRaw(data);
   if(data.section === 'head' && isTaxFreeReportColumn(raw)){
     data.cell.styles.fillColor = [0,150,80];
     data.cell.styles.textColor = [255,255,255];
@@ -1314,6 +1335,16 @@ function applyFinalReportColumnStyling(data){
   if(data.section === 'body' && isTaxFreeReportColumn(raw)){
     data.cell.styles.fillColor = [232,245,233];
     data.cell.styles.textColor = [0,100,0];
+    data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'head' && isTaxableReportColumn(raw)){
+    data.cell.styles.fillColor = [185,28,28];
+    data.cell.styles.textColor = [255,255,255];
+    data.cell.styles.fontStyle = 'bold';
+  }
+  if(data.section === 'body' && isTaxableReportColumn(raw)){
+    data.cell.styles.fillColor = [255,241,242];
+    data.cell.styles.textColor = [185,28,28];
     data.cell.styles.fontStyle = 'bold';
   }
   if(data.section === 'body' && isRmdReportColumn(raw)){
@@ -1722,8 +1753,8 @@ function renderDetailPreview(after){
   const previewHeaders = tableCfg.cols[0].map(h => String(h).replace(/\n/g,'<br>'));
   const previewRows = tableCfg.rows.slice(0,15);
 
-  table.querySelector('thead').innerHTML = `<tr>${previewHeaders.map((h, idx)=>`<th class="${isTaxFreeReportColumn(tableCfg.cols[0][idx]) ? 'taxfree-highlight-head' : ''}">${h}</th>`).join('')}</tr>`;
-  table.querySelector('tbody').innerHTML = previewRows.map(row => `<tr>${row.map((c, idx)=>`<td class="${isTaxFreeReportColumn(tableCfg.cols[0][idx]) ? 'taxfree-highlight-cell' : ''}">${c}</td>`).join('')}</tr>`).join('');
+  table.querySelector('thead').innerHTML = `<tr>${previewHeaders.map((h, idx)=>{ const raw=tableCfg.cols[0][idx]; const cls=isTaxFreeReportColumn(raw)?'taxfree-highlight-head':(isTaxableReportColumn(raw)?'taxable-highlight-head':''); return `<th class="${cls}">${h}</th>`; }).join('')}</tr>`;
+  table.querySelector('tbody').innerHTML = previewRows.map(row => `<tr>${row.map((c, idx)=>{ const raw=tableCfg.cols[0][idx]; const cls=isTaxFreeReportColumn(raw)?'taxfree-highlight-cell':(isTaxableReportColumn(raw)?'taxable-highlight-cell':''); return `<td class="${cls}">${c}</td>`; }).join('')}</tr>`).join('');
 }
 
 
@@ -2690,6 +2721,7 @@ function generatePDF(){
       margin:{bottom:85,left:24,right:24},
       tableWidth:'auto',
       didParseCell: function(data){
+        applyFinalReportColumnStyling(data);
         const rmdColIndex = tableCfg && tableCfg.cols && tableCfg.cols[0] ? tableCfg.cols[0].indexOf('RMD\nRequired Withdrawal') : -1;
         if(data.section==='head' && data.column.index===rmdColIndex){
           data.cell.styles.textColor=[200,0,0];
