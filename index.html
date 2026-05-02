@@ -330,12 +330,16 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div class="field"><label>Annuity 1 Account Value</label><input id="existingAnnuity1Value" type="number" value="0" step="1000" /></div>
             <div class="field"><label>Annuity 1 Rider Income Annual</label><input id="existingAnnuity1Income" type="number" value="0" step="100" /></div>
             <div class="field"><label>Annuity 1 Income Start Age</label><input id="existingAnnuity1StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
+            <div class="field"><label>Annuity 1 Owner</label><select id="existingAnnuity1Owner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
+            <div class="field"><label>Annuity 1 Payout Type</label><select id="existingAnnuity1Payout"><option value="single" selected>Single Life / Stops at Owner Death</option><option value="joint">Joint / Continues to Survivor</option></select></div>
             <div class="field"><label>Annuity 2 Title</label><input id="existingAnnuity2Title" type="text" value="Existing FIA 2" /></div>
             <div class="field"><label>Annuity 2 Account Value</label><input id="existingAnnuity2Value" type="number" value="0" step="1000" /></div>
             <div class="field"><label>Annuity 2 Rider Income Annual</label><input id="existingAnnuity2Income" type="number" value="0" step="100" /></div>
             <div class="field"><label>Annuity 2 Income Start Age</label><input id="existingAnnuity2StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
+            <div class="field"><label>Annuity 2 Owner</label><select id="existingAnnuity2Owner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
+            <div class="field"><label>Annuity 2 Payout Type</label><select id="existingAnnuity2Payout"><option value="single" selected>Single Life / Stops at Owner Death</option><option value="joint">Joint / Continues to Survivor</option></select></div>
           </div>
-          <div class="small" style="margin-top:10px;">When enabled, the Before side treats these rider payments as taxable income streams. The Strategy side assumes those accounts are replaced through the Roth conversion / tax-free income strategy, so the report can show why the proposed plan may reduce taxable income and improve legacy value.</div>
+          <div class="small" style="margin-top:10px;">When enabled, the Before side treats these rider payments as taxable IRA income streams. Use the Owner and Payout Type fields to show whether each rider is single-life and stops when that owner dies, or joint and continues to the survivor. The Strategy side assumes those accounts are replaced through the Roth conversion / tax-free income strategy, so the report can show why the proposed plan may reduce taxable income and improve legacy value.</div>
         </div>
 
         <div class="shared-grid">
@@ -578,6 +582,10 @@ function refreshClientDisplay(){
   refreshAllPensionLabels();
   const dw = document.getElementById('deathWho');
   if(dw && dw.options.length >= 3){ dw.options[1].text = `${c1} dies first`; dw.options[2].text = `${c2} dies first`; }
+  [1,2].forEach(i => {
+    const owner = document.getElementById(`existingAnnuity${i}Owner`);
+    if(owner && owner.options.length >= 2){ owner.options[0].text = c1; owner.options[1].text = c2; }
+  });
 }
 
 
@@ -900,6 +908,13 @@ function getGuaranteedTaxFreeIncome(year, useStrategy, filingStart, deathApplied
 function existingAnnuityComparisonEnabled(){
   return (document.getElementById('existingAnnuityCompareEnabled')?.value || 'no') === 'yes';
 }
+function existingAnnuityOwnerLabel(owner){
+  if(owner === 'wife') return displayClient2Name();
+  return displayClient1Name();
+}
+function existingAnnuityPayoutLabel(payout){
+  return payout === 'joint' ? 'Joint / continues to survivor' : 'Single life / stops at owner death';
+}
 function getExistingAnnuityRiders(){
   const taxablePct = Math.max(0, Math.min(1, num('existingAnnuityTaxablePct') / 100 || 0));
   const riders = [1,2].map(i => ({
@@ -907,23 +922,34 @@ function getExistingAnnuityRiders(){
     value: num(`existingAnnuity${i}Value`),
     income: num(`existingAnnuity${i}Income`),
     startAge: Math.floor(num(`existingAnnuity${i}StartAge`) || 67),
+    owner: (document.getElementById(`existingAnnuity${i}Owner`)?.value || 'husband'),
+    payout: (document.getElementById(`existingAnnuity${i}Payout`)?.value || 'single'),
     taxablePct
   })).filter(r => r.value > 0 || r.income > 0);
   return riders;
 }
-function getExistingAnnuityIncomeForAge(primaryAge){
+function existingAnnuityRiderIsActive(r, primaryAge, filingStart='MFJ', deathApplied=false, deathWho=''){
+  if(primaryAge < r.startAge) return false;
+  // A single-life income rider stops once its owner has died. Joint payout continues to survivor.
+  if(filingStart === 'MFJ' && deathApplied && r.payout !== 'joint' && deathWho && r.owner === deathWho) return false;
+  return true;
+}
+function getExistingAnnuityIncomeForAge(primaryAge, filingStart='MFJ', deathApplied=false, deathWho=''){
   if(!existingAnnuityComparisonEnabled()) return {gross:0, taxable:0, riders:[]};
   const riders = getExistingAnnuityRiders();
   let gross = 0, taxable = 0;
   riders.forEach(r => {
-    if(primaryAge >= r.startAge){ gross += Math.max(0,r.income); taxable += Math.max(0,r.income) * r.taxablePct; }
+    if(existingAnnuityRiderIsActive(r, primaryAge, filingStart, deathApplied, deathWho)){
+      gross += Math.max(0,r.income);
+      taxable += Math.max(0,r.income) * r.taxablePct;
+    }
   });
   return {gross, taxable, riders};
 }
 function existingAnnuityComparisonRows(){
   const riders = getExistingAnnuityRiders();
-  if(!riders.length) return [['No existing riders entered','—','—','—','—']];
-  return riders.map(r => [r.title, fmt2(r.value), fmt2(r.income), `Age ${r.startAge}`, `${(r.taxablePct*100).toFixed(0)}% taxable`]);
+  if(!riders.length) return [['No existing riders entered','—','—','—','—','—','—']];
+  return riders.map(r => [r.title, existingAnnuityOwnerLabel(r.owner), existingAnnuityPayoutLabel(r.payout), fmt2(r.value), fmt2(r.income), `Age ${r.startAge}`, `${(r.taxablePct*100).toFixed(0)}% taxable`]);
 }
 function sumExistingAnnuityValue(){ return getExistingAnnuityRiders().reduce((s,r)=>s + Math.max(0,r.value),0); }
 function sumExistingAnnuityIncome(){ return getExistingAnnuityRiders().reduce((s,r)=>s + Math.max(0,r.income),0); }
@@ -1026,7 +1052,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1350,7 +1376,7 @@ function buildScenario(useStrategy){
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
     let {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
     const guaranteedTaxFreeIncome = getGuaranteedTaxFreeIncome(year, useStrategy, filingStart, deathApplied, deathWho);
-    const existingAnnuityInfo = (!useStrategy) ? getExistingAnnuityIncomeForAge(primaryAge) : {gross:0,taxable:0,riders:[]};
+    const existingAnnuityInfo = (!useStrategy) ? getExistingAnnuityIncomeForAge(primaryAge, filingStart, deathApplied, deathWho) : {gross:0,taxable:0,riders:[]};
     const existingAnnuityIncome = existingAnnuityInfo.gross || 0;
     const existingAnnuityTaxableIncome = existingAnnuityInfo.taxable || 0;
     if(existingAnnuityIncome > 0){ pension += existingAnnuityIncome; taxablePension += existingAnnuityTaxableIncome; }
@@ -2443,7 +2469,7 @@ function generatePDF(){
     const annuityRows = existingAnnuityComparisonRows();
     doc.autoTable({
       startY:74,
-      head:[['Existing Account','Account Value','Current Rider Income','Income Starts','Tax Treatment']],
+      head:[['Existing Account','Owner','Payout Type','Account Value','Current Rider Income','Income Starts','Tax Treatment']],
       body:annuityRows,
       styles:{fontSize:9,cellPadding:4,halign:'center'},
       headStyles:{fillColor:[220,53,69],textColor:255,fontStyle:'bold'},
@@ -2471,6 +2497,7 @@ function generatePDF(){
     const leftLines = [
       `Two existing FIA contracts: ${fmt2(sumExistingAnnuityValue())}`,
       `Annual rider income: ${fmt2(beforeTaxable)}`,
+      `Payout setting: single-life riders stop at owner death; joint riders continue to survivor.`,
       `Income tax treatment: ${num('existingAnnuityTaxablePct').toFixed(0)}% taxable`,
       'Income increases provisional income and taxable income.',
       'Legacy remains inside the existing taxable structure.'
@@ -2491,7 +2518,7 @@ function generatePDF(){
     doc.setFillColor(11,58,111);
     doc.roundedRect(52, yA+270, 688, 34, 6, 6, 'F');
     doc.setTextColor(255,255,255); doc.setFontSize(11);
-    doc.text(`Illustrated Annual Taxable Income Shift: ${fmt2(annualTaxableReduction)} of current rider income moves off the taxable-income story when replaced by the proposed Roth/tax-free strategy.`, 64, yA+292, {maxWidth:665});
+    doc.text(`Illustrated Annual Taxable Income Shift: ${fmt2(annualTaxableReduction)} of current rider income moves off the taxable-income story when replaced by the proposed Roth/tax-free strategy. Single-life rider income is removed after the entered owner death event; joint rider income continues to the survivor.`, 64, yA+292, {maxWidth:665});
     addPdfFooter(doc, doc.getNumberOfPages());
   }
 
