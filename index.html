@@ -229,7 +229,21 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 .annuity-current{border-left:5px solid #dc2626;background:#fff1f2}
 .annuity-proposed{border-left:5px solid #16a34a;background:#ecfdf5}
 @media (max-width:900px){.annuity-side-by-side{grid-template-columns:1fr}}
-</style>
+
+
+    .client-save-panel{margin-top:14px;border:1px solid var(--border);border-radius:14px;background:#fbfdff;padding:14px}
+    .client-save-panel h3{margin:0 0 10px;color:var(--blue);font-size:16px}
+    .client-save-grid{display:grid;grid-template-columns:1.2fr 1.2fr auto auto auto;gap:10px;align-items:end}
+    .client-save-grid .field{margin:0}
+    .client-save-grid button{height:40px;padding:8px 12px;border-radius:10px;font-size:13px}
+    .save-primary{background:#0b3a6f;color:#fff}
+    .save-green{background:#16a34a;color:#fff}
+    .save-red{background:#dc2626;color:#fff}
+    .save-muted{background:#eef2f7;color:#1f2937;border:1px solid var(--border)}
+    .save-status{font-size:12px;color:#475569;margin-top:8px;min-height:16px}
+    @media (max-width:900px){.client-save-grid{grid-template-columns:1fr 1fr}.client-save-grid button{width:100%}}
+
+  </style>
 
 <style>
 .taxfree-highlight-cell{background:#e8f5e9!important;color:#006400!important;font-weight:700!important;}
@@ -479,6 +493,22 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <div class="checkbox-row"><input id="includeTaxFundingComparison" type="checkbox" /><label for="includeTaxFundingComparison">Pay taxes from outside assets</label></div>
         <div class="small" style="margin-top:10px;">Bonus is a one-time amount added to the premium up front and compounds inside the strategy. Conversion period is fully editable so you can plan around temporary income years.</div>
         <div class="btn-row"><button class="primary" onclick="calculate()">Run Analysis</button><button class="gold" onclick="generatePDF()">Generate PDF Report</button></div>
+        <div class="client-save-panel">
+          <h3>Saved Client Cases</h3>
+          <div class="client-save-grid">
+            <div class="field"><label>Save / Update As</label><input id="savedClientName" type="text" placeholder="Example: Pete and Jackie Rudden" /></div>
+            <div class="field"><label>Saved Clients</label><select id="savedClientSelect"><option value="">No saved clients yet</option></select></div>
+            <button type="button" class="save-primary" onclick="savePlannerClientCase()">Save Client</button>
+            <button type="button" class="save-green" onclick="loadPlannerClientCase()">Load</button>
+            <button type="button" class="save-red" onclick="deletePlannerClientCase()">Delete</button>
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button type="button" class="save-muted" onclick="exportPlannerClientCase()">Export Client File</button>
+            <button type="button" class="save-muted" onclick="document.getElementById('clientCaseImportFile').click()">Import Client File</button>
+            <input id="clientCaseImportFile" type="file" accept="application/json" style="display:none" onchange="importPlannerClientCase(event)" />
+          </div>
+          <div id="clientSaveStatus" class="save-status">Save cases in this browser, or export a client file for backup.</div>
+        </div>
       </div>
     </div>
 
@@ -518,7 +548,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
       <div class="card">
         <h2 class="section-title">Milestone Summary</h2>
         <div class="small">Year 1, Year 5, Social Security years, RMD year, completion year, and every 5 years through age 95.</div>
-        <table id="milestoneTable"><thead><tr><th>Milestone</th><th>Age</th><th>Income</th><th>Conversion</th><th>IRA</th><th>Tax-Free Assets</th></tr></thead><tbody></tbody></table>
+        <table id="milestoneTable"><thead><tr><th>Milestone</th><th>Age</th><th>Income</th><th>Conversion</th><th>IRA</th><th>Existing Roth Component</th><th>Converted Roth Component</th><th>Total Tax-Free Assets</th></tr></thead><tbody></tbody></table>
+        <div class="small" style="margin-top:8px;"><b>Note:</b> Total Tax-Free Assets equals Existing Roth Component plus Converted Roth Component. Do not add the Total column again.</div>
       </div>
 
       <div class="card">
@@ -1566,6 +1597,8 @@ function buildScenario(useStrategy){
         income: displayedIncome,
         conversion,
         ira,
+        additionalRoth,
+        conversionRoth: Math.max(0, roth - additionalRoth),
         taxFree: roth
       });
     }
@@ -1606,7 +1639,8 @@ function buildScenario(useStrategy){
       taxableIncome: taxableBaseAfterConversion,
       currentTaxableIncome,
       alimonyDeduction,
-      additionalRoth
+      additionalRoth,
+      conversionRoth: Math.max(0, roth - additionalRoth)
     });
 
     if(filingStart==='MFJ' && !deathApplied && deathWho && deathAge){
@@ -1717,7 +1751,7 @@ function calculate(){
     ? `${capFirst((document.getElementById('deathWho')?.value || ''))} dies first at age ${Math.floor(num('deathAge'))}.`
     : 'No death event is applied.';
   document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and a planned NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)} before it uses Desired Income as a gap-filler. Each pension is modeled separately with its own taxable amount, tax-free amount, owner, and survivor continuation. Guaranteed tax-free FIA income, when enabled, is modeled separately from Roth withdrawals and begins in the entered strategy year. Widow Social Security switch modeling, when enabled, uses the widow benefit first and switches to the client's own benefit at the selected age. IRA percentage schedule modeling, when enabled, replaces the flat IRA withdrawal with the entered age-based percentages. Any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${num('bonusPct')}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion is now constrained by the selected tax bracket and inflation-adjusted tax limits. Beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}, each active conversion year uses the smaller of: the remaining-on-schedule conversion amount or the available room under the selected bracket after inflation-adjusted deductions. ${pensionOwnerLabel}. If a death event is entered, each pension applies its own survivor continuation based on its assigned owner. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
-  document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
+  document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.additionalRoth||0)}</td><td>${fmt2(m.conversionRoth||0)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
   document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${fmt2(after.bonus)}, for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)}, then adds any enabled guaranteed tax-free FIA income, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth, with growth and fees applied as separate compounding steps. Additional Roth account funds, if entered, are tracked as tax-free assets with bonus, fee, and growth treatment but are not reduced by Roth conversion taxes. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   renderDetailPreview(after);
@@ -2124,7 +2158,8 @@ function buildMilestoneRowsFromDetails(details){
         income: r.grossIncome || 0,
         conversion: r.conversion || 0,
         ira: r.ira || 0,
-        additionalAccountAssets: r.additionalRoth || 0,
+        existingRothComponent: r.additionalRoth || 0,
+        convertedRothComponent: Math.max(0, (r.roth || 0) - (r.additionalRoth || 0)),
         taxFreeAssets: r.roth || 0
       });
     }
@@ -2394,7 +2429,11 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Milestone Summary','Year 1, Year 5, Social Security years, RMD year, conversion completion, and every 5 years through the selected planning horizon.');
   addPdfLogo(doc);
-  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Additional Account Assets','Tax-Free Assets']], body:buildMilestoneRowsFromDetails(after.details).map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.additionalAccountAssets||0),fmt2(m.taxFreeAssets||0)]), styles:{fontSize:9}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}});
+  doc.autoTable({startY:78, head:[['Milestone','Age','Income','Conversion','IRA','Existing Roth Component','Converted Roth Component','Total Tax-Free Assets']], body:buildMilestoneRowsFromDetails(after.details).map(m=>[m.label,m.age,fmt2(m.income),fmt2(m.conversion),fmt2(m.ira),fmt2(m.existingRothComponent||0),fmt2(m.convertedRothComponent||0),fmt2(m.taxFreeAssets||0)]), styles:{fontSize:8}, headStyles:{fillColor:[11,58,111]}, margin:{bottom:85}, didParseCell:function(data){ if(data.section==='head' && data.column.index>=5){ data.cell.styles.fillColor=[0,150,80]; data.cell.styles.textColor=[255,255,255]; data.cell.styles.fontStyle='bold'; } if(data.section==='body' && data.column.index>=5){ data.cell.styles.textColor=[0,100,0]; if(data.column.index===7){ data.cell.styles.fontStyle='bold'; data.cell.styles.fillColor=[232,245,233]; } } }});
+  doc.setFontSize(9);
+  doc.setTextColor(90,90,90);
+  const milestoneNoteY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 18 : 245;
+  doc.text(doc.splitTextToSize('Note: Total Tax-Free Assets equals Existing Roth Component plus Converted Roth Component. The Total column already includes the Existing Roth Component, so it should not be added a second time.', 680), 42, milestoneNoteY);
   addPdfFooter(doc,3);
 
   // Page 4
@@ -2623,7 +2662,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. These assets are shown separately in the Additional Account Funds page and in the Milestone Summary. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}, but the redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} before it fills any remaining gap. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${fmt2(after.bonus)}, which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -2738,7 +2777,247 @@ function generatePDF(){
 doc.save(`${cleanFilePart(typeof householdReportName === 'function' ? householdReportName() : (document.getElementById('householdName')?.value || 'Client'))}_${cleanFilePart(getScenarioMode())}_fidelity-roth-planner-report.pdf`);
   }catch(e){ console.error('PDF generation error:', e); alert('PDF generation error: '+(e && e.message ? e.message : e)); }
 }
-window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+
+
+/* Multi-client saved case system: saves full form state plus dynamic pensions and additional accounts. */
+const PLANNER_CLIENT_CASES_KEY = 'fmfRothPlannerClientCases_v1';
+
+function clientSaveStatus(message){
+  const el = document.getElementById('clientSaveStatus');
+  if(el) el.textContent = message || '';
+}
+function getSavedClientCases(){
+  try{
+    const raw = localStorage.getItem(PLANNER_CLIENT_CASES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  }catch(e){
+    console.error('Saved client case read error:', e);
+    return {};
+  }
+}
+function setSavedClientCases(cases){
+  localStorage.setItem(PLANNER_CLIENT_CASES_KEY, JSON.stringify(cases || {}));
+}
+function refreshSavedClientSelect(selectedName=''){
+  const select = document.getElementById('savedClientSelect');
+  if(!select) return;
+  const cases = getSavedClientCases();
+  const names = Object.keys(cases).sort((a,b)=>a.localeCompare(b));
+  select.innerHTML = names.length ? '<option value="">Choose saved client...</option>' : '<option value="">No saved clients yet</option>';
+  names.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+  if(selectedName && cases[selectedName]) select.value = selectedName;
+}
+function suggestedClientCaseName(){
+  const savedName = (document.getElementById('savedClientName')?.value || '').trim();
+  if(savedName) return savedName;
+  const reportName = (document.getElementById('clientName')?.value || '').trim();
+  if(reportName) return reportName;
+  const c1 = (document.getElementById('client1Name')?.value || '').trim();
+  const c2 = (document.getElementById('client2Name')?.value || '').trim();
+  const status = document.getElementById('filingStatus')?.value || 'MFJ';
+  if(c1 && status === 'MFJ' && c2) return `${c1} and ${c2}`;
+  if(c1) return c1;
+  return 'Unnamed Client';
+}
+function collectBasicFormValues(){
+  const values = {};
+  document.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+    if(el.id === 'clientCaseImportFile' || el.type === 'file') return;
+    if(el.type === 'checkbox') values[el.id] = !!el.checked;
+    else values[el.id] = el.value;
+  });
+  return values;
+}
+function collectPensionRowsForSave(){
+  const rows = [];
+  const count = (typeof pensionRowCount === 'function') ? pensionRowCount() : document.querySelectorAll('#pensionRows .pension-row').length;
+  for(let i=1;i<=count;i++){
+    rows.push({
+      title: document.getElementById(`pension${i}Title`)?.value || `Pension ${i}`,
+      startAge: document.getElementById(`pension${i}StartAge`)?.value || '0',
+      startMonth: document.getElementById(`pension${i}StartMonth`)?.value || '0',
+      taxable: document.getElementById(`pension${i}Taxable`)?.value || '0',
+      taxFree: document.getElementById(`pension${i}TaxFree`)?.value || '0',
+      cola: document.getElementById(`pension${i}Cola`)?.value || '0',
+      owner: document.getElementById(`pension${i}Owner`)?.value || 'husband',
+      survivorPct: document.getElementById(`pension${i}SurvivorPct`)?.value || '0',
+      survivorCustom: document.getElementById(`pension${i}SurvivorCustom`)?.value || '0'
+    });
+  }
+  return rows;
+}
+function collectAdditionalAccountsForSave(){
+  return Array.from(document.querySelectorAll('#additionalAccountsContainer .additional-account')).map((row, idx)=>({
+    title: row.querySelector('.additionalAccountTitle')?.value || `Additional Account ${idx+1}`,
+    funds: row.querySelector('.additionalAccountFunds')?.value || '0',
+    type: row.querySelector('.additionalAccountType')?.value || 'roth',
+    bonus: row.querySelector('.additionalAccountBonus')?.value || '0',
+    growth: row.querySelector('.additionalAccountGrowth')?.value || '6'
+  }));
+}
+function collectPlannerClientCase(name){
+  return {
+    version: 1,
+    name,
+    savedAt: new Date().toISOString(),
+    values: collectBasicFormValues(),
+    pensions: collectPensionRowsForSave(),
+    additionalAccounts: collectAdditionalAccountsForSave()
+  };
+}
+function setBasicFieldValues(values){
+  Object.entries(values || {}).forEach(([id,value]) => {
+    const el = document.getElementById(id);
+    if(!el || el.type === 'file') return;
+    if(el.type === 'checkbox') el.checked = !!value;
+    else el.value = value;
+  });
+}
+function setPensionRowsFromSave(rows){
+  rows = Array.isArray(rows) && rows.length ? rows : collectPensionRowsForSave();
+  const container = document.getElementById('pensionRows');
+  if(!container) return;
+  while(typeof pensionRowCount === 'function' && pensionRowCount() > rows.length){
+    const count = pensionRowCount();
+    const row = container.querySelector(`.pension-row[data-pension-index="${count}"]`) || container.lastElementChild;
+    if(row) row.remove(); else break;
+  }
+  while(typeof pensionRowCount === 'function' && pensionRowCount() < rows.length){
+    if(typeof addPensionRow === 'function') addPensionRow(); else break;
+  }
+  rows.forEach((r, idx)=>{
+    const i = idx + 1;
+    const assign = (suffix, val) => { const el = document.getElementById(`pension${i}${suffix}`); if(el) el.value = val; };
+    assign('Title', r.title || `Pension ${i}`);
+    assign('StartAge', r.startAge ?? '0');
+    assign('StartMonth', r.startMonth ?? '0');
+    assign('Taxable', r.taxable ?? '0');
+    assign('TaxFree', r.taxFree ?? '0');
+    assign('Cola', r.cola ?? '0');
+    assign('Owner', r.owner || 'husband');
+    assign('SurvivorPct', r.survivorPct || '0');
+    assign('SurvivorCustom', r.survivorCustom ?? '0');
+    if(typeof refreshPensionRowVisibility === 'function') refreshPensionRowVisibility(i);
+  });
+}
+function setAdditionalAccountsFromSave(accounts){
+  const container = document.getElementById('additionalAccountsContainer');
+  if(!container) return;
+  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'roth', bonus:'0', growth:'6'}];
+  container.innerHTML = rows.map((a,idx)=>`
+    <div class="additional-account">
+      <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="${escapeHtmlAttr(a.title || `Additional Account ${idx+1}`)}" placeholder="Existing Roth Annuity" /></div>
+      <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="${escapeHtmlAttr(a.funds ?? '0')}" step="1000" /></div>
+      <div class="field"><label>Type</label>
+        <select class="additionalAccountType">
+          <option value="roth" ${a.type === 'roth' ? 'selected' : ''}>Roth</option>
+          <option value="traditional" ${a.type === 'traditional' ? 'selected' : ''}>Traditional IRA / Qualified Account</option>
+          <option value="nonqualified" ${a.type === 'nonqualified' ? 'selected' : ''}>Non-Qualified</option>
+        </select>
+      </div>
+      <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="${escapeHtmlAttr(a.bonus ?? '0')}" step="0.1" /></div>
+      <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="${escapeHtmlAttr(a.growth ?? '6')}" step="0.1" /></div>
+      <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
+    </div>`).join('');
+  if(typeof bindAdditionalAccountInputs === 'function') bindAdditionalAccountInputs(container);
+}
+function escapeHtmlAttr(value){
+  return String(value ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function applyPlannerClientCase(clientCase){
+  if(!clientCase || !clientCase.values){
+    clientSaveStatus('Could not load saved client case.');
+    return;
+  }
+  setAdditionalAccountsFromSave(clientCase.additionalAccounts);
+  setPensionRowsFromSave(clientCase.pensions);
+  setBasicFieldValues(clientCase.values);
+  const nameInput = document.getElementById('savedClientName');
+  if(nameInput) nameInput.value = clientCase.name || suggestedClientCaseName();
+  try{
+    if(typeof setupSpouseVisibility === 'function') setupSpouseVisibility();
+    if(typeof refreshClientDisplay === 'function') refreshClientDisplay();
+    if(typeof refreshAllPensionLabels === 'function') refreshAllPensionLabels();
+    if(typeof renderLogoPreview === 'function') renderLogoPreview();
+    if(typeof safeCalculate === 'function') safeCalculate();
+  }catch(e){ console.error('Load saved client recalculation error:', e); }
+}
+function savePlannerClientCase(){
+  const name = suggestedClientCaseName();
+  const cases = getSavedClientCases();
+  cases[name] = collectPlannerClientCase(name);
+  setSavedClientCases(cases);
+  const nameInput = document.getElementById('savedClientName');
+  if(nameInput) nameInput.value = name;
+  refreshSavedClientSelect(name);
+  clientSaveStatus(`Saved ${name}.`);
+}
+function loadPlannerClientCase(){
+  const select = document.getElementById('savedClientSelect');
+  const name = select && select.value ? select.value : (document.getElementById('savedClientName')?.value || '').trim();
+  const cases = getSavedClientCases();
+  if(!name || !cases[name]){ clientSaveStatus('Choose a saved client to load.'); return; }
+  applyPlannerClientCase(cases[name]);
+  refreshSavedClientSelect(name);
+  clientSaveStatus(`Loaded ${name}.`);
+}
+function deletePlannerClientCase(){
+  const select = document.getElementById('savedClientSelect');
+  const name = select && select.value ? select.value : (document.getElementById('savedClientName')?.value || '').trim();
+  if(!name){ clientSaveStatus('Choose a saved client to delete.'); return; }
+  const cases = getSavedClientCases();
+  if(!cases[name]){ clientSaveStatus('That saved client was not found.'); return; }
+  if(!confirm(`Delete saved client case for ${name}?`)) return;
+  delete cases[name];
+  setSavedClientCases(cases);
+  refreshSavedClientSelect();
+  clientSaveStatus(`Deleted ${name}.`);
+}
+function exportPlannerClientCase(){
+  const name = suggestedClientCaseName();
+  const clientCase = collectPlannerClientCase(name);
+  const blob = new Blob([JSON.stringify(clientCase, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${cleanFilePart(name)}_roth_planner_case.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  clientSaveStatus(`Exported ${name} client file.`);
+}
+function importPlannerClientCase(event){
+  const file = event && event.target && event.target.files ? event.target.files[0] : null;
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const clientCase = JSON.parse(e.target.result);
+      const name = clientCase.name || suggestedClientCaseName();
+      clientCase.name = name;
+      const cases = getSavedClientCases();
+      cases[name] = clientCase;
+      setSavedClientCases(cases);
+      applyPlannerClientCase(clientCase);
+      refreshSavedClientSelect(name);
+      clientSaveStatus(`Imported and loaded ${name}.`);
+    }catch(err){
+      console.error('Import error:', err);
+      clientSaveStatus('Import failed. Please choose a valid Roth Planner client file.');
+    }finally{
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); refreshSavedClientSelect(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 
 </script>
 </body></html>
