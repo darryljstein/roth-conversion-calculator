@@ -142,6 +142,7 @@ document.addEventListener('change', function(e){
   setTimeout(runStartupCalculation, 0);
 })();
 
+function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
 </script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js">
 document.getElementById('addAccountBtn').addEventListener('click', function(){
