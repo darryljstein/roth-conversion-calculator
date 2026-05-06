@@ -398,7 +398,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="field"><label>Owner</label><select id="fiaOwner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
               <div class="field"><label>Survivor Continuation</label><select id="fiaSurvivorPct"><option value="0">0%</option><option value="50">50%</option><option value="100" selected>100%</option><option value="custom">Custom %</option></select></div>
               <div class="field hidden" id="fiaCustomWrap"><label>Custom Survivor %</label><input id="fiaSurvivorCustom" type="number" value="100" min="0" max="100" step="1" /></div>
-              <div class="field"><label>Projected Annuity Death Benefit at Horizon</label><input id="fiaDeathBenefitHorizon" type="number" value="0" min="0" step="1000" /></div>
+              <div class="field"><label>Guaranteed Death Benefit at Horizon (0% Scenario)</label><input id="fiaDeathBenefitHorizon" type="number" value="0" min="0" step="1000" /></div>
+              <div class="field"><label>Projected Tax-Free Residual Benefit at Horizon</label><input id="fiaProjectedResidualHorizon" type="number" value="0" min="0" step="1000" /></div>
             </div>
           </div>
           <div class="field"><label>Planned IRA Withdrawal Annual</label><input id="plannedIraWithdrawal" type="number" value="0" step="1000" /></div>
@@ -1096,7 +1097,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
+const allIds = ['desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1805,7 +1806,7 @@ function buildScenario(useStrategy){
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
-    taxableEstate: ira+outside, taxFreeEstate: roth, milestones, details, survivorPct,
+    taxableEstate: ira+outside, taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
     currentTaxableIncome, plannedIraWithdrawalBase, plannedIraEndAge, alimonyDeductionBase, alimonyEndAge, additionalAccountFunds, additionalAccounts, additionalRoth, horizonAge
@@ -2467,6 +2468,8 @@ function generatePDF(){
     ['Total Guaranteed Tax-Free Income', fmt2(after.totalGuaranteedTaxFreeIncome || 0)],
     ['Total Tax-Free Roth Withdrawals', fmt2((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) || 0)],
     ['Tax-Free Estate at Horizon', fmt2(after.taxFreeEstate || 0)],
+    ['Projected Tax-Free Residual Benefit (Non-Guaranteed)', fmt2(after.projectedTaxFreeResidualBenefit || 0)],
+    ['Total Potential Tax-Free Benefit at Horizon', fmt2((after.taxFreeEstate || 0) + (after.projectedTaxFreeResidualBenefit || 0))],
     ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + (before.totalIRMAA-after.totalIRMAA) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0)-before.totalTaxFreeIncome) + ((after.totalGuaranteedTaxFreeIncome||0)-(before.totalGuaranteedTaxFreeIncome||0)) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
   ];
   doc.autoTable({
@@ -2498,6 +2501,8 @@ function generatePDF(){
     body:[
       ['Taxable Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
       ['Tax-Free / Roth Estate', fmt2(before.taxFreeEstate||0), fmt2(after.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)-(before.taxFreeEstate||0))],
+      ['Projected Tax-Free Residual Benefit (Non-Guaranteed)', fmt2(0), fmt2(after.projectedTaxFreeResidualBenefit||0), fmt2(after.projectedTaxFreeResidualBenefit||0)],
+      ['Total Potential Tax-Free Benefit', fmt2(before.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)+(after.projectedTaxFreeResidualBenefit||0)), fmt2(((after.taxFreeEstate||0)+(after.projectedTaxFreeResidualBenefit||0))-(before.taxFreeEstate||0))],
       ['Estimated Net Legacy Value', fmt2(beforeNetLegacy), fmt2(afterNetLegacy), fmt2(legacyImprovement)]
     ],
     styles:{fontSize:10,cellPadding:4,halign:'center'},
@@ -2701,7 +2706,9 @@ function generatePDF(){
     const startAgeText = firstFiaRow.age ? String(firstFiaRow.age) : ('Year ' + Math.max(1, Math.floor(num('fiaStartYear') || 6)));
     const annualTaxFreeIncome = Math.max(0, num('fiaAnnualIncome'));
     const totalJointIncome = after.totalGuaranteedTaxFreeIncome || after.details.reduce((s,r)=>s + Math.max(0, Number(r.guaranteedTaxFreeIncome || 0)),0);
-    const deathBenefitAtHorizon = Math.max(0, num('fiaDeathBenefitHorizon'));
+    const guaranteedDeathBenefitAtHorizon = Math.max(0, num('fiaDeathBenefitHorizon'));
+    const projectedResidualAtHorizon = Math.max(0, num('fiaProjectedResidualHorizon'));
+    const deathBenefitAtHorizon = guaranteedDeathBenefitAtHorizon;
     const rothFundingBase = Math.max(0, after.premium || 0) + Math.max(0, after.bonus || 0);
     const survivorPct = getFiaSurvivorPct ? getFiaSurvivorPct() : ((num('fiaSurvivorPct') || 100) / 100);
     const jointLabel = survivorPct >= 0.999 ? 'Joint lifetime income continues 100% to the surviving spouse.' : `Survivor income continuation: ${(survivorPct*100).toFixed(0)}%.`;
@@ -2717,7 +2724,7 @@ function generatePDF(){
       ['Roth','Conversion'],
       ['Tax-Free','Funding Pool'],
       ['Joint Lifetime','Income'],
-      ['Projected Death','Benefit']
+      ['Residual','Benefit']
     ];
     const flowFills = [[255,241,242],[239,246,255],[236,253,245],[220,252,231],[243,244,246]];
     const flowBorders = [[185,28,28],[11,58,111],[0,150,80],[0,150,80],[107,114,128]];
@@ -2743,8 +2750,9 @@ function generatePDF(){
       ['Annual tax-free joint income at start', fmt2(annualTaxFreeIncome)],
       ['Income begins', `Year ${Math.max(1, Math.floor(num('fiaStartYear') || 6))} / Age ${startAgeText}`],
       ['Total guaranteed tax-free income through horizon', fmt2(totalJointIncome)],
-      ['Projected annuity death benefit at horizon', fmt2(deathBenefitAtHorizon)],
-      ['Design priority', deathBenefitAtHorizon > 0 ? 'Income first, with residual death benefit shown' : 'Maximum joint income; residual death benefit expected to be minimal / $0']
+      ['Guaranteed death benefit at horizon (0% scenario)', fmt2(guaranteedDeathBenefitAtHorizon)],
+      ['Projected tax-free residual benefit at horizon', fmt2(projectedResidualAtHorizon)],
+      ['Design priority', projectedResidualAtHorizon > 0 ? 'Income first, with potential tax-free residual benefit shown separately' : 'Maximum joint income; projected residual benefit not entered / may be $0']
     ];
     doc.autoTable({
       startY:154,
@@ -2759,35 +2767,42 @@ function generatePDF(){
     let y1 = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 18 : 320);
     if(y1 > 345) y1 = 345;
 
-    // Side-by-side client-friendly outcome cards, with ample spacing.
-    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111);
-    doc.text('What the client is buying: income certainty, not a remaining account balance', 52, y1);
+    // Compact outcome cards, with a hard stop above the footer/disclaimer area.
+    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.setTextColor(11,58,111);
+    doc.text('What the client is buying: tax-free income certainty, with residual value shown separately', 52, y1);
 
-    const cardY = y1 + 18;
-    const cardH = 74;
-    doc.setDrawColor(0,150,80); doc.setFillColor(236,253,245);
-    doc.roundedRect(52, cardY, 326, cardH, 8, 8, 'FD');
-    doc.setTextColor(0,110,55); doc.setFontSize(11); doc.setFont(undefined,'bold');
-    doc.text('Cumulative tax-free income paid', 72, cardY + 24);
-    doc.setFontSize(18);
-    doc.text(fmt2(totalJointIncome), 72, cardY + 52);
+    const cardY = y1 + 16;
+    const cardH = 58;
+    const cardW = 214;
+    const cardGap = 16;
+    const drawOutcomeCard = (x, title, value, stroke, fill, textColor) => {
+      doc.setDrawColor(...stroke); doc.setFillColor(...fill);
+      doc.roundedRect(x, cardY, cardW, cardH, 7, 7, 'FD');
+      doc.setTextColor(...textColor); doc.setFontSize(8.8); doc.setFont(undefined,'bold');
+      doc.text(doc.splitTextToSize(title, cardW-26), x+13, cardY + 18);
+      doc.setFontSize(14);
+      doc.text(value, x+13, cardY + 45);
+    };
+    drawOutcomeCard(52, 'Cumulative tax-free income paid', fmt2(totalJointIncome), [0,150,80], [236,253,245], [0,110,55]);
+    drawOutcomeCard(52+cardW+cardGap, 'Guaranteed death benefit at horizon (0% scenario)', fmt2(guaranteedDeathBenefitAtHorizon), [107,114,128], [243,244,246], [75,85,99]);
+    drawOutcomeCard(52+(cardW+cardGap)*2, 'Projected tax-free residual benefit (non-guaranteed)', fmt2(projectedResidualAtHorizon), [0,150,80], [220,252,231], [0,110,55]);
 
-    doc.setDrawColor(107,114,128); doc.setFillColor(243,244,246);
-    doc.roundedRect(414, cardY, 326, cardH, 8, 8, 'FD');
-    doc.setTextColor(75,85,99); doc.setFontSize(11); doc.setFont(undefined,'bold');
-    doc.text(`Projected death benefit at age ${horizonAge}`, 434, cardY + 24);
-    doc.setFontSize(18);
-    doc.text(fmt2(deathBenefitAtHorizon), 434, cardY + 52);
-
-    const explainY = cardY + cardH + 20;
+    const explainY = cardY + cardH + 16;
+    const explainH = 76;
     doc.setFillColor(236,253,245);
     doc.setDrawColor(0,150,80);
-    doc.roundedRect(52, explainY, 688, 92, 8, 8, 'FD');
-    doc.setTextColor(0,100,0); doc.setFontSize(11); doc.setFont(undefined,'bold');
-    doc.text('Client explanation:', 72, explainY + 22);
-    doc.setFont(undefined,'normal'); doc.setTextColor(30,30,30); doc.setFontSize(10);
-    const explain = `The Roth conversion removes future income tax from the dollars used for this income annuity. The annuity then converts that tax-free pool into joint lifetime income. Because this design prioritizes guaranteed income for both spouses, the projected residual death benefit at age ${horizonAge} is shown separately and may be minimal or $0. ${jointLabel}`;
-    doc.text(doc.splitTextToSize(explain, 635), 72, explainY + 42);
+    doc.roundedRect(52, explainY, 688, explainH, 8, 8, 'FD');
+    doc.setTextColor(0,100,0); doc.setFontSize(10.5); doc.setFont(undefined,'bold');
+    doc.text('Client explanation:', 72, explainY + 18);
+    doc.setFont(undefined,'normal'); doc.setTextColor(30,30,30); doc.setFontSize(9);
+    const explain = `The Roth conversion removes future income tax from the dollars used for this income annuity. The annuity then converts that tax-free pool into joint lifetime income. The guaranteed 0% scenario may show little or no death benefit, while a projected current-rate scenario may show a tax-free residual benefit at age ${horizonAge}. ${jointLabel}`;
+    doc.text(doc.splitTextToSize(explain, 635), 72, explainY + 36);
+
+    const discY = explainY + explainH + 12;
+    doc.setFont(undefined,'bold'); doc.setTextColor(185,28,28); doc.setFontSize(9.2);
+    doc.text('Projected values are based on current crediting assumptions and are not guaranteed.', 72, discY);
+    doc.text('Actual results may vary.', 72, discY + 12);
+
     addPdfFooter(doc, doc.getNumberOfPages());
   }
 
