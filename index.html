@@ -831,11 +831,21 @@ function removePensionRow(index){
 function getPensionStreams(year, filingStart, deathApplied, deathWho, status, hAge, wAge){
   let taxablePension = 0;
   let taxFreePension = 0;
+  const enteredDeathAge = Math.floor(num('deathAge'));
   for(let i=1;i<=pensionRowCount();i++){
     const owner = getPensionOwnerValue(i);
-    const ownerDied = deathApplied && filingStart==='MFJ' && deathWho===owner;
+    const ownerAge = owner === 'wife' ? wAge : hAge;
+
+    // Pension survivor logic must be driven by the pension owner and the entered death age,
+    // not only by the filing-status switch that happens after the annual row is calculated.
+    // If the owner has died and survivor continuation is 0%, the pension stops immediately.
+    const ownerDiedByAge = !!(deathWho && enteredDeathAge && owner === deathWho && ownerAge >= enteredDeathAge);
+    const ownerDiedByStatus = !!(deathApplied && filingStart === 'MFJ' && deathWho === owner);
+    const ownerDied = ownerDiedByAge || ownerDiedByStatus;
+
     const continuation = ownerDied ? getPensionSurvivorPct(i) : 1;
-    const proration = pensionProrationFactor(i, (status==='MFJ' ? Math.max(hAge,wAge) : hAge));
+    const prorationAge = ownerAge > 0 ? ownerAge : (status === 'MFJ' ? Math.max(hAge, wAge) : hAge);
+    const proration = pensionProrationFactor(i, prorationAge);
     const pensionColaRate = getPensionCola(i) / 100;
     taxablePension += getPensionValue(i,'Taxable') * Math.pow(1+pensionColaRate,year-1) * continuation * proration;
     taxFreePension += getPensionValue(i,'TaxFree') * Math.pow(1+pensionColaRate,year-1) * continuation * proration;
