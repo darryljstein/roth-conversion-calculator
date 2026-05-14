@@ -1552,6 +1552,54 @@ function cleanFilePart(s){
   return String(s || 'Client').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,80) || 'Client';
 }
 
+/* PDF file naming and local browser versioning.
+   First export: Last_First_Scenario_Fidelity-Roth-Planner-Report.pdf
+   Later exports from this browser: Last_First_Scenario_Fidelity-Roth-Planner-Report_v.1.pdf, _v.2.pdf, etc. */
+const PDF_REPORT_VERSION_KEY = 'fmfRothPlannerPdfReportVersions_v1';
+function titleCaseFilePart(part){
+  const cleaned = cleanFilePart(part);
+  return cleaned.split('_').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('_');
+}
+function stripNameTitles(name){
+  return String(name || '').replace(/\b(dr|doctor|mr|mrs|ms|miss|prof|rev)\.?\s+/ig,'').replace(/\s+/g,' ').trim();
+}
+function primaryReportPersonName(){
+  const c1 = stripNameTitles(document.getElementById('client1Name')?.value || '');
+  if(c1) return c1;
+  let household = stripNameTitles(document.getElementById('clientName')?.value || '');
+  household = household.split(/\s+(?:and|&)\s+/i)[0] || household;
+  return household || 'Client';
+}
+function reportLastFirstPrefix(){
+  const raw = primaryReportPersonName();
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if(parts.length >= 2){
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    return `${titleCaseFilePart(last)}_${titleCaseFilePart(first)}`;
+  }
+  return titleCaseFilePart(raw || 'Client');
+}
+function reportScenarioPart(){
+  return titleCaseFilePart(getScenarioMode ? getScenarioMode() : (document.getElementById('scenarioMode')?.value || 'Base'));
+}
+function baseReportFileNameNoExt(){
+  return `${reportLastFirstPrefix()}_${reportScenarioPart()}_Fidelity-Roth-Planner-Report`;
+}
+function getReportVersionMap(){
+  try{ return JSON.parse(localStorage.getItem(PDF_REPORT_VERSION_KEY) || '{}') || {}; }
+  catch(e){ return {}; }
+}
+function nextReportFileName(){
+  const base = baseReportFileNameNoExt();
+  const versions = getReportVersionMap();
+  const priorCount = Number(versions[base] || 0);
+  const fileName = priorCount <= 0 ? `${base}.pdf` : `${base}_v.${priorCount}.pdf`;
+  versions[base] = priorCount + 1;
+  try{ localStorage.setItem(PDF_REPORT_VERSION_KEY, JSON.stringify(versions)); }catch(e){}
+  return fileName;
+}
+
 
 function effectivePremiumBonusRate(){
   const explicit = percent('bonusPct');
@@ -3364,7 +3412,7 @@ function generatePDF(){
   doc.text('Fidelity Mutual Financial - Darryl Stein - 888-947-0555 - www.TheFidelityMutual.com', 90, 282);
   addPdfFooter(doc, doc.getNumberOfPages());
 
-doc.save(`${cleanFilePart(typeof householdReportName === 'function' ? householdReportName() : (document.getElementById('householdName')?.value || 'Client'))}_${cleanFilePart(getScenarioMode())}_fidelity-roth-planner-report.pdf`);
+doc.save(nextReportFileName());
   }catch(e){ console.error('PDF generation error:', e); alert('PDF generation error: '+(e && e.message ? e.message : e)); }
 }
 
