@@ -1663,8 +1663,13 @@ function buildScenario(useStrategy){
   const startingPrimaryAge = filingStart==='MFJ' ? Math.max(hAge,wAge) : hAge;
   const primaryBirthYear = estimatedBirthYearFromStartingAge(startingPrimaryAge);
   const fixedRmdStartAge = rmdStartAgeFromBirthYear(primaryBirthYear);
+  const fixedHusbandRmdStartAge = rmdStartAgeFromBirthYear(estimatedBirthYearFromStartingAge(hAge));
+  const fixedWifeRmdStartAge = rmdStartAgeFromBirthYear(estimatedBirthYearFromStartingAge(wAge));
+  let activeSingleRmdStartAge = fixedHusbandRmdStartAge;
   const enteredHusbandIra=num('hIra'), enteredWifeIra=(filingStart==='MFJ'?num('wIra'):0);
   const enteredIraTotal = enteredHusbandIra + enteredWifeIra;
+  const husbandIraShare = (filingStart==='MFJ' && enteredIraTotal > 0) ? Math.max(0, enteredHusbandIra / enteredIraTotal) : 1;
+  const wifeIraShare = (filingStart==='MFJ' && enteredIraTotal > 0) ? Math.max(0, enteredWifeIra / enteredIraTotal) : 0;
   const masterMode = getStrategyMasterMode ? getStrategyMasterMode() : 'rothOnly';
   const premiumInputValue = num('premium');
   const premium = (useStrategy && masterMode === 'rothOnly') ? enteredIraTotal : premiumInputValue;
@@ -1798,11 +1803,37 @@ function buildScenario(useStrategy){
     const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
-    const rmdAge=fixedRmdStartAge;
+    let rmdAge=fixedRmdStartAge;
     let rmd=0;
-    if(primaryAge>=rmdAge && ira>0){
-      const divisor=Math.max(2,27.4-Math.max(0,primaryAge-rmdAge));
-      rmd=ira/divisor;
+    let yearsUntilFirstRmd = Math.max(0, rmdAge - primaryAge);
+    const rmdForOwner = (ownerIraBalance, ownerAge, ownerRmdAge) => {
+      if(ownerIraBalance <= 0 || ownerAge < ownerRmdAge) return 0;
+      const divisor = Math.max(2, 27.4 - Math.max(0, ownerAge - ownerRmdAge));
+      return ownerIraBalance / divisor;
+    };
+
+    if(currentStatus === 'MFJ'){
+      // RMDs are owner-specific. Do not let an older spouse with no IRA trigger
+      // RMDs on the younger spouse's IRA. Allocate the current combined IRA by
+      // the starting IRA ownership percentages and test each owner's age separately.
+      const husbandOwnerIra = ira * husbandIraShare;
+      const wifeOwnerIra = ira * wifeIraShare;
+      const husbandRmd = rmdForOwner(husbandOwnerIra, hAge, fixedHusbandRmdStartAge);
+      const wifeRmd = rmdForOwner(wifeOwnerIra, wAge, fixedWifeRmdStartAge);
+      rmd = husbandRmd + wifeRmd;
+
+      const ownerRmdWaits = [];
+      if(husbandOwnerIra > 0) ownerRmdWaits.push(Math.max(0, fixedHusbandRmdStartAge - hAge));
+      if(wifeOwnerIra > 0) ownerRmdWaits.push(Math.max(0, fixedWifeRmdStartAge - wAge));
+      yearsUntilFirstRmd = ownerRmdWaits.length ? Math.min(...ownerRmdWaits) : 999;
+      rmdAge = ownerRmdWaits.length
+        ? (husbandOwnerIra > 0 && Math.max(0, fixedHusbandRmdStartAge - hAge) === yearsUntilFirstRmd ? fixedHusbandRmdStartAge : fixedWifeRmdStartAge)
+        : fixedHusbandRmdStartAge;
+    } else {
+      // After a survivor event, the remaining IRA belongs to the survivor.
+      rmdAge = activeSingleRmdStartAge;
+      rmd = rmdForOwner(ira, hAge, rmdAge);
+      yearsUntilFirstRmd = ira > 0 ? Math.max(0, rmdAge - hAge) : 999;
     }
 
     let rothWithdrawal = 0;
@@ -1859,7 +1890,7 @@ function buildScenario(useStrategy){
       // Standard mode tries to complete before RMDs when practical.
       // IRMAA-aware mode is allowed to stretch longer so conversion years do not unnecessarily
       // create Medicare surcharge exposure or exceed the selected conversion bracket.
-      const rmdStartYr = Math.max(1, rmdAge - primaryAge + year);
+      const rmdStartYr = Math.max(1, year + yearsUntilFirstRmd);
       const effectiveConversionEndYear = forceConversionCompletion
         ? conversionEndYear
         : (irmaaOptimizationActive
@@ -2073,6 +2104,7 @@ function buildScenario(useStrategy){
         if(useStrategy) survivorSnapshotAfter = clone(snapshot); else survivorSnapshotBefore = clone(snapshot);
 
         status='Single';
+        activeSingleRmdStartAge = deathWho === 'husband' ? fixedWifeRmdStartAge : fixedHusbandRmdStartAge;
         if(deathWho==='husband'){ hAge=wAge; }
         wAge=0;
         hSSBase=carriedHigherSS;
