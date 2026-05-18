@@ -593,6 +593,44 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         </div>
       </div>
 
+
+
+      <div class="card" id="manualRothConversionCard">
+        <h2 class="section-title">Manual Multi-Year Roth Conversion Calculator</h2>
+        <div class="small" style="margin-bottom:12px;">Use this standalone tool when you want to force an even 5- or 6-year Roth conversion schedule instead of letting the bracket optimizer front-load the conversion. It includes an annual fee option and a choice for whether taxes are paid from the conversion or outside assets.</div>
+        <div class="inputs-grid">
+          <div class="field"><label>Deposit / IRA Amount</label><input id="manualRothDeposit" type="number" value="224000" step="1000" /></div>
+          <div class="field"><label>Bonus %</label><input id="manualRothBonusPct" type="number" value="0" step="0.1" /></div>
+          <div class="field"><label>Interest / Growth Rate %</label><input id="manualRothGrowthPct" type="number" value="3" step="0.1" /></div>
+          <div class="field"><label>Annual Fee %</label><input id="manualRothFeePct" type="number" value="0.95" min="0" step="0.01" /></div>
+          <div class="field"><label>Conversion Years</label><input id="manualRothYears" type="number" value="6" min="1" max="30" step="1" /></div>
+          <div class="field"><label>Tax Rate %</label><input id="manualRothTaxRatePct" type="number" value="22" min="0" max="60" step="0.1" /></div>
+          <div class="field"><label>Taxes Paid From</label><select id="manualRothTaxSource"><option value="conversion" selected>Conversion Amount</option><option value="outside">Outside Assets</option></select></div>
+          <div class="field"><label>Apply Fee To</label><select id="manualRothFeeApply"><option value="both" selected>Traditional and Roth</option><option value="roth">Roth Only</option><option value="none">Do Not Apply Fee</option></select></div>
+        </div>
+        <div class="btn-row"><button type="button" class="primary" onclick="calculateManualRothConversion()">Calculate Manual Conversion</button><button type="button" class="ghost" onclick="syncManualRothFromMainCase()">Use Main Case Values</button></div>
+        <div class="two-col" style="margin-top:16px;">
+          <div class="panel">
+            <h3>Manual Calculator Summary</h3>
+            <table><tbody>
+              <tr><td>Starting Value After Bonus</td><td id="manualRothStartingValue">$0.00</td></tr>
+              <tr><td>Total Gross Conversions</td><td id="manualRothTotalConverted">$0.00</td></tr>
+              <tr><td>Total Taxes</td><td id="manualRothTotalTaxes">$0.00</td></tr>
+              <tr><td>Final Traditional Balance</td><td id="manualRothFinalTraditional">$0.00</td></tr>
+              <tr><td>Final Roth Balance</td><td id="manualRothFinalRoth">$0.00</td></tr>
+              <tr><td>Net Total</td><td id="manualRothNetTotal">$0.00</td></tr>
+            </tbody></table>
+          </div>
+          <div class="panel">
+            <h3>Calculation Notes</h3>
+            <div class="assumptions" id="manualRothNotes">Enter assumptions and calculate to view the manual schedule.</div>
+          </div>
+        </div>
+        <div style="overflow:auto;margin-top:12px;">
+          <table id="manualRothTable"><thead><tr><th>Year</th><th>Beginning Traditional</th><th>Gross Conversion</th><th>Tax</th><th>Net Roth Conversion</th><th>Ending Traditional</th><th>Ending Roth</th><th>Net Total</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
       <div class="card">
         <h2 class="section-title">Milestone Summary</h2>
         <div class="small">Year 1, Year 5, Social Security years, RMD year, completion year, and every 5 years through age 95.</div>
@@ -3655,6 +3693,95 @@ function importPlannerClientCase(event){
   };
   reader.readAsText(file);
 }
+
+
+function manualRothNum(id){
+  const el = document.getElementById(id);
+  const v = el ? parseFloat(el.value) : 0;
+  return isNaN(v) ? 0 : v;
+}
+function manualRothSetText(id, value){
+  const el = document.getElementById(id);
+  if(el) el.textContent = value;
+}
+function syncManualRothFromMainCase(){
+  const setVal = (id, value) => { const el = document.getElementById(id); if(el) el.value = value; };
+  const iraTotal = manualRothNum('hIra') + manualRothNum('wIra');
+  const premium = manualRothNum('premium');
+  setVal('manualRothDeposit', iraTotal > 0 ? iraTotal : premium);
+  setVal('manualRothBonusPct', manualRothNum('bonusPct'));
+  setVal('manualRothGrowthPct', manualRothNum('growth'));
+  setVal('manualRothFeePct', manualRothNum('feePct'));
+  setVal('manualRothYears', Math.max(1, Math.floor(manualRothNum('conversionYears') || 6)));
+  const bracket = document.getElementById('conversionTargetBracket');
+  setVal('manualRothTaxRatePct', bracket ? bracket.value : manualRothNum('targetBracket'));
+  const outside = document.getElementById('includeTaxFundingComparison');
+  const taxSource = document.getElementById('manualRothTaxSource');
+  if(taxSource) taxSource.value = outside && outside.checked ? 'outside' : 'conversion';
+  calculateManualRothConversion();
+}
+function calculateManualRothConversion(){
+  const deposit = Math.max(0, manualRothNum('manualRothDeposit'));
+  const bonusPct = manualRothNum('manualRothBonusPct') / 100;
+  const growthPct = manualRothNum('manualRothGrowthPct') / 100;
+  const feePct = manualRothNum('manualRothFeePct') / 100;
+  const years = Math.max(1, Math.floor(manualRothNum('manualRothYears') || 1));
+  const taxRate = Math.max(0, manualRothNum('manualRothTaxRatePct') / 100);
+  const taxSource = document.getElementById('manualRothTaxSource')?.value || 'conversion';
+  const feeApply = document.getElementById('manualRothFeeApply')?.value || 'both';
+  let traditional = deposit * (1 + bonusPct);
+  let roth = 0;
+  let totalConverted = 0;
+  let totalTaxes = 0;
+  const rows = [];
+  const applyNetReturn = (value, appliesFee) => {
+    let v = value * (1 + growthPct);
+    if(appliesFee) v *= (1 - feePct);
+    return Math.max(0, v);
+  };
+  for(let y=1; y<=years; y++){
+    const beginTraditional = traditional;
+    const remainingYears = years - y + 1;
+    const grossConversion = Math.min(beginTraditional, beginTraditional / remainingYears);
+    const tax = grossConversion * taxRate;
+    const netRothConversion = taxSource === 'outside' ? grossConversion : Math.max(0, grossConversion - tax);
+    traditional = beginTraditional - grossConversion;
+    roth += netRothConversion;
+    traditional = applyNetReturn(traditional, feeApply === 'both');
+    roth = applyNetReturn(roth, feeApply === 'both' || feeApply === 'roth');
+    totalConverted += grossConversion;
+    totalTaxes += tax;
+    rows.push({y, beginTraditional, grossConversion, tax, netRothConversion, traditional, roth, netTotal: traditional + roth});
+  }
+  manualRothSetText('manualRothStartingValue', fmt2(deposit * (1 + bonusPct)));
+  manualRothSetText('manualRothTotalConverted', fmt2(totalConverted));
+  manualRothSetText('manualRothTotalTaxes', fmt2(totalTaxes));
+  manualRothSetText('manualRothFinalTraditional', fmt2(traditional));
+  manualRothSetText('manualRothFinalRoth', fmt2(roth));
+  manualRothSetText('manualRothNetTotal', fmt2(traditional + roth));
+  const tbody = document.querySelector('#manualRothTable tbody');
+  if(tbody){
+    tbody.innerHTML = rows.map(r => `<tr><td>Year ${r.y}</td><td>${fmt2(r.beginTraditional)}</td><td>${fmt2(r.grossConversion)}</td><td>${fmt2(r.tax)}</td><td>${fmt2(r.netRothConversion)}</td><td>${fmt2(r.traditional)}</td><td class="taxfree-highlight-cell">${fmt2(r.roth)}</td><td>${fmt2(r.netTotal)}</td></tr>`).join('');
+  }
+  const feeText = feeApply === 'none' ? 'No annual fee is applied in this manual calculator.' : `A ${manualRothNum('manualRothFeePct').toFixed(2)}% annual fee is applied to ${feeApply === 'roth' ? 'the Roth balance only' : 'both the Traditional and Roth balances'} after the ${manualRothNum('manualRothGrowthPct').toFixed(2)}% annual growth assumption.`;
+  manualRothSetText('manualRothNotes', `This manual tool forces the conversion over ${years} year(s) by converting remaining Traditional balance divided by remaining years each year. Taxes are modeled at ${manualRothNum('manualRothTaxRatePct').toFixed(2)}% and are paid from ${taxSource === 'outside' ? 'outside assets, so the full gross conversion reaches the Roth' : 'the conversion amount, so only the after-tax conversion reaches the Roth'}. ${feeText}`);
+}
+(function(){
+  function bindManualRothCalculator(){
+    const ids = ['manualRothDeposit','manualRothBonusPct','manualRothGrowthPct','manualRothFeePct','manualRothYears','manualRothTaxRatePct','manualRothTaxSource','manualRothFeeApply'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if(el && el.dataset.manualRothBound !== 'true'){
+        el.dataset.manualRothBound = 'true';
+        el.addEventListener('input', calculateManualRothConversion);
+        el.addEventListener('change', calculateManualRothConversion);
+      }
+    });
+    calculateManualRothConversion();
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindManualRothCalculator);
+  else bindManualRothCalculator();
+})();
 
 window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); applyMasterModeReset(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); refreshSavedClientSelect(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 
