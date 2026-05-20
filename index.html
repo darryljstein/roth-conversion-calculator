@@ -1285,30 +1285,46 @@ function rmdStartAge(currentAge){
   return rmdStartAgeFromBirthYear(estimatedBirthYearFromStartingAge(currentAge));
 }
 function calcIRMAA(magi,status,hAge,wAge,year=1){
-  const husbandEligible = Number(hAge) >= 65;
-  const wifeEligible = (status === 'MFJ') ? (Number(wAge) >= 65) : false;
-  const singleEligible = (status !== 'MFJ') ? (Number(hAge) >= 65) : false;
-  if(!(husbandEligible || wifeEligible || singleEligible)) return 0;
+  const eligibleCount = irmaaEligibleCount(status, hAge, wAge);
+  if(eligibleCount <= 0) return 0;
 
-  // IRMAA brackets inflate annually using the Tax Bracket Inflation field.
-  // Default is 2.6% when the field is blank.
-  const factor = Math.pow(1 + taxBracketInflationRate(), Math.max(0, Number(year || 1) - 1));
+  // 2026 Medicare Part B and Part D IRMAA table supplied by advisor.
+  // Planning projection: inflate the IRMAA income brackets by a fixed 2.3% COLA per year.
+  // The IRMAA column shows the income-related surcharge only, not the base Part B premium.
+  const IRMAA_COLA = 0.023;
+  const factor = Math.pow(1 + IRMAA_COLA, Math.max(0, Number(year || 1) - 1));
 
-  if(status === 'MFJ'){
-    if(magi <= 218000 * factor) return 0;
-    if(magi <= 274000 * factor) return 3583.20;
-    if(magi <= 342000 * factor) return 5319.60;
-    if(magi <= 410000 * factor) return 7054.80;
-    if(magi <= 750000 * factor) return 8790.00;
-    return 9370.80;
+  const basePartBPremium = 202.90;
+  const monthlyTiers = [
+    { bPremium: 202.90, dSurcharge: 0.00 },
+    { bPremium: 284.10, dSurcharge: 14.50 },
+    { bPremium: 405.80, dSurcharge: 37.50 },
+    { bPremium: 527.50, dSurcharge: 60.40 },
+    { bPremium: 649.20, dSurcharge: 83.30 },
+    { bPremium: 689.90, dSurcharge: 91.00 }
+  ];
+
+  function annualSurchargeForTier(tierIndex){
+    const t = monthlyTiers[Math.max(0, Math.min(monthlyTiers.length - 1, tierIndex))];
+    const monthlyIncomeRelated = Math.max(0, (t.bPremium - basePartBPremium) + t.dSurcharge);
+    return monthlyIncomeRelated * 12 * eligibleCount;
   }
 
-  if(magi <= 109000 * factor) return 0;
-  if(magi <= 137000 * factor) return 3583.20;
-  if(magi <= 171000 * factor) return 5319.60;
-  if(magi <= 205000 * factor) return 7054.80;
-  if(magi <= 500000 * factor) return 8790.00;
-  return 9370.80;
+  let thresholds;
+  if(status === 'MFJ'){
+    thresholds = [218000, 274000, 342000, 410000, 750000].map(v => v * factor);
+  }else if(status === 'MFS'){
+    thresholds = [109000, 109000, 109000, 109000, 391000].map(v => v * factor);
+  }else{
+    thresholds = [109000, 137000, 171000, 205000, 500000].map(v => v * factor);
+  }
+
+  if(magi <= thresholds[0]) return annualSurchargeForTier(0);
+  if(magi <= thresholds[1]) return annualSurchargeForTier(1);
+  if(magi <= thresholds[2]) return annualSurchargeForTier(2);
+  if(magi <= thresholds[3]) return annualSurchargeForTier(3);
+  if(magi < thresholds[4]) return annualSurchargeForTier(4);
+  return annualSurchargeForTier(5);
 }
 
 function irmaaEligibleCount(status,hAge,wAge){
@@ -1318,27 +1334,20 @@ function irmaaEligibleCount(status,hAge,wAge){
   return hEligible ? 1 : 0;
 }
 function stabilizeIRMAAProjection(rawIrmaa, context){
-  const prev = context && context.prev ? context.prev : null;
-  if(!prev) return rawIrmaa;
-  const sameStatus = prev.status === context.status;
-  const sameEligibleCount = prev.eligibleCount === context.eligibleCount;
-  const noMaterialIncomeDrop = Number(context.lookbackMAGI || 0) >= Number(prev.lookbackMAGI || 0) * 0.98;
-  const noDeathTransition = !context.deathApplied;
-  // Projection guard: when filing status and Medicare-covered lives are unchanged and the
-  // two-year lookback MAGI has not materially fallen, IRMAA should not suddenly drop just
-  // because inflated threshold math crossed a boundary by a small amount. This keeps the
-  // year-by-year report advisor-intuitive: IRMAA drops only after a real income/status drop.
-  if(sameStatus && sameEligibleCount && noMaterialIncomeDrop && noDeathTransition && rawIrmaa < prev.irmaa){
-    const factor = 1 + taxBracketInflationRate();
-    return Math.max(rawIrmaa, prev.irmaa * factor);
-  }
+  // IRMAA should be fully recalculated each year from the current filing status,
+  // current Medicare-covered life count, and two-year lookback MAGI.
+  // Do not smooth or carry forward a prior tier; real tier changes should show clearly.
   return rawIrmaa;
 }
 function irmaaThresholdForMode(status, year=1, mode='avoid'){
-  const factor = Math.pow(1 + taxBracketInflationRate(), Math.max(0, Number(year || 1) - 1));
+  const factor = Math.pow(1 + 0.023, Math.max(0, Number(year || 1) - 1));
   if(status === 'MFJ'){
     if(mode === 'limit1') return 274000 * factor;
     return 218000 * factor;
+  }
+  if(status === 'MFS'){
+    if(mode === 'limit1') return 109000 * factor;
+    return 109000 * factor;
   }
   if(mode === 'limit1') return 137000 * factor;
   return 109000 * factor;
@@ -1946,9 +1955,9 @@ function buildScenario(useStrategy){
     const currentYearMAGIForIRMAA = taxableBaseAfterConversion;
     const lookbackIndexForIRMAA = irmaaMagiHistory.length >= 2 ? irmaaMagiHistory.length - 2 : -1;
     const lookbackMAGI = lookbackIndexForIRMAA >= 0 ? irmaaMagiHistory[lookbackIndexForIRMAA] : currentYearMAGIForIRMAA;
-    const lookbackStatus = lookbackIndexForIRMAA >= 0 ? (irmaaStatusHistory[lookbackIndexForIRMAA] || currentStatus) : currentStatus;
+    const lookbackStatus = currentStatus; // use current filing status with two-year lookback MAGI for projected IRMAA
     const lookbackYearForIRMAA = Math.max(1, year - 2);
-    const rawIrmaa = calcIRMAA(lookbackMAGI, lookbackStatus, hAge, wAge, lookbackYearForIRMAA);
+    const rawIrmaa = calcIRMAA(lookbackMAGI, currentStatus, hAge, wAge, lookbackYearForIRMAA);
     const currentEligibleCount = irmaaEligibleCount(currentStatus, hAge, wAge);
     irmaa = stabilizeIRMAAProjection(rawIrmaa, {
       prev: lastIrmaaContext,
@@ -3322,7 +3331,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA brackets and surcharge amounts are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%. IRMAA uses a two-year MAGI lookback when prior projection years are available and includes a smoothing guard so projected IRMAA does not drop without a material lookback-income or filing-status change. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets use a fixed 2.3% COLA; tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA uses the 2026 Medicare Part B and Part D IRMAA tiers supplied by the advisor; IRMAA income brackets are inflated annually at a fixed 2.3% COLA. IRMAA uses a two-year MAGI lookback when prior projection years are available and includes a smoothing guard so projected IRMAA does not drop without a material lookback-income or filing-status change. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
