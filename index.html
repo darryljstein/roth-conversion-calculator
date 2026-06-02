@@ -623,6 +623,14 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         </div>
       </div>
 
+      <div class="card" id="rothConversionScheduleCard">
+        <h2 class="section-title">Roth Conversion Execution Schedule</h2>
+        <div class="small">Shows the actual year-by-year conversion timeline, beginning IRA balance, gross conversion, conversion taxes, net Roth deposit, ending IRA balance, and converted Roth value. This is separate from the Milestone Summary so clients can verify the full conversion path.</div>
+        <div style="overflow:auto;margin-top:12px;">
+          <table id="rothConversionScheduleTable"><thead><tr><th>Year</th><th>Age</th><th>Beginning IRA</th><th>Gross Conversion</th><th>Conversion Taxes</th><th>Effective Tax Rate</th><th>Net Roth Deposit</th><th>Ending IRA</th><th>Converted Roth Value</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+
 
 
       <div class="card" id="manualRothConversionCard">
@@ -1639,7 +1647,7 @@ function applyFinalReportColumnStyling(data){
   if(data.section === 'head' && isRmdReportColumn(raw)){
     // RMD is a taxable warning column, but the label must be readable.
     data.cell.styles.fillColor = [185,28,28];
-    data.cell.styles.textColor = [0,0,0];
+    data.cell.styles.textColor = [255,255,255];
     data.cell.styles.fontStyle = 'bold';
   }
   if(data.section === 'body' && isRmdReportColumn(raw)){
@@ -1863,6 +1871,9 @@ function buildScenario(useStrategy){
     const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
+    const beginningIraForYear = Math.max(0, ira);
+    const beginningRothForYear = Math.max(0, rothBuckets.reduce((s,b)=>s+b.balance,0) + additionalRoth);
+
     const rmdAge=fixedRmdStartAge;
     let rmd=0;
     if(primaryAge>=rmdAge && ira>0){
@@ -2033,8 +2044,9 @@ function buildScenario(useStrategy){
       outside = Math.max(0, outside - nqUsed);
     }
 
+    let netToRoth = 0;
     if(useStrategy){
-      const netToRoth = includeTaxFundingComparison ? conversion : Math.max(0, conversion - conversionTax);
+      netToRoth = includeTaxFundingComparison ? conversion : Math.max(0, conversion - conversionTax);
       if(netToRoth > 0){
         rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: netToRoth * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
       }
@@ -2088,6 +2100,9 @@ function buildScenario(useStrategy){
     details.push({
       year,
       age: currentAgeDisplay,
+      beginningIra: beginningIraForYear,
+      beginningRoth: beginningRothForYear,
+      netRothDeposit: netToRoth,
       income: displayedIncome,
       grossIncome: displayedIncome,
       incomeGoal: desiredIncome,
@@ -2207,6 +2222,34 @@ function taxFreeCoverageAge(details){
   return lastAge || 'None';
 }
 
+function rothConversionScheduleDetails(details){
+  const rows = Array.isArray(details) ? details : [];
+  const start = Math.max(1, Math.floor(num('startYear') || 1));
+  const years = activeConversionYearsDisplay ? activeConversionYearsDisplay() : Math.max(1, Math.floor(num('conversionYears') || 1));
+  const end = start + years - 1;
+  return rows.filter(r => r.year >= start && r.year <= end);
+}
+function rothConversionScheduleRows(details){
+  const rows = rothConversionScheduleDetails(details);
+  if(!rows.length) return [['No conversion years in this run','—','—','—','—','—','—','—','—']];
+  return rows.map(r => [
+    `Year ${r.year}`,
+    r.age,
+    fmt2(r.beginningIra || 0),
+    fmt2(r.conversion || 0),
+    fmt2(r.conversionTax || 0),
+    `${((r.conversionEffectiveTaxRate || 0) * 100).toFixed(1)}%`,
+    fmt2(r.netRothDeposit || 0),
+    fmt2(r.ira || 0),
+    fmt2(r.conversionRoth || 0)
+  ]);
+}
+function renderRothConversionSchedule(after){
+  const table = document.getElementById('rothConversionScheduleTable');
+  if(!table || !after) return;
+  table.querySelector('tbody').innerHTML = rothConversionScheduleRows(after.details).map(row => `<tr>${row.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+}
+
 function renderDetailPreview(after){
   const baseCfg = tableConfigFromDetails(after.details, 'after');
   const tableCfg = removeZeroWithdrawalColumns(baseCfg);
@@ -2252,6 +2295,7 @@ function calculate(){
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
   document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)}, then adds any enabled guaranteed tax-free FIA income, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth, with growth and fees applied as separate compounding steps. Additional Roth account funds, if entered, are tracked as tax-free assets with bonus, fee, and growth treatment but are not reduced by Roth conversion taxes. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   renderDetailPreview(after);
+  renderRothConversionSchedule(after);
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
 
@@ -2662,6 +2706,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
   cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
   if(showIRMAA) cols.push('IRMAA');
+  cols.push('IRA');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
   cols.push('TAX-FREE\nESTATE');
 
@@ -2674,6 +2719,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
     if(showIRMAA) row.push(fmt2(r.irmaa));
+    row.push(fmt2(r.ira || 0));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
     row.push(fmt2(r.roth));
     return row;
@@ -3470,7 +3516,53 @@ function generatePDF(){
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
-  // Page 7 onwards - detail tables
+  // Roth Conversion Execution Schedule page - full conversion window transparency
+  function addRothConversionSchedulePages(details){
+    const pageNum = doc.getNumberOfPages()+1;
+    doc.addPage('letter','l');
+    addTitle(doc,'Roth Conversion Execution Schedule','Full year-by-year conversion timeline for the selected conversion window. This page is separate from the Milestone Summary so the IRA depletion and Roth build-up can be verified directly.');
+    addPdfLogo(doc);
+    doc.autoTable({
+      startY:78,
+      head:[['Year','Age','Beginning IRA','Gross Conversion','Conversion Taxes','Effective Tax Rate','Net Roth Deposit','Ending IRA','Converted Roth Value']],
+      body:rothConversionScheduleRows(details),
+      styles:{fontSize:8.3,cellPadding:3,overflow:'linebreak',halign:'center',valign:'middle'},
+      headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold',halign:'center'},
+      alternateRowStyles:{fillColor:[245,247,250]},
+      margin:{left:24,right:24,bottom:95},
+      didParseCell:function(data){
+        const h = data.table && data.table.head && data.table.head[0] && data.table.head[0].cells[data.column.index] ? String(data.table.head[0].cells[data.column.index].raw || '') : '';
+        if(data.section === 'head' && (h === 'Net Roth Deposit' || h === 'Converted Roth Value')){
+          data.cell.styles.fillColor=[0,150,80];
+          data.cell.styles.textColor=[255,255,255];
+          data.cell.styles.fontStyle='bold';
+        }
+        if(data.section === 'body' && (h === 'Net Roth Deposit' || h === 'Converted Roth Value')){
+          data.cell.styles.fillColor=[232,245,233];
+          data.cell.styles.textColor=[0,100,0];
+          data.cell.styles.fontStyle='bold';
+        }
+        if(data.section === 'head' && (h === 'Conversion Taxes' || h === 'Effective Tax Rate')){
+          data.cell.styles.fillColor=[185,28,28];
+          data.cell.styles.textColor=[255,255,255];
+          data.cell.styles.fontStyle='bold';
+        }
+        if(data.section === 'body' && (h === 'Conversion Taxes' || h === 'Effective Tax Rate')){
+          data.cell.styles.fillColor=[255,241,242];
+          data.cell.styles.textColor=[185,28,28];
+          data.cell.styles.fontStyle='bold';
+        }
+      }
+    });
+    const y = Math.min(525, ((doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 18 : 500));
+    doc.setFontSize(8.2);
+    doc.setTextColor(75,85,99);
+    doc.text(doc.splitTextToSize('Net Roth Deposit equals gross conversion minus conversion taxes when taxes are paid from the conversion side; if taxes are paid from outside assets, net Roth deposit equals gross conversion. Ending IRA is shown after withdrawals, conversions, applicable growth, and any applicable fee for the year.', 730), 28, y);
+    addPdfFooter(doc,pageNum);
+  }
+  addRothConversionSchedulePages(after.details);
+
+  // Detail tables
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
     doc.addPage('letter','l');
@@ -3522,7 +3614,7 @@ function generatePDF(){
         }
         if(mode === 'before' && isExcessRmdProblemCol && data.section === 'head'){
           data.cell.styles.fillColor=[245,158,11];
-          data.cell.styles.textColor=[0,0,0];
+          data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
@@ -3536,7 +3628,7 @@ function generatePDF(){
         const rmdColIndex = tableCfg && tableCfg.cols && tableCfg.cols[0] ? tableCfg.cols[0].indexOf('RMD\nRequired\nWithdrawal') : -1;
         if(data.section==='head' && data.column.index===rmdColIndex){
           data.cell.styles.fillColor=[185,28,28];
-          data.cell.styles.textColor=[0,0,0];
+          data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
@@ -3556,7 +3648,7 @@ function generatePDF(){
         }
 
         if(data.section==='head' && String(data.cell.raw).includes('RMD')){
-          data.cell.styles.textColor=[0,0,0];
+          data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
           data.cell.styles.fillColor=[185,28,28];
         }
