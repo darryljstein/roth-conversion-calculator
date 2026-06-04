@@ -2891,6 +2891,9 @@ function getStrategyMindMapData(){
   const fiaEnabled = (document.getElementById('fiaEnabled')?.value || 'no') === 'yes';
   const fiaIncome = fiaEnabled ? num('fiaAnnualIncome') : 0;
   const additional = getAdditionalAccounts ? getAdditionalAccounts() : [];
+  const existingRiders = (typeof existingAnnuityComparisonEnabled === 'function' && existingAnnuityComparisonEnabled() && typeof getExistingAnnuityRiders === 'function') ? getExistingAnnuityRiders() : [];
+  const existingRiderValue = existingRiders.reduce((s,r)=>s + Math.max(0, Number(r.value || 0)), 0);
+  const existingRiderIncome = existingRiders.reduce((s,r)=>s + Math.max(0, Number(r.income || 0)), 0);
   const left = [];
   if(hIra > 0) left.push({title: `${displayClient1Name()} IRA / Qualified Funds`, type:'Traditional / Qualified', value:hIra, note:'Available for Roth conversion or repositioning'});
   if(wIra > 0) left.push({title: `${displayClient2Name()} IRA / Qualified Funds`, type:'Traditional / Qualified', value:wIra, note:'Available for Roth conversion or repositioning'});
@@ -2899,9 +2902,20 @@ function getStrategyMindMapData(){
       left.push({title:a.title || 'Additional Account', type:a.typeLabel || a.type, value:Number(a.funds||0), note:`Bonus ${Number(a.bonusPct||0).toFixed(1)}% / Growth ${Number(a.growthPct||0).toFixed(1)}%`});
     }
   });
+  if(existingRiders.length){
+    existingRiders.forEach(r=>{
+      left.push({
+        title: `${r.title || 'Existing Income Annuity'} - Being Replaced`,
+        type:'Existing taxable income annuity',
+        value:Number(r.value || 0),
+        note:`Current income ${fmt2(r.income || 0)} / ${Number((r.taxablePct || 0) * 100).toFixed(0)}% taxable / ${existingAnnuityPayoutLabel ? existingAnnuityPayoutLabel(r.payout) : 'Income rider'}`
+      });
+    });
+    left.push({title:'Total Existing Taxable Rider Income', type:'Income being replaced', value:existingRiderIncome, note:`Total annuity value ${fmt2(existingRiderValue)} repositioned/replaced in the strategy story`});
+  }
   if(outside > 0) left.push({title:'Brokerage / Outside Assets', type:'Taxable / Liquid Assets', value:outside, note:'Can be used for tax funding or retained as outside assets'});
   if(!left.length && premium > 0) left.push({title:'Strategy Premium / Funding Base', type:'Premium Funding', value:premium, note:'Used as illustrated strategy funding base'});
-  if(!left.length) left.push({title:'No current accounts entered', type:'—', value:0, note:'Enter IRA, outside assets, premium, or additional accounts'});
+  if(!left.length) left.push({title:'No current accounts entered', type:'—', value:0, note:'Enter IRA, outside assets, premium, annuity riders, or additional accounts'});
 
   const totalQualified = hIra + wIra;
   const fundingBase = premium > 0 ? premium : totalQualified;
@@ -2915,9 +2929,12 @@ function getStrategyMindMapData(){
     right.push({title:'Roth Conversion / Repositioned Strategy', type:'Tax-Free Strategy Bucket', value:beginning, note:`Funding ${fmt2(fundingBase)}${bonus>0 ? ` + ${fmt2(bonus)} bonus (${bonusPct.toFixed(1)}%)` : ''}`});
   }
   if(bonus > 0) right.push({title:'Upfront Bonus Added', type:'Bonus Credit', value:bonus, note:`Applied at ${bonusPct.toFixed(1)}% to eligible funding base`});
+  if(existingRiderIncome > 0){
+    right.push({title:'Replacement Income Strategy', type:'Taxable-to-tax-free income shift', value:fiaIncome, note:`Replaces ${fmt2(existingRiderIncome)} taxable rider income${fiaIncome>0 ? ` with ${fmt2(fiaIncome)} ${fiaIncomeIsTaxFree() ? 'tax-free' : 'taxable'} income` : ''}`});
+  }
   if(fiaIncome > 0) right.push({title: fiaIncomeIsTaxFree() ? 'Guaranteed Tax-Free Income' : 'Guaranteed Taxable Income', type:'Income Layer', value:fiaIncome, note:`Annual income starting in strategy year ${Math.max(1, Math.floor(num('fiaStartYear') || 1))}`});
   right.push({title:'Projected Growth / Strategy Value', type:'Projected Ending Value', value:taxFreeEstate, note:`Growth ${growthPct.toFixed(1)}%${feePct>0 ? ` less ${feePct.toFixed(2)}% annual fee where applicable` : ''}`});
-  return {source:mindMapSourceInstitution(), destination:mindMapDestinationName(), action:mindMapPrimaryAction(), left, right, fundingBase, bonus, beginning, taxFreeEstate, fiaIncome};
+  return {source:mindMapSourceInstitution(), destination:mindMapDestinationName(), action:mindMapPrimaryAction(), left, right, fundingBase, bonus, beginning, taxFreeEstate, fiaIncome, existingRiderValue, existingRiderIncome};
 }
 function renderStrategyMindMap(){
   const out = document.getElementById('strategyMindMapOutput');
@@ -2925,12 +2942,12 @@ function renderStrategyMindMap(){
   const d = getStrategyMindMapData();
   const leftHtml = d.left.map(a=>`<div class="mind-map-account"><div class="mind-map-account-title">${a.title}</div><div class="mind-map-account-meta">${a.type} • <span class="mind-map-value">${fmt2(a.value)}</span><br>${a.note||''}</div></div>`).join('');
   const rightHtml = d.right.map(a=>`<div class="mind-map-account"><div class="mind-map-account-title">${a.title}</div><div class="mind-map-account-meta">${a.type} • <span class="mind-map-value">${fmt2(a.value)}</span><br>${String(a.note||'').replace(/bonus/gi,'<span class="mind-map-bonus">bonus</span>')}</div></div>`).join('');
-  out.innerHTML = `<div class="mind-map-wrap"><div class="mind-map-side"><h3>${d.source}</h3>${leftHtml}</div><div class="mind-map-arrow">→<span>${d.action}</span></div><div class="mind-map-side"><h3>${d.destination}</h3>${rightHtml}</div></div><div class="mind-map-note">This is a visual summary only. Values come from the entered accounts, premium/bonus assumptions, guaranteed income settings, and projected Roth/tax-free estate.</div>`;
+  out.innerHTML = `<div class="mind-map-wrap"><div class="mind-map-side"><h3>${d.source}</h3>${leftHtml}</div><div class="mind-map-arrow">→<span>${d.action}</span></div><div class="mind-map-side"><h3>${d.destination}</h3>${rightHtml}</div></div><div class="mind-map-note">This is a visual summary only. Values come from the entered accounts, existing income annuities being replaced, premium/bonus assumptions, guaranteed income settings, and projected Roth/tax-free estate.</div>`;
 }
 function createStrategyMindMapImage(){
   const d = getStrategyMindMapData();
   const canvas = document.createElement('canvas');
-  canvas.width = 1200; canvas.height = 650;
+  canvas.width = 1200; canvas.height = 760;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height);
   ctx.fillStyle = '#0b3a6f'; ctx.font = 'bold 30px Arial';
@@ -2941,14 +2958,14 @@ function createStrategyMindMapImage(){
     ctx.fillStyle = accent || '#0b3a6f'; ctx.font = 'bold 20px Arial'; ctx.fillText(title, x+20, y+34);
     if(subtitle){ ctx.fillStyle='#64748b'; ctx.font='13px Arial'; ctx.fillText(subtitle, x+20, y+56); }
   }
-  box(40,90,470,500,d.source,'Current accounts / values','#0b3a6f');
-  box(690,90,470,500,d.destination,'Proposed strategy destination','#15803d');
+  box(40,90,470,610,d.source,'Current retirement assets / income sources','#0b3a6f');
+  box(690,90,470,610,d.destination,'Proposed strategy destination','#15803d');
   ctx.strokeStyle='#c89a3d'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(535,340); ctx.lineTo(665,340); ctx.stroke();
   ctx.fillStyle='#c89a3d'; ctx.beginPath(); ctx.moveTo(665,340); ctx.lineTo(640,322); ctx.lineTo(640,358); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#0b3a6f'; ctx.font='bold 16px Arial'; ctx.textAlign='center'; ctx.fillText(d.action,600,305); ctx.textAlign='left';
   function drawItems(items,x,y){
     let yy=y;
-    items.slice(0,7).forEach(it=>{
+    items.slice(0,8).forEach(it=>{
       ctx.fillStyle='#ffffff'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1; ctx.beginPath(); ctx.roundRect(x,yy,430,58,12); ctx.fill(); ctx.stroke();
       ctx.fillStyle='#1f2937'; ctx.font='bold 15px Arial'; ctx.fillText(String(it.title).slice(0,46), x+14, yy+22);
       ctx.fillStyle='#0b3a6f'; ctx.font='bold 15px Arial'; ctx.fillText(fmt2(it.value), x+300, yy+22);
@@ -2958,17 +2975,17 @@ function createStrategyMindMapImage(){
   }
   drawItems(d.left,60,160); drawItems(d.right,710,160);
   ctx.fillStyle='#475569'; ctx.font='14px Arial';
-  ctx.fillText('Values summarize entered accounts, bonus assumptions, guaranteed income settings, and projected strategy growth.', 40, 625);
+  ctx.fillText('Values summarize entered accounts, existing income annuities being replaced, bonus assumptions, guaranteed income settings, and projected strategy growth.', 40, 735);
   return canvas.toDataURL('image/png');
 }
 function addStrategyMindMapPdfPage(doc, before, after){
   if((document.getElementById('mindMapShowInPdf')?.value || 'yes') !== 'yes') return;
   doc.addPage();
-  addTitle(doc,'Strategy Mind Map / Account Repositioning Summary','Current accounts on the left, proposed strategy destination on the right.');
+  addTitle(doc,'Strategy Mind Map / Account Repositioning Summary','Current retirement assets and income sources being repositioned into the proposed tax-efficient strategy.');
   addPdfLogo(doc);
   try{
     const img = createStrategyMindMapImage();
-    doc.addImage(img, 'PNG', 36, 76, 720, 390);
+    doc.addImage(img, 'PNG', 36, 76, 720, 456);
   }catch(e){
     const d = getStrategyMindMapData();
     doc.autoTable({startY:80, head:[[d.source, 'Action', d.destination]], body:[[d.left.map(a=>`${a.title}: ${fmt2(a.value)}`).join('\\n'), d.action, d.right.map(a=>`${a.title}: ${fmt2(a.value)}`).join('\\n')]], styles:{fontSize:10,overflow:'linebreak'}, headStyles:{fillColor:[11,58,111]}});
