@@ -3024,14 +3024,29 @@ function firstRetirementIncomeRow(scenario){
   return scenario.details.find(r => parseFloat(String(r.age || '0').split('/')[0]) >= targetAge) || scenario.details[0] || {};
 }
 function currentRetainedIncomeRows(beforeScenario){
-  const r = firstRetirementIncomeRow(beforeScenario);
-  const pension = Math.max(0, Number(r.pension || r.taxablePension || 0));
-  const ss = Math.max(0, Number(r.ssIncome || 0));
-  const annuity = Math.max(0, existingAnnuityComparisonEnabled() ? sumExistingAnnuityIncome() : Number(r.existingAnnuityIncome || 0));
+  // This page is meant to explain the client's current recurring income base.
+  // Do NOT pull from a future projection row here; that creates inflated values
+  // after COLA/indexing and makes the page look inconsistent with client statements.
+  const status = (document.getElementById('filingStatus')?.value || 'MFJ');
+  let pension = 0;
+  for(let i=1;i<=pensionRowCount();i++){
+    pension += Math.max(0, getPensionValue(i,'Taxable')) + Math.max(0, getPensionValue(i,'TaxFree'));
+  }
+  const ss = Math.max(0, num('hSS')) + (status === 'MFJ' ? Math.max(0, num('wSS')) : 0);
+
+  // Existing annuity riders are shown when entered in the comparison section.
+  // If the advisor instead entered retained income annuities in the FIA income section,
+  // include only streams beginning in Year 1 so the table remains "current income."
+  const existingRiders = existingAnnuityComparisonEnabled() ? Math.max(0, sumExistingAnnuityIncome()) : 0;
+  const currentFiaIncome = getFiaIncomeStreams()
+    .filter(s => s.startYear <= 1)
+    .reduce((sum,s)=>sum + Math.max(0, Number(s.annualIncome || 0)),0);
+  const annuity = existingRiders > 0 ? existingRiders : currentFiaIncome;
+
   const rows = [];
   if(pension > 0) rows.push(['Pension', fmt2(pension)]);
   if(ss > 0) rows.push(['Social Security', fmt2(ss)]);
-  if(annuity > 0) rows.push(['Existing Income Riders', fmt2(annuity)]);
+  if(annuity > 0) rows.push(['Income Annuities', fmt2(annuity)]);
   rows.push(['Total Existing Retirement Income', fmt2(pension + ss + annuity)]);
   return rows;
 }
@@ -3153,7 +3168,7 @@ function addStrategyPurposePdfPage(doc, before, after){
   const incomeRows = currentRetainedIncomeRows(before);
   doc.autoTable({
     startY:76,
-    head:[['Current Retirement Income Source','Annual Income']],
+    head:[['Existing Retirement Income Source','Current Annual Income']],
     body:incomeRows,
     styles:{fontSize:10,cellPadding:5,halign:'right'},
     columnStyles:{0:{halign:'left',fontStyle:'bold'},1:{halign:'right'}},
@@ -3161,7 +3176,12 @@ function addStrategyPurposePdfPage(doc, before, after){
     alternateRowStyles:{fillColor:[245,247,250]},
     margin:{left:48,right:430}
   });
-  let y = Math.max(180, (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 22 : 190));
+  const incomeNoteY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 14 : 156);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(100,116,139);
+  doc.text(doc.splitTextToSize('Current Annual Income uses the advisor-entered annual amounts and does not apply future COLA or inflation increases. Projected year-by-year income values are shown later in the report.', 360), 48, incomeNoteY);
+  let y = Math.max(205, incomeNoteY + 34);
   doc.setFont(undefined,'bold');
   doc.setFontSize(15);
   doc.setTextColor(11,58,111);
