@@ -577,6 +577,24 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <div class="small" style="margin-top:10px;">When enabled, Client 2 keeps their own reduced benefit until Client 1 reaches filing/FRA age. At that point the model adds a reduced spousal excess using: own reduced benefit + ((50% × Client 1 PIA − Client 2 PIA) × reduction factor).</div>
       </div>
 
+
+      <div class="card" id="socialSecurityMaximizationCard">
+        <h2 class="section-title">Social Security Maximization</h2>
+        <div class="small" style="margin-bottom:12px;">Enter the client-provided annual Social Security estimates at different filing ages. The PDF will compare the filing ages and show how delaying Social Security may help preserve Roth conversion room by keeping provisional income lower during the conversion window.</div>
+        <div class="inputs-grid">
+          <div class="field"><label>Show SS Maximization in PDF</label><select id="ssMaxEnabled"><option value="yes" selected>Yes</option><option value="no">No</option></select></div>
+          <div class="field"><label>SS Maximization Note</label><input id="ssMaxCustomNote" type="text" value="Consider using current assets or Roth reserve assets during the conversion window before starting Social Security needlessly." /></div>
+          <div class="field"><label>Client 1 SS at 62</label><input id="ssMaxH62" type="number" value="0" step="100" /></div>
+          <div class="field"><label>Client 1 SS at 65</label><input id="ssMaxH65" type="number" value="0" step="100" /></div>
+          <div class="field"><label>Client 1 SS at 67</label><input id="ssMaxH67" type="number" value="0" step="100" /></div>
+          <div class="field"><label>Client 1 SS at 70</label><input id="ssMaxH70" type="number" value="0" step="100" /></div>
+          <div class="field spouse-field"><label>Client 2 SS at 62</label><input id="ssMaxW62" type="number" value="0" step="100" /></div>
+          <div class="field spouse-field"><label>Client 2 SS at 65</label><input id="ssMaxW65" type="number" value="0" step="100" /></div>
+          <div class="field spouse-field"><label>Client 2 SS at 67</label><input id="ssMaxW67" type="number" value="0" step="100" /></div>
+          <div class="field spouse-field"><label>Client 2 SS at 70</label><input id="ssMaxW70" type="number" value="0" step="100" /></div>
+        </div>
+      </div>
+
       <div class="card">
         <h2 class="section-title">Premium / FIA Funding Inputs</h2>
         <div class="small" id="premiumModeNote" style="margin-bottom:10px;">Used only in FIA / Income or Hybrid mode. In Roth Conversion Only mode, the conversion base is the entered IRA balance.</div>
@@ -1369,7 +1387,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','strategyObjective','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeYears','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','fia2Enabled','fia2Title','fia2AnnualIncome','fia2StartYear','fia2Cola','fia2Owner','fia2SurvivorPct','fia2SurvivorCustom','fia2DeathBenefitHorizon','fia2ProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
+const allIds = ['strategyMasterMode','strategyObjective','ssMaxEnabled','ssMaxCustomNote','ssMaxH62','ssMaxH65','ssMaxH67','ssMaxH70','ssMaxW62','ssMaxW65','ssMaxW67','ssMaxW70','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeYears','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','fia2Enabled','fia2Title','fia2AnnualIncome','fia2StartYear','fia2Cola','fia2Owner','fia2SurvivorPct','fia2SurvivorCustom','fia2DeathBenefitHorizon','fia2ProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -3023,31 +3041,33 @@ function firstRetirementIncomeRow(scenario){
   const targetAge = Math.floor(num('incomeStartAge') || 0);
   return scenario.details.find(r => parseFloat(String(r.age || '0').split('/')[0]) >= targetAge) || scenario.details[0] || {};
 }
-function currentRetainedIncomeRows(beforeScenario){
-  // This page is meant to explain the client's current recurring income base.
-  // Do NOT pull from a future projection row here; that creates inflated values
-  // after COLA/indexing and makes the page look inconsistent with client statements.
-  const status = (document.getElementById('filingStatus')?.value || 'MFJ');
-  let pension = 0;
+function currentEnteredPensionIncome(){
+  let total = 0;
   for(let i=1;i<=pensionRowCount();i++){
-    pension += Math.max(0, getPensionValue(i,'Taxable')) + Math.max(0, getPensionValue(i,'TaxFree'));
+    const taxable = getPensionValue(i,'Taxable');
+    const taxFree = getPensionValue(i,'TaxFree');
+    total += pensionFirstYearAmount(i, taxable + taxFree);
   }
-  const ss = Math.max(0, num('hSS')) + (status === 'MFJ' ? Math.max(0, num('wSS')) : 0);
-
-  // Existing annuity riders are shown when entered in the comparison section.
-  // If the advisor instead entered retained income annuities in the FIA income section,
-  // include only streams beginning in Year 1 so the table remains "current income."
-  const existingRiders = existingAnnuityComparisonEnabled() ? Math.max(0, sumExistingAnnuityIncome()) : 0;
-  const currentFiaIncome = getFiaIncomeStreams()
-    .filter(s => s.startYear <= 1)
-    .reduce((sum,s)=>sum + Math.max(0, Number(s.annualIncome || 0)),0);
-  const annuity = existingRiders > 0 ? existingRiders : currentFiaIncome;
-
+  return Math.max(0, total);
+}
+function currentEnteredSocialSecurityIncome(){
+  const status = document.getElementById('filingStatus')?.value || 'MFJ';
+  return Math.max(0, num('hSS')) + (status === 'MFJ' ? Math.max(0, num('wSS')) : 0);
+}
+function currentEnteredFiaIncome(){
+  return totalGuaranteedAnnualIncome ? totalGuaranteedAnnualIncome() : 0;
+}
+function currentRetainedIncomeRows(beforeScenario){
+  // This page is intended to show the CURRENT entered annual income values.
+  // Do not pull from a future projection year, because COLA-adjusted values can confuse clients.
+  const pension = currentEnteredPensionIncome();
+  const ss = currentEnteredSocialSecurityIncome();
+  const annuity = Math.max(0, sumExistingAnnuityIncome() || currentEnteredFiaIncome());
   const rows = [];
-  if(pension > 0) rows.push(['Pension', fmt2(pension)]);
-  if(ss > 0) rows.push(['Social Security', fmt2(ss)]);
-  if(annuity > 0) rows.push(['Income Annuities', fmt2(annuity)]);
-  rows.push(['Total Existing Retirement Income', fmt2(pension + ss + annuity)]);
+  if(pension > 0) rows.push(['Pension - Current Entered Annual Amount', fmt2(pension)]);
+  if(ss > 0) rows.push(['Social Security - Current Entered Annual Amount', fmt2(ss)]);
+  if(annuity > 0) rows.push(['Income Annuities / Riders - Current Entered Annual Amount', fmt2(annuity)]);
+  rows.push(['Total Current Retirement Income', fmt2(pension + ss + annuity)]);
   return rows;
 }
 
@@ -3160,6 +3180,102 @@ function addStrategyMindMapPdfPage(doc, before, after){
 }
 
 
+function ssMaxDirectValue(person, age){
+  const prefix = person === 'wife' ? 'ssMaxW' : 'ssMaxH';
+  const v = num(prefix + String(age));
+  return Math.max(0, v);
+}
+function estimateSsBenefitFromExisting(person, targetAge){
+  const status = document.getElementById('filingStatus')?.value || 'MFJ';
+  if(person === 'wife' && status !== 'MFJ') return 0;
+  const baseAge = person === 'wife' ? num('wSSAge') : num('hSSAge');
+  const baseAmount = person === 'wife' ? num('wSS') : num('hSS');
+  if(!baseAmount || !baseAge) return 0;
+  // Approximation for planning display only: early filing reduction roughly 6% per year before 67,
+  // delayed retirement credit roughly 8% per year after 67, normalized around age 67.
+  function factor(age){
+    if(age < 67) return Math.max(0.65, 1 - ((67 - age) * 0.06));
+    if(age > 67) return 1 + ((age - 67) * 0.08);
+    return 1;
+  }
+  const estimatedAt67 = baseAmount / factor(baseAge);
+  return Math.max(0, estimatedAt67 * factor(targetAge));
+}
+function ssMaxBenefit(person, age){
+  const direct = ssMaxDirectValue(person, age);
+  return direct > 0 ? direct : estimateSsBenefitFromExisting(person, age);
+}
+function ssMaxCandidateRows(afterScenario){
+  const status = document.getElementById('filingStatus')?.value || 'MFJ';
+  const ages = [62,65,67,70];
+  const convRow = afterScenario && Array.isArray(afterScenario.details) ? (afterScenario.details.find(r=>Number(r.conversion||0)>0) || afterScenario.details[0] || {}) : {};
+  const otherTaxable = Math.max(0, Number(convRow.taxableIncome || 0) - Number(convRow.taxableSSIncome || 0));
+  const rows = ages.map(age=>{
+    const c1 = ssMaxBenefit('husband', age);
+    const c2 = status === 'MFJ' ? ssMaxBenefit('wife', age) : 0;
+    const combined = c1 + c2;
+    const taxableIfClaimed = taxableSS(combined, otherTaxable, status);
+    const conversionWindow = `${Math.max(1,Math.floor(num('startYear')||1))}-${Math.max(1,Math.floor(num('startYear')||1)) + activeConversionYearsDisplay() - 1}`;
+    let note = '';
+    if(age === 70) note = 'Highest delayed filing amount; may preserve conversion room before claiming.';
+    else if(age >= 67) note = 'Balances higher benefit with fewer years of delay.';
+    else note = 'Earlier cash flow, but may increase provisional income during conversions.';
+    return {age, c1, c2, combined, taxableIfClaimed, conversionWindow, note};
+  });
+  const best = rows.reduce((a,b)=> b.combined > a.combined ? b : a, rows[0]);
+  rows.forEach(r=>{ r.recommendation = r.age === best.age ? 'Largest annual benefit' : ''; });
+  return rows;
+}
+function addSocialSecurityMaximizationPdfPage(doc, before, after){
+  if((document.getElementById('ssMaxEnabled')?.value || 'yes') !== 'yes') return;
+  const rows = ssMaxCandidateRows(after);
+  const hasAny = rows.some(r => r.combined > 0);
+  if(!hasAny) return;
+  doc.addPage();
+  addTitle(doc,'Social Security Maximization Analysis','Compares filing ages and the Roth-conversion benefit of delaying Social Security when appropriate.');
+  addPdfLogo(doc);
+  const body = rows.map(r=>[
+    `Age ${r.age}`,
+    fmt2(r.c1),
+    (document.getElementById('filingStatus')?.value || 'MFJ') === 'MFJ' ? fmt2(r.c2) : '—',
+    fmt2(r.combined),
+    fmt2(r.taxableIfClaimed),
+    r.recommendation || r.note
+  ]);
+  doc.autoTable({
+    startY:78,
+    head:[['Filing Age','Client 1 Annual SS','Client 2 Annual SS','Combined Annual SS','Est. Taxable SS During Conversion Year','Planning Note']],
+    body,
+    styles:{fontSize:9,cellPadding:4,overflow:'linebreak'},
+    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,247,250]},
+    columnStyles:{0:{fontStyle:'bold',cellWidth:70},1:{halign:'right'},2:{halign:'right'},3:{halign:'right',fontStyle:'bold'},4:{halign:'right'},5:{cellWidth:220}},
+    margin:{left:40,right:40}
+  });
+  let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 18 : 250);
+  doc.setFillColor(236,253,245);
+  doc.setDrawColor(0,150,80);
+  doc.roundedRect(44, y, 704, 112, 8, 8, 'FD');
+  doc.setFont(undefined,'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(0,100,0);
+  doc.text('Why delaying Social Security can help a Roth conversion strategy', 62, y + 24);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(55,65,81);
+  const customNote = (document.getElementById('ssMaxCustomNote')?.value || '').trim();
+  const explanation = 'Starting Social Security early can increase provisional income and cause more Social Security to become taxable during Roth conversion years. When other assets can support spending needs, delaying Social Security may allow larger or cleaner conversions at a lower taxable-income level while also increasing the lifetime Social Security benefit. ' + (customNote || '');
+  doc.text(doc.splitTextToSize(explanation, 660), 62, y + 48);
+  y += 136;
+  doc.setFont(undefined,'bold');
+  doc.setTextColor(11,58,111);
+  doc.text('Advisor note:', 44, y);
+  doc.setFont(undefined,'normal');
+  doc.setTextColor(80,80,80);
+  doc.text(doc.splitTextToSize('This is a planning illustration, not a Social Security claiming recommendation. The best claiming age depends on health, survivor benefits, cash-flow needs, tax law, investment returns, inflation, and family longevity assumptions.', 690), 112, y);
+  addPdfFooter(doc, doc.getNumberOfPages());
+}
+
 function addStrategyPurposePdfPage(doc, before, after){
   doc.addPage();
   addTitle(doc,'Strategy Purpose & Intended Outcome', strategyObjectiveLabel());
@@ -3168,7 +3284,7 @@ function addStrategyPurposePdfPage(doc, before, after){
   const incomeRows = currentRetainedIncomeRows(before);
   doc.autoTable({
     startY:76,
-    head:[['Existing Retirement Income Source','Current Annual Income']],
+    head:[['Current Entered Retirement Income Source','Current Annual Income']],
     body:incomeRows,
     styles:{fontSize:10,cellPadding:5,halign:'right'},
     columnStyles:{0:{halign:'left',fontStyle:'bold'},1:{halign:'right'}},
@@ -3176,12 +3292,7 @@ function addStrategyPurposePdfPage(doc, before, after){
     alternateRowStyles:{fillColor:[245,247,250]},
     margin:{left:48,right:430}
   });
-  const incomeNoteY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 14 : 156);
-  doc.setFont(undefined,'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(100,116,139);
-  doc.text(doc.splitTextToSize('Current Annual Income uses the advisor-entered annual amounts and does not apply future COLA or inflation increases. Projected year-by-year income values are shown later in the report.', 360), 48, incomeNoteY);
-  let y = Math.max(205, incomeNoteY + 34);
+  let y = Math.max(180, (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 22 : 190));
   doc.setFont(undefined,'bold');
   doc.setFontSize(15);
   doc.setTextColor(11,58,111);
@@ -3340,6 +3451,9 @@ function generatePDF(){
 
   // Strategy Purpose page
   addStrategyPurposePdfPage(doc, before, after);
+
+  // Social Security Maximization page
+  addSocialSecurityMaximizationPdfPage(doc, before, after);
 
   // Legacy Value Comparison page
   doc.addPage();
