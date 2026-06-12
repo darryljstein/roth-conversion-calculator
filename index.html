@@ -550,6 +550,27 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               </div>
             </div>
           </div>
+          <div class="account-panel" style="grid-column:1 / -1;">
+            <div class="account-panel-header"><div><div class="account-panel-title">Retirement Income Phases / Employment Income</div><div class="account-panel-subtitle">Use this when salary has its own COLA, withdrawals should not inflate, or spending should freeze/reduce later in retirement.</div></div></div>
+            <div class="inputs-grid">
+              <div class="field"><label>Enable Income Phases</label><select id="incomePhasesEnabled"><option value="no" selected>No - Use Standard Income Goal</option><option value="yes">Yes - Use Income Phases</option></select></div>
+              <div class="field"><label>Roth Withdrawals Start Year</label><input id="rothWithdrawalStartYear" type="number" value="10" min="1" max="50" step="1" /></div>
+              <div class="field"><label>Employment Income Owner</label><select id="employmentIncomeOwner"><option value="husband">Client 1</option><option value="wife" selected>Client 2</option></select></div>
+              <div class="field"><label>Employment Income Annual</label><input id="employmentIncomeAnnual" type="number" value="0" step="1000" /></div>
+              <div class="field"><label>Employment Income COLA %</label><input id="employmentIncomeCola" type="number" value="3" step="0.1" /></div>
+              <div class="field"><label>Employment Income Ends At Owner Age</label><input id="employmentIncomeEndAge" type="number" value="67" min="40" max="100" step="1" /></div>
+              <div class="field"><label>Employment Taxable %</label><input id="employmentIncomeTaxablePct" type="number" value="100" min="0" max="100" step="1" /></div>
+              <div class="field"><label>Phase 1 Target Income</label><input id="phase1IncomeGoal" type="number" value="200000" step="1000" /></div>
+              <div class="field"><label>Phase 1 Target COLA %</label><input id="phase1IncomeCola" type="number" value="0" step="0.1" /></div>
+              <div class="field"><label>Phase 2 Starts At Primary Age</label><input id="phase2StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
+              <div class="field"><label>Phase 2 Target Income</label><input id="phase2IncomeGoal" type="number" value="180000" step="1000" /></div>
+              <div class="field"><label>Phase 2 Target COLA %</label><input id="phase2IncomeCola" type="number" value="0" step="0.1" /></div>
+              <div class="field"><label>Stop Target COLA At Age</label><input id="incomeGoalColaStopAge" type="number" value="85" min="40" max="100" step="1" /></div>
+              <div class="field"><label>Phase 3 Starts At Primary Age</label><input id="phase3StartAge" type="number" value="85" min="40" max="100" step="1" /></div>
+              <div class="field"><label>Phase 3 / Frozen Target Income</label><input id="phase3IncomeGoal" type="number" value="180000" step="1000" /></div>
+            </div>
+            <div class="small" style="margin-top:10px;">Example: employment income $160,000 with 3% COLA until age 67; Phase 1 target $200,000 with 0% COLA; Phase 2 target $180,000 starting at age 67; Phase 3 freezes or reduces spending at age 85. Roth withdrawals can be held until Year 10.</div>
+          </div>
           <div class="field"><label>Income Goal (Desired Annual Income)</label><input id="desiredIncome" type="number" value="150000" step="1000" /></div>
           <div class="field"><label>Desired Income COLA %</label><input id="incomeCola" type="number" value="3.0" step="0.1" /></div>
           <div class="field"><label>Income Start Age</label><input id="incomeStartAge" type="number" value="65" min="40" max="95" step="1" /></div>
@@ -593,23 +614,6 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field spouse-field"><label>Client 2 SS at 67</label><input id="ssMaxW67" type="number" value="0" step="100" /></div>
           <div class="field spouse-field"><label>Client 2 SS at 70</label><input id="ssMaxW70" type="number" value="0" step="100" /></div>
         </div>
-      </div>
-
-
-      <div class="card" id="nuaAnalysisInputCard">
-        <h2 class="section-title">Net Unrealized Appreciation (NUA) Analysis</h2>
-        <div class="small" style="margin-bottom:12px;">Use this when a client has highly appreciated employer stock inside a qualified plan. The module compares rolling the employer stock to an IRA versus using NUA treatment, where the cost basis is taxed as ordinary income and the NUA gain may receive long-term capital gains treatment when sold.</div>
-        <div class="inputs-grid">
-          <div class="field"><label>Enable NUA Strategy</label><select id="nuaEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
-          <div class="field"><label>Employer Stock Value</label><input id="nuaStockValue" type="number" value="0" step="1000" /></div>
-          <div class="field"><label>Employer Stock Cost Basis</label><input id="nuaCostBasis" type="number" value="0" step="1000" /></div>
-          <div class="field"><label>Ordinary Income Tax Rate %</label><input id="nuaOrdinaryRate" type="number" value="32" min="0" max="60" step="0.1" /></div>
-          <div class="field"><label>Long-Term Capital Gain Rate %</label><input id="nuaCapitalGainsRate" type="number" value="15" min="0" max="30" step="0.1" /></div>
-          <div class="field"><label>Additional 3.8% NIIT?</label><select id="nuaIncludeNiit"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
-          <div class="field"><label>NUA Qualifying Event</label><select id="nuaQualifyingEvent"><option value="retirement" selected>Separation / Retirement</option><option value="age59">Age 59 1/2</option><option value="death">Death</option><option value="disability">Disability</option><option value="unknown">Confirm Eligibility</option></select></div>
-          <div class="field"><label>Recommended Treatment</label><select id="nuaRecommendedTreatment"><option value="auto" selected>Auto Based on Tax Savings</option><option value="nua">Use NUA Strategy</option><option value="ira">Roll All to IRA</option><option value="hybrid">NUA + Roth Conversion Hybrid</option></select></div>
-        </div>
-        <div class="small" style="margin-top:10px;">Important: NUA requires specific distribution rules. This illustration is for planning comparison only and should be coordinated with the plan administrator and tax professional before any distribution.</div>
       </div>
 
       <div class="card">
@@ -700,16 +704,6 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
       </div>
 
 
-
-
-      <div class="card" id="nuaAnalysisPreviewCard">
-        <h2 class="section-title">NUA Strategy Preview</h2>
-        <div class="small">Compares treating employer stock as an IRA rollover against using Net Unrealized Appreciation treatment.</div>
-        <div style="overflow:auto;margin-top:12px;">
-          <table id="nuaPreviewTable"><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Enable NUA Strategy to view results</td><td>—</td></tr></tbody></table>
-        </div>
-        <div class="small" id="nuaPreviewNote" style="margin-top:10px;"></div>
-      </div>
 
       <div class="card" id="manualRothConversionCard">
         <h2 class="section-title">Manual Multi-Year Roth Conversion Calculator</h2>
@@ -1073,6 +1067,8 @@ function applyMasterModeReset(){
     premiumNote && (premiumNote.textContent='Active. Hybrid mode uses both IRA conversion and premium/FIA funding inputs when entered.');
   }
   refreshFiaVisibility && refreshFiaVisibility();
+  const empOwner = document.getElementById('employmentIncomeOwner');
+  if(empOwner && empOwner.options.length >= 2){ empOwner.options[0].text = displayClient1Name(); empOwner.options[1].text = displayClient2Name(); empOwner.disabled = status!=='MFJ'; }
 }
 function widowSwitchEnabled(){
   return (document.getElementById('widowSwitchEnabled')?.value || 'no') === 'yes';
@@ -1414,7 +1410,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','strategyObjective','ssMaxEnabled','ssMaxCustomNote','ssMaxH62','ssMaxH65','ssMaxH67','ssMaxH70','ssMaxW62','ssMaxW65','ssMaxW67','ssMaxW70','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeYears','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','fia2Enabled','fia2Title','fia2AnnualIncome','fia2StartYear','fia2Cola','fia2Owner','fia2SurvivorPct','fia2SurvivorCustom','fia2DeathBenefitHorizon','fia2ProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','nuaEnabled','nuaStockValue','nuaCostBasis','nuaOrdinaryRate','nuaCapitalGainsRate','nuaIncludeNiit','nuaQualifyingEvent','nuaRecommendedTreatment'];
+const allIds = ['strategyMasterMode','strategyObjective','ssMaxEnabled','ssMaxCustomNote','ssMaxH62','ssMaxH65','ssMaxH67','ssMaxH70','ssMaxW62','ssMaxW65','ssMaxW67','ssMaxW70','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeYears','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','fia2Enabled','fia2Title','fia2AnnualIncome','fia2StartYear','fia2Cola','fia2Owner','fia2SurvivorPct','fia2SurvivorCustom','fia2DeathBenefitHorizon','fia2ProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1891,6 +1887,50 @@ function effectivePremiumBonusPctLabel(){
   return (effectivePremiumBonusRate() * 100).toFixed(1) + '%';
 }
 
+
+function incomePhasesEnabled(){ return (document.getElementById('incomePhasesEnabled')?.value || 'no') === 'yes'; }
+function getEmploymentIncome(primaryAge,hAge,wAge,currentStatus){
+  if(!incomePhasesEnabled()) return {gross:0,taxable:0};
+  const owner=document.getElementById('employmentIncomeOwner')?.value || 'wife';
+  if(currentStatus!=='MFJ' && owner==='wife') return {gross:0,taxable:0};
+  const ownerAge=owner==='wife'?wAge:hAge;
+  const endAge=Math.floor(num('employmentIncomeEndAge')||67);
+  if(ownerAge>=endAge) return {gross:0,taxable:0};
+  const base=Math.max(0,num('employmentIncomeAnnual'));
+  const colaRate=Math.max(0,num('employmentIncomeCola')/100);
+  const startOwnerAge=owner==='wife'?num('wAge'):num('hAge');
+  const years=Math.max(0,Math.floor(ownerAge-startOwnerAge));
+  const gross=base*Math.pow(1+colaRate,years);
+  const taxable=gross*Math.max(0,Math.min(1,num('employmentIncomeTaxablePct')/100));
+  return {gross,taxable};
+}
+function phasedIncomeGoal(primaryAge,standardGoal,bridgeGoal){
+  if(!incomePhasesEnabled()) return Math.max(standardGoal,bridgeGoal);
+  const phase2Start=Math.floor(num('phase2StartAge')||67);
+  const phase3Start=Math.floor(num('phase3StartAge')||85);
+  const colaStopAge=Math.floor(num('incomeGoalColaStopAge')||phase3Start);
+  let goal=0;
+  if(primaryAge>=phase3Start){ goal=Math.max(0,num('phase3IncomeGoal')); }
+  else if(primaryAge>=phase2Start){
+    const base=Math.max(0,num('phase2IncomeGoal'));
+    const colaRate=Math.max(0,num('phase2IncomeCola')/100);
+    const colaYears=Math.max(0,Math.min(primaryAge,colaStopAge)-phase2Start);
+    goal=base*Math.pow(1+colaRate,colaYears);
+  } else {
+    const base=Math.max(0,num('phase1IncomeGoal'));
+    const colaRate=Math.max(0,num('phase1IncomeCola')/100);
+    const startAge=Math.floor(num('incomeStartAge')||primaryAge);
+    const colaYears=Math.max(0,primaryAge-startAge);
+    goal=base*Math.pow(1+colaRate,colaYears);
+  }
+  return Math.max(goal,bridgeGoal);
+}
+function incomePhaseSummaryText(){
+  if(!incomePhasesEnabled()) return '';
+  const owner=document.getElementById('employmentIncomeOwner')?.value==='wife'?displayClient2Name():displayClient1Name();
+  return `Income phases are enabled. ${owner} employment income is modeled at ${fmt2(num('employmentIncomeAnnual'))} with ${num('employmentIncomeCola').toFixed(1)}% COLA until owner age ${Math.floor(num('employmentIncomeEndAge')||67)}. Phase 1 target income is ${fmt2(num('phase1IncomeGoal'))}; Phase 2 target income is ${fmt2(num('phase2IncomeGoal'))} beginning at primary age ${Math.floor(num('phase2StartAge')||67)}; Phase 3/frozen target income is ${fmt2(num('phase3IncomeGoal'))} beginning at primary age ${Math.floor(num('phase3StartAge')||85)}. Roth withdrawals are not used before Strategy Year ${Math.max(1,Math.floor(num('rothWithdrawalStartYear')||10))}.`;
+}
+
 function buildScenario(useStrategy){
   const filingStart=(document.getElementById('filingStatus')?.value || 'MFJ');
   let status=filingStart;
@@ -2005,10 +2045,11 @@ function buildScenario(useStrategy){
     const wIncomeEndAge = Math.floor(num('wIncomeEndAge') || 65);
     const husbandCurrentGrossIncome = (hAge < hIncomeEndAge) ? num('hCurrentIncome') : 0;
     const wifeCurrentGrossIncome = (currentStatus==='MFJ' && wAge < wIncomeEndAge) ? num('wCurrentIncome') : 0;
-    currentGrossIncome = husbandCurrentGrossIncome + wifeCurrentGrossIncome;
+    const employmentIncome = getEmploymentIncome(primaryAge, hAge, wAge, currentStatus);
+    currentGrossIncome = husbandCurrentGrossIncome + wifeCurrentGrossIncome + employmentIncome.gross;
     const husbandCurrentTaxableIncome = (hAge < hIncomeEndAge) ? num('hTaxableIncome') : 0;
     const wifeCurrentTaxableIncome = (currentStatus==='MFJ' && wAge < wIncomeEndAge) ? num('wTaxableIncome') : 0;
-    currentTaxableIncome = husbandCurrentTaxableIncome + wifeCurrentTaxableIncome;
+    currentTaxableIncome = husbandCurrentTaxableIncome + wifeCurrentTaxableIncome + employmentIncome.taxable;
 
     const hSS = getClient1SocialSecurity(hAge, cola);
     let wSS = (currentStatus==='MFJ' && wSSBase>0 && wAge>=wSSStart) ? wSSBase*Math.pow(1+cola,Math.max(0,wAge-wSSStart)) : 0;
@@ -2033,7 +2074,7 @@ function buildScenario(useStrategy){
       ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
       : 0;
     const bridgeIncomeGoal = (primaryAge < incomeStartAge) ? Math.max(0, plannedIraWithdrawal + plannedNqWithdrawal) : 0;
-    const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal);
+    const desiredIncome = phasedIncomeGoal(primaryAge, retirementIncomeGoal, bridgeIncomeGoal);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
     const beginningIraForYear = Math.max(0, ira);
@@ -2061,7 +2102,8 @@ function buildScenario(useStrategy){
 
     let remainingNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed + iraUsedForIncome));
 
-    const availableRoth = rothBuckets.reduce((sum,b)=> sum + (year >= b.availableYear ? b.balance : 0), 0);
+    const rothWithdrawalStartYear = incomePhasesEnabled() ? Math.max(1, Math.floor(num('rothWithdrawalStartYear') || 10)) : 1;
+    const availableRoth = rothBuckets.reduce((sum,b)=> sum + ((year >= b.availableYear && year >= rothWithdrawalStartYear) ? b.balance : 0), 0);
     if(useStrategy && remainingNeed > 0 && availableRoth > 0){
       rothWithdrawal = Math.min(availableRoth, remainingNeed);
       remainingNeed -= rothWithdrawal;
@@ -2431,101 +2473,6 @@ function renderDetailPreview(after){
 
 
 let latest=null;
-
-function nuaAnalysisEnabled(){
-  return (document.getElementById('nuaEnabled')?.value || 'no') === 'yes';
-}
-function getNuaAnalysis(){
-  const stockValue = Math.max(0, num('nuaStockValue'));
-  const costBasis = Math.max(0, Math.min(stockValue, num('nuaCostBasis')));
-  const nuaGain = Math.max(0, stockValue - costBasis);
-  const ordinaryRate = Math.max(0, num('nuaOrdinaryRate') / 100);
-  const capGainRate = Math.max(0, num('nuaCapitalGainsRate') / 100);
-  const niitRate = (document.getElementById('nuaIncludeNiit')?.value || 'no') === 'yes' ? 0.038 : 0;
-  const combinedCapGainRate = capGainRate + niitRate;
-  const rolloverOrdinaryTax = stockValue * ordinaryRate;
-  const nuaBasisOrdinaryTax = costBasis * ordinaryRate;
-  const nuaGainTax = nuaGain * combinedCapGainRate;
-  const totalNuaTax = nuaBasisOrdinaryTax + nuaGainTax;
-  const estimatedTaxSavings = rolloverOrdinaryTax - totalNuaTax;
-  const nuaPercent = stockValue > 0 ? nuaGain / stockValue : 0;
-  let score = 'Not entered';
-  if(stockValue > 0){
-    if(nuaPercent >= 0.75) score = 'Exceptional NUA Candidate';
-    else if(nuaPercent >= 0.50) score = 'Strong NUA Candidate';
-    else if(nuaPercent >= 0.25) score = 'Moderate NUA Candidate';
-    else score = 'Weak NUA Candidate';
-  }
-  const selected = document.getElementById('nuaRecommendedTreatment')?.value || 'auto';
-  let recommendation;
-  if(selected === 'nua') recommendation = 'Use NUA Strategy';
-  else if(selected === 'ira') recommendation = 'Roll All to IRA';
-  else if(selected === 'hybrid') recommendation = 'NUA + Roth Conversion Hybrid';
-  else recommendation = estimatedTaxSavings > 0 ? 'NUA + Roth Conversion Hybrid' : 'Compare with IRA Rollover';
-  const qualifyingEvent = document.getElementById('nuaQualifyingEvent')?.value || 'unknown';
-  return {stockValue,costBasis,nuaGain,ordinaryRate,capGainRate,niitRate,combinedCapGainRate,rolloverOrdinaryTax,nuaBasisOrdinaryTax,nuaGainTax,totalNuaTax,estimatedTaxSavings,nuaPercent,score,recommendation,qualifyingEvent};
-}
-function nuaPreviewRows(){
-  const n = getNuaAnalysis();
-  return [
-    ['Employer Stock Value', fmt2(n.stockValue)],
-    ['Cost Basis Taxed as Ordinary Income', fmt2(n.costBasis)],
-    ['Net Unrealized Appreciation Gain', fmt2(n.nuaGain)],
-    ['NUA Gain % of Stock Value', (n.nuaPercent*100).toFixed(1) + '%'],
-    ['Roll All to IRA - Estimated Ordinary Income Tax', fmt2(n.rolloverOrdinaryTax)],
-    ['NUA Strategy - Basis Ordinary Tax', fmt2(n.nuaBasisOrdinaryTax)],
-    ['NUA Strategy - Capital Gain Tax on NUA', fmt2(n.nuaGainTax)],
-    ['NUA Strategy - Estimated Total Tax', fmt2(n.totalNuaTax)],
-    ['Estimated Tax Savings vs IRA Rollover', fmt2(n.estimatedTaxSavings)],
-    ['NUA Opportunity Score', n.score],
-    ['Planning Direction', n.recommendation]
-  ];
-}
-function renderNuaPreview(){
-  const table = document.getElementById('nuaPreviewTable');
-  const note = document.getElementById('nuaPreviewNote');
-  if(!table) return;
-  if(!nuaAnalysisEnabled()){
-    table.querySelector('tbody').innerHTML = '<tr><td>Enable NUA Strategy to view results</td><td>—</td></tr>';
-    if(note) note.textContent = '';
-    return;
-  }
-  table.querySelector('tbody').innerHTML = nuaPreviewRows().map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
-  const n = getNuaAnalysis();
-  if(note) note.textContent = `Planning note: ${n.recommendation}. NUA can be especially valuable when employer stock appreciation is high because the cost basis is taxed as ordinary income while the NUA gain may be taxed at long-term capital gains rates when sold. Confirm eligibility and distribution mechanics before implementation.`;
-}
-function addNuaPdfPage(doc){
-  if(!nuaAnalysisEnabled()) return;
-  const n = getNuaAnalysis();
-  doc.addPage();
-  addTitle(doc,'Net Unrealized Appreciation (NUA) Analysis','Compares rolling employer stock to an IRA versus using NUA treatment when available.');
-  addPdfLogo(doc);
-  doc.autoTable({
-    startY:78,
-    head:[['NUA Item','Amount / Result']],
-    body:nuaPreviewRows(),
-    styles:{fontSize:10,cellPadding:5,overflow:'linebreak'},
-    columnStyles:{0:{fontStyle:'bold',cellWidth:310},1:{cellWidth:360,halign:'right'}},
-    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
-    alternateRowStyles:{fillColor:[245,247,250]},
-    margin:{left:48,right:48}
-  });
-  const y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 20 : 260);
-  doc.setFillColor(236,253,245);
-  doc.setDrawColor(0,150,80);
-  doc.roundedRect(48, y, 698, 122, 8, 8, 'FD');
-  doc.setFont(undefined,'bold');
-  doc.setFontSize(12);
-  doc.setTextColor(0,100,0);
-  doc.text('Planning Interpretation', 64, y + 24);
-  doc.setFont(undefined,'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(31,41,55);
-  const note = `The illustrated employer stock has ${fmt2(n.nuaGain)} of net unrealized appreciation, equal to ${(n.nuaPercent*100).toFixed(1)}% of the stock value. Based on the entered rates, the NUA strategy shows estimated tax savings of ${fmt2(n.estimatedTaxSavings)} versus rolling the entire employer stock value into an IRA and later taxing it as ordinary income. Recommended planning direction: ${n.recommendation}.`;
-  doc.text(doc.splitTextToSize(note, 660), 64, y + 46);
-  addPdfFooter(doc, doc.getNumberOfPages());
-}
-
 function calculate(){
   setupSpouseVisibility();
   refreshClientDisplay();
@@ -2557,7 +2504,6 @@ function calculate(){
   document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()}, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)}, then adds any enabled guaranteed tax-free FIA income, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth, with growth and fees applied as separate compounding steps. Additional Roth account funds, if entered, are tracked as tax-free assets with bonus, fee, and growth treatment but are not reduced by Roth conversion taxes. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   renderDetailPreview(after);
   renderRothConversionSchedule(after);
-  renderNuaPreview();
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
 
@@ -3578,9 +3524,6 @@ function generatePDF(){
   // Social Security Maximization page
   addSocialSecurityMaximizationPdfPage(doc, before, after);
 
-  // Net Unrealized Appreciation page, when enabled
-  addNuaPdfPage(doc);
-
   // Legacy Value Comparison page
   doc.addPage();
   addTitle(doc,'Legacy Value Comparison','Illustrates projected net legacy value before and after the Roth strategy.');
@@ -4006,7 +3949,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets use a fixed 2.3% COLA; tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA uses the 2026 Medicare Part B and Part D IRMAA tiers supplied by the advisor; IRMAA income brackets are inflated annually at a fixed 2.3% COLA. IRMAA uses a two-year MAGI lookback when prior projection years are available and includes a smoothing guard so projected IRMAA does not drop without a material lookback-income or filing-status change. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()}. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. ${incomePhaseSummaryText()} If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets use a fixed 2.3% COLA; tax brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA uses the 2026 Medicare Part B and Part D IRMAA tiers supplied by the advisor; IRMAA income brackets are inflated annually at a fixed 2.3% COLA. IRMAA uses a two-year MAGI lookback when prior projection years are available and includes a smoothing guard so projected IRMAA does not drop without a material lookback-income or filing-status change. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()}. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
