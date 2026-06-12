@@ -595,6 +595,23 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         </div>
       </div>
 
+
+      <div class="card" id="nuaAnalysisInputCard">
+        <h2 class="section-title">Net Unrealized Appreciation (NUA) Analysis</h2>
+        <div class="small" style="margin-bottom:12px;">Use this when a client has highly appreciated employer stock inside a qualified plan. The module compares rolling the employer stock to an IRA versus using NUA treatment, where the cost basis is taxed as ordinary income and the NUA gain may receive long-term capital gains treatment when sold.</div>
+        <div class="inputs-grid">
+          <div class="field"><label>Enable NUA Strategy</label><select id="nuaEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+          <div class="field"><label>Employer Stock Value</label><input id="nuaStockValue" type="number" value="0" step="1000" /></div>
+          <div class="field"><label>Employer Stock Cost Basis</label><input id="nuaCostBasis" type="number" value="0" step="1000" /></div>
+          <div class="field"><label>Ordinary Income Tax Rate %</label><input id="nuaOrdinaryRate" type="number" value="32" min="0" max="60" step="0.1" /></div>
+          <div class="field"><label>Long-Term Capital Gain Rate %</label><input id="nuaCapitalGainsRate" type="number" value="15" min="0" max="30" step="0.1" /></div>
+          <div class="field"><label>Additional 3.8% NIIT?</label><select id="nuaIncludeNiit"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+          <div class="field"><label>NUA Qualifying Event</label><select id="nuaQualifyingEvent"><option value="retirement" selected>Separation / Retirement</option><option value="age59">Age 59 1/2</option><option value="death">Death</option><option value="disability">Disability</option><option value="unknown">Confirm Eligibility</option></select></div>
+          <div class="field"><label>Recommended Treatment</label><select id="nuaRecommendedTreatment"><option value="auto" selected>Auto Based on Tax Savings</option><option value="nua">Use NUA Strategy</option><option value="ira">Roll All to IRA</option><option value="hybrid">NUA + Roth Conversion Hybrid</option></select></div>
+        </div>
+        <div class="small" style="margin-top:10px;">Important: NUA requires specific distribution rules. This illustration is for planning comparison only and should be coordinated with the plan administrator and tax professional before any distribution.</div>
+      </div>
+
       <div class="card">
         <h2 class="section-title">Premium / FIA Funding Inputs</h2>
         <div class="small" id="premiumModeNote" style="margin-bottom:10px;">Used only in FIA / Income or Hybrid mode. In Roth Conversion Only mode, the conversion base is the entered IRA balance.</div>
@@ -683,6 +700,16 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
       </div>
 
 
+
+
+      <div class="card" id="nuaAnalysisPreviewCard">
+        <h2 class="section-title">NUA Strategy Preview</h2>
+        <div class="small">Compares treating employer stock as an IRA rollover against using Net Unrealized Appreciation treatment.</div>
+        <div style="overflow:auto;margin-top:12px;">
+          <table id="nuaPreviewTable"><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody><tr><td>Enable NUA Strategy to view results</td><td>—</td></tr></tbody></table>
+        </div>
+        <div class="small" id="nuaPreviewNote" style="margin-top:10px;"></div>
+      </div>
 
       <div class="card" id="manualRothConversionCard">
         <h2 class="section-title">Manual Multi-Year Roth Conversion Calculator</h2>
@@ -1387,7 +1414,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','strategyObjective','ssMaxEnabled','ssMaxCustomNote','ssMaxH62','ssMaxH65','ssMaxH67','ssMaxH70','ssMaxW62','ssMaxW65','ssMaxW67','ssMaxW70','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeYears','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','fia2Enabled','fia2Title','fia2AnnualIncome','fia2StartYear','fia2Cola','fia2Owner','fia2SurvivorPct','fia2SurvivorCustom','fia2DeathBenefitHorizon','fia2ProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
+const allIds = ['strategyMasterMode','strategyObjective','ssMaxEnabled','ssMaxCustomNote','ssMaxH62','ssMaxH65','ssMaxH67','ssMaxH70','ssMaxW62','ssMaxW65','ssMaxW67','ssMaxW70','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeYears','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','fia2Enabled','fia2Title','fia2AnnualIncome','fia2StartYear','fia2Cola','fia2Owner','fia2SurvivorPct','fia2SurvivorCustom','fia2DeathBenefitHorizon','fia2ProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','nuaEnabled','nuaStockValue','nuaCostBasis','nuaOrdinaryRate','nuaCapitalGainsRate','nuaIncludeNiit','nuaQualifyingEvent','nuaRecommendedTreatment'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -2404,6 +2431,101 @@ function renderDetailPreview(after){
 
 
 let latest=null;
+
+function nuaAnalysisEnabled(){
+  return (document.getElementById('nuaEnabled')?.value || 'no') === 'yes';
+}
+function getNuaAnalysis(){
+  const stockValue = Math.max(0, num('nuaStockValue'));
+  const costBasis = Math.max(0, Math.min(stockValue, num('nuaCostBasis')));
+  const nuaGain = Math.max(0, stockValue - costBasis);
+  const ordinaryRate = Math.max(0, num('nuaOrdinaryRate') / 100);
+  const capGainRate = Math.max(0, num('nuaCapitalGainsRate') / 100);
+  const niitRate = (document.getElementById('nuaIncludeNiit')?.value || 'no') === 'yes' ? 0.038 : 0;
+  const combinedCapGainRate = capGainRate + niitRate;
+  const rolloverOrdinaryTax = stockValue * ordinaryRate;
+  const nuaBasisOrdinaryTax = costBasis * ordinaryRate;
+  const nuaGainTax = nuaGain * combinedCapGainRate;
+  const totalNuaTax = nuaBasisOrdinaryTax + nuaGainTax;
+  const estimatedTaxSavings = rolloverOrdinaryTax - totalNuaTax;
+  const nuaPercent = stockValue > 0 ? nuaGain / stockValue : 0;
+  let score = 'Not entered';
+  if(stockValue > 0){
+    if(nuaPercent >= 0.75) score = 'Exceptional NUA Candidate';
+    else if(nuaPercent >= 0.50) score = 'Strong NUA Candidate';
+    else if(nuaPercent >= 0.25) score = 'Moderate NUA Candidate';
+    else score = 'Weak NUA Candidate';
+  }
+  const selected = document.getElementById('nuaRecommendedTreatment')?.value || 'auto';
+  let recommendation;
+  if(selected === 'nua') recommendation = 'Use NUA Strategy';
+  else if(selected === 'ira') recommendation = 'Roll All to IRA';
+  else if(selected === 'hybrid') recommendation = 'NUA + Roth Conversion Hybrid';
+  else recommendation = estimatedTaxSavings > 0 ? 'NUA + Roth Conversion Hybrid' : 'Compare with IRA Rollover';
+  const qualifyingEvent = document.getElementById('nuaQualifyingEvent')?.value || 'unknown';
+  return {stockValue,costBasis,nuaGain,ordinaryRate,capGainRate,niitRate,combinedCapGainRate,rolloverOrdinaryTax,nuaBasisOrdinaryTax,nuaGainTax,totalNuaTax,estimatedTaxSavings,nuaPercent,score,recommendation,qualifyingEvent};
+}
+function nuaPreviewRows(){
+  const n = getNuaAnalysis();
+  return [
+    ['Employer Stock Value', fmt2(n.stockValue)],
+    ['Cost Basis Taxed as Ordinary Income', fmt2(n.costBasis)],
+    ['Net Unrealized Appreciation Gain', fmt2(n.nuaGain)],
+    ['NUA Gain % of Stock Value', (n.nuaPercent*100).toFixed(1) + '%'],
+    ['Roll All to IRA - Estimated Ordinary Income Tax', fmt2(n.rolloverOrdinaryTax)],
+    ['NUA Strategy - Basis Ordinary Tax', fmt2(n.nuaBasisOrdinaryTax)],
+    ['NUA Strategy - Capital Gain Tax on NUA', fmt2(n.nuaGainTax)],
+    ['NUA Strategy - Estimated Total Tax', fmt2(n.totalNuaTax)],
+    ['Estimated Tax Savings vs IRA Rollover', fmt2(n.estimatedTaxSavings)],
+    ['NUA Opportunity Score', n.score],
+    ['Planning Direction', n.recommendation]
+  ];
+}
+function renderNuaPreview(){
+  const table = document.getElementById('nuaPreviewTable');
+  const note = document.getElementById('nuaPreviewNote');
+  if(!table) return;
+  if(!nuaAnalysisEnabled()){
+    table.querySelector('tbody').innerHTML = '<tr><td>Enable NUA Strategy to view results</td><td>—</td></tr>';
+    if(note) note.textContent = '';
+    return;
+  }
+  table.querySelector('tbody').innerHTML = nuaPreviewRows().map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+  const n = getNuaAnalysis();
+  if(note) note.textContent = `Planning note: ${n.recommendation}. NUA can be especially valuable when employer stock appreciation is high because the cost basis is taxed as ordinary income while the NUA gain may be taxed at long-term capital gains rates when sold. Confirm eligibility and distribution mechanics before implementation.`;
+}
+function addNuaPdfPage(doc){
+  if(!nuaAnalysisEnabled()) return;
+  const n = getNuaAnalysis();
+  doc.addPage();
+  addTitle(doc,'Net Unrealized Appreciation (NUA) Analysis','Compares rolling employer stock to an IRA versus using NUA treatment when available.');
+  addPdfLogo(doc);
+  doc.autoTable({
+    startY:78,
+    head:[['NUA Item','Amount / Result']],
+    body:nuaPreviewRows(),
+    styles:{fontSize:10,cellPadding:5,overflow:'linebreak'},
+    columnStyles:{0:{fontStyle:'bold',cellWidth:310},1:{cellWidth:360,halign:'right'}},
+    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,247,250]},
+    margin:{left:48,right:48}
+  });
+  const y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 20 : 260);
+  doc.setFillColor(236,253,245);
+  doc.setDrawColor(0,150,80);
+  doc.roundedRect(48, y, 698, 122, 8, 8, 'FD');
+  doc.setFont(undefined,'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(0,100,0);
+  doc.text('Planning Interpretation', 64, y + 24);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(31,41,55);
+  const note = `The illustrated employer stock has ${fmt2(n.nuaGain)} of net unrealized appreciation, equal to ${(n.nuaPercent*100).toFixed(1)}% of the stock value. Based on the entered rates, the NUA strategy shows estimated tax savings of ${fmt2(n.estimatedTaxSavings)} versus rolling the entire employer stock value into an IRA and later taxing it as ordinary income. Recommended planning direction: ${n.recommendation}.`;
+  doc.text(doc.splitTextToSize(note, 660), 64, y + 46);
+  addPdfFooter(doc, doc.getNumberOfPages());
+}
+
 function calculate(){
   setupSpouseVisibility();
   refreshClientDisplay();
@@ -2435,6 +2557,7 @@ function calculate(){
   document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()}, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)}, then adds any enabled guaranteed tax-free FIA income, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth, with growth and fees applied as separate compounding steps. Additional Roth account funds, if entered, are tracked as tax-free assets with bonus, fee, and growth treatment but are not reduced by Roth conversion taxes. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
   renderDetailPreview(after);
   renderRothConversionSchedule(after);
+  renderNuaPreview();
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
 
@@ -3454,6 +3577,9 @@ function generatePDF(){
 
   // Social Security Maximization page
   addSocialSecurityMaximizationPdfPage(doc, before, after);
+
+  // Net Unrealized Appreciation page, when enabled
+  addNuaPdfPage(doc);
 
   // Legacy Value Comparison page
   doc.addPage();
