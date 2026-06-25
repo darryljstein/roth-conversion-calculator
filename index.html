@@ -3008,8 +3008,9 @@ function generatePDF(){
       margin:{left:40,right:40}
     });
     const yA = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 18 : 170;
-    const firstAfter = after.details.find(r => (r.guaranteedTaxFreeIncome||0)>0 || (r.taxFreeIncome||0)>0) || after.details[0] || {};
-    const proposedTaxFreeIncome = Math.max(num('fiaAnnualIncome'), firstAfter.guaranteedTaxFreeIncome || firstAfter.taxFreeIncome || 0);
+    const firstAfter = after.details.find(r => (r.guaranteedTaxableIncome||0)>0 || (r.guaranteedTaxFreeIncome||0)>0 || (r.taxFreeIncome||0)>0) || after.details[0] || {};
+    const proposedGuaranteedIncome = Math.max(num('fiaAnnualIncome'), firstAfter.guaranteedTaxableIncome || firstAfter.guaranteedTaxFreeIncome || firstAfter.taxFreeIncome || 0);
+    const proposedIncomeTreatment = fiaIncomeIsTaxFree() ? 'tax-free' : 'taxable';
     const beforeTaxable = sumExistingAnnuityIncome();
     const annualTaxableReduction = beforeTaxable;
 
@@ -3019,7 +3020,7 @@ function generatePDF(){
     doc.setTextColor(220,53,69);
     doc.text('CURRENT PLAN: Taxable Rider Income', 68, yA+22);
     doc.setTextColor(0,150,80);
-    doc.text('PROPOSED PLAN: Roth / Tax-Free Strategy', 445, yA+22);
+    doc.text(fiaIncomeIsTaxFree() ? 'PROPOSED PLAN: Roth / Tax-Free Strategy' : 'PROPOSED PLAN: Guaranteed Taxable Income Strategy', 445, yA+22);
     doc.setDrawColor(220,53,69); doc.setFillColor(255,241,242);
     doc.roundedRect(52, yA+34, 310, 220, 10, 10, 'FD');
     doc.setDrawColor(0,150,80); doc.setFillColor(236,253,245);
@@ -3037,8 +3038,8 @@ function generatePDF(){
       `Premium / conversion base: ${fmt2(after.premium)}`,
       `Bonus modeled: ${Number(after.bonusPct || 0).toFixed(1)}% = ${fmt2(after.bonus)}`,
       `Projected tax-free estate: ${fmt2(after.taxFreeEstate)}`,
-      `Tax-free income modeled: ${fmt2(proposedTaxFreeIncome)}`,
-      'Roth / tax-free income is designed to reduce future taxable income and improve legacy efficiency.'
+      `${fiaIncomeIsTaxFree() ? 'Tax-free income modeled' : 'Guaranteed taxable income modeled'}: ${fmt2(proposedGuaranteedIncome)}`,
+      fiaIncomeIsTaxFree() ? 'Roth / tax-free income is designed to reduce future taxable income and improve legacy efficiency.' : 'Guaranteed taxable income is designed to replace the existing taxable rider income while preserving the Roth reserve / legacy strategy.'
     ];
     leftLines.forEach((t,i)=>doc.text(doc.splitTextToSize('• '+t, 270), 72, yA+64+i*34));
     rightLines.forEach((t,i)=>doc.text(doc.splitTextToSize('• '+t, 270), 450, yA+64+i*34));
@@ -3057,7 +3058,7 @@ function generatePDF(){
 
   if((document.getElementById('fiaEnabled')?.value || 'no') === 'yes'){
     doc.addPage();
-    addTitle(doc,'Income vs Legacy Tradeoff','Shows how the Roth-converted annuity prioritizes joint lifetime income over residual death benefit.');
+    addTitle(doc,'Income vs Legacy Tradeoff', fiaIncomeIsTaxFree() ? 'Shows how the Roth-converted annuity prioritizes joint lifetime income over residual death benefit.' : 'Shows how the taxable income annuity prioritizes joint lifetime income over residual death benefit.');
     addPdfLogo(doc);
     const horizonAge = planningHorizonAge();
     const firstFiaRow = after.details.find(r => (r.guaranteedTaxFreeIncome || 0) > 0) || after.details[0] || {};
@@ -3104,8 +3105,8 @@ function generatePDF(){
     }
 
     const tradeRows = [
-      ['Roth-converted income annuity funding base', fmt2(rothFundingBase)],
-      ['Annual tax-free joint income at start', fmt2(annualTaxFreeIncome)],
+      [fiaIncomeIsTaxFree() ? 'Roth-converted income annuity funding base' : 'Taxable income annuity funding base', fmt2(rothFundingBase)],
+      [fiaIncomeIsTaxFree() ? 'Annual tax-free joint income at start' : 'Annual taxable joint income at start', fmt2(annualTaxFreeIncome)],
       ['Income begins', `Year ${Math.max(1, Math.floor(num('fiaStartYear') || 6))} / Age ${startAgeText}`],
       [fiaIncomeIsTaxFree() ? 'Total guaranteed tax-free income through horizon' : 'Total guaranteed taxable income through horizon', fmt2(totalJointIncome)],
       ['Guaranteed death benefit at horizon (0% scenario)', fmt2(guaranteedDeathBenefitAtHorizon)],
@@ -3127,7 +3128,7 @@ function generatePDF(){
 
     // Compact outcome cards, with a hard stop above the footer/disclaimer area.
     doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.setTextColor(11,58,111);
-    doc.text('What the client is buying: tax-free income certainty, with residual value shown separately', 52, y1);
+    doc.text(fiaIncomeIsTaxFree() ? 'What the client is buying: tax-free income certainty, with residual value shown separately' : 'What the client is buying: guaranteed taxable income certainty, with residual value shown separately', 52, y1);
 
     const cardY = y1 + 16;
     const cardH = 58;
@@ -3141,7 +3142,7 @@ function generatePDF(){
       doc.setFontSize(14);
       doc.text(value, x+13, cardY + 45);
     };
-    drawOutcomeCard(52, 'Cumulative tax-free income paid', fmt2(totalJointIncome), [0,150,80], [236,253,245], [0,110,55]);
+    drawOutcomeCard(52, fiaIncomeIsTaxFree() ? 'Cumulative tax-free income paid' : 'Cumulative taxable income paid', fmt2(totalJointIncome), [0,150,80], [236,253,245], [0,110,55]);
     drawOutcomeCard(52+cardW+cardGap, 'Guaranteed death benefit at horizon (0% scenario)', fmt2(guaranteedDeathBenefitAtHorizon), [107,114,128], [243,244,246], [75,85,99]);
     drawOutcomeCard(52+(cardW+cardGap)*2, 'Projected tax-free residual benefit (non-guaranteed)', fmt2(projectedResidualAtHorizon), [0,150,80], [220,252,231], [0,110,55]);
 
