@@ -269,6 +269,47 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
       </div>
     </div>
   </div>
+
+
+  <div class="card" id="standaloneRothCalculator" style="border:2px solid #0b3a6f; margin-bottom:22px;">
+    <h2 class="section-title">Stand-Alone Roth Conversion Calculator</h2>
+    <div class="small" style="margin-bottom:12px;">Quick calculator for a simple IRA-to-Roth conversion without FIA, premium finance, income rider, or hybrid planning inputs.</div>
+    <div class="inputs-grid" style="grid-template-columns:repeat(4,minmax(160px,1fr));">
+      <div class="field"><label>Filing Status</label><select id="saFilingStatus"><option value="MFJ">Married Filing Jointly</option><option value="Single">Single</option><option value="HOH">Head of Household</option></select></div>
+      <div class="field"><label>Client 1 Age</label><input id="saClient1Age" type="number" value="65" min="40" max="100" /></div>
+      <div class="field"><label>Client 2 Age</label><input id="saClient2Age" type="number" value="62" min="40" max="100" /></div>
+      <div class="field"><label>Current Taxable Income</label><input id="saTaxableIncome" type="number" value="100000" step="1000" /></div>
+      <div class="field"><label>Current Social Security</label><input id="saSocialSecurity" type="number" value="0" step="1000" /></div>
+      <div class="field"><label>IRA Balance</label><input id="saIraBalance" type="number" value="500000" step="1000" /></div>
+      <div class="field"><label>Conversion Amount</label><input id="saConversionAmount" type="number" value="50000" step="1000" /></div>
+      <div class="field"><label>Growth %</label><input id="saGrowth" type="number" value="6" step="0.1" /></div>
+      <div class="field"><label>Years to Project</label><input id="saYears" type="number" value="20" min="1" max="40" step="1" /></div>
+      <div class="field"><label>Heir IRA Tax Rate %</label><input id="saHeirTaxRate" type="number" value="25" min="0" max="60" step="0.1" /></div>
+      <div class="field"><label>Tax Bracket Inflation %</label><input id="saTaxInflation" type="number" value="2.6" step="0.1" /></div>
+      <div class="field"><label>Quick Action</label><button type="button" class="primary" onclick="standaloneRothCalculate()">Calculate Roth Conversion</button></div>
+    </div>
+    <div class="three-col" style="margin-top:16px;">
+      <div class="panel"><h3>Tax Impact</h3><table><tbody>
+        <tr><td>Tax Before Conversion</td><td id="saTaxBefore">$0</td></tr>
+        <tr><td>Tax After Conversion</td><td id="saTaxAfter">$0</td></tr>
+        <tr><td>Estimated Conversion Tax</td><td id="saConversionTax">$0</td></tr>
+        <tr><td>Effective Tax Rate on Conversion</td><td id="saEffectiveRate">0.0%</td></tr>
+      </tbody></table></div>
+      <div class="panel"><h3>Projected Account Impact</h3><table><tbody>
+        <tr><td>IRA Remaining After Conversion</td><td id="saIraRemaining">$0</td></tr>
+        <tr><td>Projected Roth Value</td><td id="saRothProjected">$0</td></tr>
+        <tr><td>Projected IRA Value</td><td id="saIraProjected">$0</td></tr>
+        <tr><td>Projected RMD Reduction</td><td id="saRmdReduction">$0</td></tr>
+      </tbody></table></div>
+      <div class="panel"><h3>Legacy View</h3><table><tbody>
+        <tr><td>Projected Tax-Free Roth Legacy</td><td id="saRothLegacy">$0</td></tr>
+        <tr><td>Estimated IRA Tax Exposure Avoided</td><td id="saTaxExposureAvoided">$0</td></tr>
+        <tr><td>Simple Net Legacy Benefit</td><td id="saNetBenefit">$0</td></tr>
+        <tr><td>Advisor Note</td><td id="saAdvisorNote">—</td></tr>
+      </tbody></table></div>
+    </div>
+  </div>
+
   <div class="grid">
     <div class="left-stack">
       <div class="card">
@@ -3687,6 +3728,80 @@ function importPlannerClientCase(event){
 }
 
 window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); applyMasterModeReset(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); refreshSavedClientSelect(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+
+
+
+function standaloneRothNum(id){
+  const el=document.getElementById(id);
+  return el ? (parseFloat(el.value)||0) : 0;
+}
+function standaloneRothSet(id, value){
+  const el=document.getElementById(id);
+  if(el) el.textContent=value;
+}
+function standaloneRothFmt(v){
+  return '$' + Math.round(Number(v||0)).toLocaleString('en-US');
+}
+function standaloneRothCalculate(){
+  try{
+    const status=(document.getElementById('saFilingStatus')?.value)||'MFJ';
+    const c1Age=standaloneRothNum('saClient1Age');
+    const c2Age=standaloneRothNum('saClient2Age');
+    const currentIncome=standaloneRothNum('saTaxableIncome');
+    const ss=standaloneRothNum('saSocialSecurity');
+    const ira=standaloneRothNum('saIraBalance');
+    const conversion=Math.min(Math.max(0,standaloneRothNum('saConversionAmount')), Math.max(0,ira));
+    const growth=standaloneRothNum('saGrowth')/100;
+    const years=Math.max(1,Math.floor(standaloneRothNum('saYears')||1));
+    const heirRate=standaloneRothNum('saHeirTaxRate')/100;
+
+    const cfg=(typeof getTaxConfig==='function') ? getTaxConfig(status,1,c1Age,c2Age) : null;
+    const taxableSSBefore=(typeof taxableSS==='function') ? taxableSS(ss,currentIncome,status) : 0;
+    const taxableBefore=currentIncome+taxableSSBefore;
+    const taxableSSAfter=(typeof taxableSS==='function') ? taxableSS(ss,currentIncome+conversion,status) : taxableSSBefore;
+    const taxableAfter=currentIncome+conversion+taxableSSAfter;
+    const taxBefore=cfg && typeof ordinaryTax==='function' ? ordinaryTax(taxableBefore,cfg) : taxableBefore*0.22;
+    const taxAfter=cfg && typeof ordinaryTax==='function' ? ordinaryTax(taxableAfter,cfg) : taxableAfter*0.22;
+    const conversionTax=Math.max(0,taxAfter-taxBefore);
+    const effectiveRate=conversion>0 ? conversionTax/conversion : 0;
+
+    const iraRemaining=Math.max(0,ira-conversion);
+    const factor=Math.pow(1+growth,years);
+    const rothProjected=conversion*factor;
+    const iraProjected=iraRemaining*factor;
+    const ageAtProjection=c1Age+years;
+    const rmdDivisor=Math.max(1, 90-ageAtProjection);
+    const rmdReduction=conversion*factor/rmdDivisor;
+    const taxExposureAvoided=rothProjected*heirRate;
+    const netBenefit=taxExposureAvoided-conversionTax;
+
+    standaloneRothSet('saTaxBefore',standaloneRothFmt(taxBefore));
+    standaloneRothSet('saTaxAfter',standaloneRothFmt(taxAfter));
+    standaloneRothSet('saConversionTax',standaloneRothFmt(conversionTax));
+    standaloneRothSet('saEffectiveRate',(effectiveRate*100).toFixed(1)+'%');
+    standaloneRothSet('saIraRemaining',standaloneRothFmt(iraRemaining));
+    standaloneRothSet('saRothProjected',standaloneRothFmt(rothProjected));
+    standaloneRothSet('saIraProjected',standaloneRothFmt(iraProjected));
+    standaloneRothSet('saRmdReduction',standaloneRothFmt(rmdReduction));
+    standaloneRothSet('saRothLegacy',standaloneRothFmt(rothProjected));
+    standaloneRothSet('saTaxExposureAvoided',standaloneRothFmt(taxExposureAvoided));
+    standaloneRothSet('saNetBenefit',standaloneRothFmt(netBenefit));
+    standaloneRothSet('saAdvisorNote', netBenefit>=0 ? 'Potentially favorable' : 'Review tax cost');
+  }catch(e){
+    console.error('Standalone Roth calculator error:',e);
+    standaloneRothSet('saAdvisorNote','Calculation error');
+  }
+}
+(function(){
+  function bindStandaloneRoth(){
+    document.querySelectorAll('#standaloneRothCalculator input,#standaloneRothCalculator select').forEach(el=>{
+      el.addEventListener('input',standaloneRothCalculate);
+      el.addEventListener('change',standaloneRothCalculate);
+    });
+    standaloneRothCalculate();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindStandaloneRoth); else bindStandaloneRoth();
+})();
 
 </script>
 </body></html>
