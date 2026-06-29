@@ -310,6 +310,52 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     </div>
   </div>
 
+  <div class="card" id="businessSaleThreeBucketModule" style="border:2px solid #c89a3d; margin-bottom:22px;">
+    <h2 class="section-title">Business Sale / 3-Bucket Wealth Strategy</h2>
+    <div class="small" style="margin-bottom:12px;">For clients selling a business or receiving a large taxable liquidity event. Models a simple 3-bucket allocation: guaranteed household income, long-term growth, and a self-directed stock market bucket.</div>
+    <div class="inputs-grid" style="grid-template-columns:repeat(4,minmax(160px,1fr));">
+      <div class="field"><label>Include 3-Bucket Strategy in PDF?</label><select id="bsEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+      <div class="field"><label>Client Age</label><input id="bsClientAge" type="number" value="80" min="40" max="100" /></div>
+      <div class="field"><label>Spouse Age</label><input id="bsSpouseAge" type="number" value="65" min="40" max="100" /></div>
+      <div class="field"><label>Expected Net Sale Proceeds</label><input id="bsNetProceeds" type="number" value="10000000" step="100000" /></div>
+      <div class="field"><label>Optional Tax Reserve %</label><input id="bsTaxReservePct" type="number" value="0" step="0.1" /></div>
+      <div class="field"><label>Bucket #1 Target Income</label><input id="bsIncomeTarget" type="number" value="250000" step="5000" /></div>
+      <div class="field"><label>Assumed Payout Rate %</label><input id="bsPayoutRate" type="number" value="5" step="0.1" /></div>
+      <div class="field"><label>Spouse Continuation %</label><input id="bsSpouseContinuation" type="number" value="100" step="5" min="0" max="100" /></div>
+      <div class="field"><label>Bucket #1 Tax Treatment</label><select id="bsIncomeTaxTreatment"><option value="taxable" selected>Taxable Guaranteed Income</option><option value="muni">Tax-Exempt Municipal Bond Income</option><option value="taxfree">Tax-Free / Roth-Based Income</option></select></div>
+      <div class="field"><label>Bucket #2 Growth Allocation %</label><input id="bsGrowthPct" type="number" value="65" step="1" min="0" max="100" /></div>
+      <div class="field"><label>Bucket #2 Growth Rate %</label><input id="bsGrowthRate" type="number" value="6" step="0.1" /></div>
+      <div class="field"><label>Bucket #2 Tax Drag %</label><input id="bsGrowthTaxDrag" type="number" value="1" step="0.1" /></div>
+      <div class="field"><label>Bucket #3 Play Account %</label><input id="bsPlayPct" type="number" value="35" step="1" min="0" max="100" /></div>
+      <div class="field"><label>Bucket #3 Growth Rate %</label><input id="bsPlayGrowthRate" type="number" value="7" step="0.1" /></div>
+      <div class="field"><label>Bucket #3 Tax Drag %</label><input id="bsPlayTaxDrag" type="number" value="2" step="0.1" /></div>
+      <div class="field"><label>Spouse Estate Share %</label><input id="bsSpouseEstatePct" type="number" value="20" step="1" min="0" max="100" /></div>
+      <div class="field"><label>Projection Years</label><input id="bsProjectionYears" type="number" value="15" min="1" max="40" step="1" /></div>
+      <div class="field"><label>Quick Action</label><button type="button" class="primary" onclick="calculateBusinessSaleBuckets(true)">Calculate 3-Bucket Strategy</button></div>
+    </div>
+    <div class="three-col" style="margin-top:16px;">
+      <div class="panel"><h3>Bucket #1: Guaranteed Income</h3><table><tbody>
+        <tr><td>Recommended Funding</td><td id="bsBucket1Funding">$0</td></tr>
+        <tr><td>Modeled Annual Income</td><td id="bsBucket1Income">$0</td></tr>
+        <tr><td>Survivor Income</td><td id="bsSurvivorIncome">$0</td></tr>
+        <tr><td>Tax Treatment</td><td id="bsBucket1TaxLabel">Taxable</td></tr>
+      </tbody></table></div>
+      <div class="panel"><h3>Bucket #2: Long-Term Growth</h3><table><tbody>
+        <tr><td>Recommended Funding</td><td id="bsBucket2Funding">$0</td></tr>
+        <tr><td>Projected Value</td><td id="bsBucket2Projected">$0</td></tr>
+        <tr><td>Annual Tax Drag Estimate</td><td id="bsBucket2TaxDrag">$0</td></tr>
+        <tr><td>Purpose</td><td>Growth / legacy</td></tr>
+      </tbody></table></div>
+      <div class="panel"><h3>Bucket #3: Stock Market Play Account</h3><table><tbody>
+        <tr><td>Recommended Funding</td><td id="bsBucket3Funding">$0</td></tr>
+        <tr><td>Projected Value</td><td id="bsBucket3Projected">$0</td></tr>
+        <tr><td>Annual Tax Drag Estimate</td><td id="bsBucket3TaxDrag">$0</td></tr>
+        <tr><td>Advisor Guardrail</td><td>Speculative / discretionary</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="note" style="margin-top:12px;">Planning note: This module is an allocation and income illustration only. For business-sale taxation, coordinate with the client's CPA, estate attorney, and transaction counsel before finalizing any strategy.</div>
+  </div>
+
   <div class="grid">
     <div class="left-stack">
       <div class="card">
@@ -2774,6 +2820,64 @@ function repairTaxFreeRothIncomeFlow(scenario){
   return scenario;
 }
 
+
+function businessSaleEnabled(){
+  return (document.getElementById('bsEnabled')?.value || 'no') === 'yes';
+}
+function businessSaleTaxLabel(){
+  const v = document.getElementById('bsIncomeTaxTreatment')?.value || 'taxable';
+  if(v === 'muni') return 'Tax-exempt municipal bond income';
+  if(v === 'taxfree') return 'Tax-free / Roth-based income';
+  return 'Taxable guaranteed income';
+}
+function calculateBusinessSaleBuckets(updateDom=false){
+  const proceeds = Math.max(0, num('bsNetProceeds'));
+  const taxReserve = proceeds * Math.max(0, num('bsTaxReservePct')) / 100;
+  const investable = Math.max(0, proceeds - taxReserve);
+  const targetIncome = Math.max(0, num('bsIncomeTarget'));
+  const payoutRate = Math.max(0.0001, num('bsPayoutRate') / 100);
+  const bucket1Need = targetIncome / payoutRate;
+  const bucket1 = Math.min(investable, bucket1Need);
+  const income = bucket1 * payoutRate;
+  const remaining = Math.max(0, investable - bucket1);
+  const growthPctRaw = Math.max(0, num('bsGrowthPct'));
+  const playPctRaw = Math.max(0, num('bsPlayPct'));
+  const pctTotal = Math.max(1, growthPctRaw + playPctRaw);
+  const bucket2 = remaining * (growthPctRaw / pctTotal);
+  const bucket3 = remaining * (playPctRaw / pctTotal);
+  const years = Math.max(1, Math.floor(num('bsProjectionYears') || 1));
+  const b2NetRate = Math.max(-0.99, (num('bsGrowthRate') - num('bsGrowthTaxDrag')) / 100);
+  const b3NetRate = Math.max(-0.99, (num('bsPlayGrowthRate') - num('bsPlayTaxDrag')) / 100);
+  const b2Projected = bucket2 * Math.pow(1 + b2NetRate, years);
+  const b3Projected = bucket3 * Math.pow(1 + b3NetRate, years);
+  const survivorIncome = income * Math.max(0, num('bsSpouseContinuation')) / 100;
+  const spouseEstateValue = (b2Projected + b3Projected) * Math.max(0, num('bsSpouseEstatePct')) / 100;
+  const taxTreatment = businessSaleTaxLabel();
+  const out = { proceeds, taxReserve, investable, bucket1, income, survivorIncome, bucket2, bucket3, b2Projected, b3Projected, years, spouseEstateValue, taxTreatment };
+  if(updateDom){
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('bsBucket1Funding', fmt2(bucket1));
+    set('bsBucket1Income', fmt2(income));
+    set('bsSurvivorIncome', fmt2(survivorIncome));
+    set('bsBucket1TaxLabel', taxTreatment);
+    set('bsBucket2Funding', fmt2(bucket2));
+    set('bsBucket2Projected', fmt2(b2Projected));
+    set('bsBucket2TaxDrag', fmt2(bucket2 * Math.max(0, num('bsGrowthTaxDrag')) / 100));
+    set('bsBucket3Funding', fmt2(bucket3));
+    set('bsBucket3Projected', fmt2(b3Projected));
+    set('bsBucket3TaxDrag', fmt2(bucket3 * Math.max(0, num('bsPlayTaxDrag')) / 100));
+  }
+  return out;
+}
+function bindBusinessSaleBuckets(){
+  ['bsEnabled','bsNetProceeds','bsTaxReservePct','bsIncomeTarget','bsPayoutRate','bsSpouseContinuation','bsIncomeTaxTreatment','bsGrowthPct','bsGrowthRate','bsGrowthTaxDrag','bsPlayPct','bsPlayGrowthRate','bsPlayTaxDrag','bsSpouseEstatePct','bsProjectionYears'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', () => calculateBusinessSaleBuckets(true));
+    if(el) el.addEventListener('change', () => calculateBusinessSaleBuckets(true));
+  });
+  calculateBusinessSaleBuckets(true);
+}
+
 function generatePDF(){
   try{
   if(!latest) calculate();
@@ -2884,6 +2988,54 @@ function generatePDF(){
   doc.setTextColor(60,60,60);
   doc.text(doc.splitTextToSize(scenarioSummaryText(), 680), 44, summaryY + 24);
   addPdfFooter(doc, doc.getNumberOfPages());
+
+  if(businessSaleEnabled && businessSaleEnabled()){
+    const bs = calculateBusinessSaleBuckets(false);
+    doc.addPage();
+    addTitle(doc,'Business Sale / 3-Bucket Wealth Strategy','Illustrates how expected business-sale proceeds may be segmented into income, growth, and discretionary buckets.');
+    addPdfLogo(doc);
+    doc.autoTable({
+      startY:78,
+      head:[['Planning Input','Modeled Value']],
+      body:[
+        ['Expected net sale proceeds', fmt2(bs.proceeds)],
+        ['Optional tax reserve', fmt2(bs.taxReserve)],
+        ['Net investable after reserve', fmt2(bs.investable)],
+        ['Client / spouse ages', `${Math.floor(num('bsClientAge')||0)} / ${Math.floor(num('bsSpouseAge')||0)}`],
+        ['Spouse estate share entered', `${Number(num('bsSpouseEstatePct')||0).toFixed(1)}%`]
+      ],
+      styles:{fontSize:10,cellPadding:4},
+      headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[245,247,250]},
+      margin:{left:40,right:40}
+    });
+    const y1 = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 160) + 18;
+    doc.autoTable({
+      startY:y1,
+      head:[['Bucket','Purpose','Funding','Modeled Outcome','Tax / Planning Note']],
+      body:[
+        ['Bucket #1','Guaranteed household income', fmt2(bs.bucket1), `${fmt2(bs.income)} annual income; survivor income ${fmt2(bs.survivorIncome)}`, bs.taxTreatment],
+        ['Bucket #2','Long-term growth / legacy', fmt2(bs.bucket2), `${fmt2(bs.b2Projected)} projected value in ${bs.years} years`, 'Growth bucket; taxable drag estimate depends on holdings and turnover'],
+        ['Bucket #3','Stock market play account', fmt2(bs.bucket3), `${fmt2(bs.b3Projected)} projected value in ${bs.years} years`, 'Discretionary / speculative bucket with defined guardrails']
+      ],
+      styles:{fontSize:9.5,cellPadding:4,overflow:'linebreak'},
+      headStyles:{fillColor:[200,154,61],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[245,247,250]},
+      columnStyles:{0:{cellWidth:90,fontStyle:'bold'},1:{cellWidth:145},2:{cellWidth:95,halign:'right'},3:{cellWidth:185},4:{cellWidth:230}},
+      margin:{left:40,right:40}
+    });
+    const y2 = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 330) + 22;
+    doc.setFont(undefined,'bold');
+    doc.setTextColor(11,58,111);
+    doc.setFontSize(12);
+    doc.text('Advisor positioning', 44, y2);
+    doc.setFont(undefined,'normal');
+    doc.setTextColor(55,65,81);
+    doc.setFontSize(10);
+    const note = 'Bucket #1 is designed to cover required household income with a contractual or highly predictable income source. Bucket #2 is designed for long-term growth, inflation protection, and legacy planning. Bucket #3 gives the client a defined pool for active stock-market participation without putting the income plan at risk. Business-sale taxation, charitable planning, estate structure, municipal bond suitability, and installment-sale or trust strategies should be reviewed with the client\'s CPA and estate attorney.';
+    doc.text(doc.splitTextToSize(note, 700), 44, y2 + 20);
+    addPdfFooter(doc, doc.getNumberOfPages());
+  }
 
   // Legacy Value Comparison page
   doc.addPage();
@@ -3801,6 +3953,7 @@ function standaloneRothCalculate(){
     standaloneRothCalculate();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindStandaloneRoth); else bindStandaloneRoth();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindBusinessSaleBuckets); else bindBusinessSaleBuckets();
 })();
 
 </script>
