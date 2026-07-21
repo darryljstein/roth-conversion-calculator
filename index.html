@@ -1851,12 +1851,18 @@ function buildScenario(useStrategy){
     const guaranteedLifetimeIncome = getGuaranteedLifetimeIncome(year, useStrategy, filingStart, deathApplied, deathWho);
     const guaranteedTaxFreeIncome = fiaIncomeIsTaxFree() ? guaranteedLifetimeIncome : 0;
     const guaranteedTaxableIncome = fiaIncomeIsTaxFree() ? 0 : guaranteedLifetimeIncome;
-    const existingAnnuityInfo = (!useStrategy) ? getExistingAnnuityIncomeForAge(primaryAge, filingStart, deathApplied, deathWho) : {gross:0,taxable:0,riders:[]};
+    // Existing rider income always appears on the Current Situation side. On the
+    // Strategy side it remains active when the advisor selects Retain or Supplement,
+    // and is removed only when Replace Existing Income Rider is selected.
+    const annuityIntent = existingAnnuityStrategyIntent();
+    const includeExistingAnnuityInScenario = !useStrategy || annuityIntent === 'retain' || annuityIntent === 'supplement';
+    const existingAnnuityInfo = includeExistingAnnuityInScenario
+      ? getExistingAnnuityIncomeForAge(primaryAge, filingStart, deathApplied, deathWho)
+      : {gross:0,taxable:0,riders:[]};
     const existingAnnuityIncome = existingAnnuityInfo.gross || 0;
     const existingAnnuityTaxableIncome = existingAnnuityInfo.taxable || 0;
-    // Keep existing taxable annuity riders separate from pension on the Before side.
-    // They still count in gross income and taxable income, but the report now shows them
-    // in their own column so clients can see the taxable rider income being replaced.
+    // Keep existing taxable annuity riders separate from pension on both reports so
+    // retained income remains visible and is included in taxes, IRMAA, and cash flow.
 
     const hIncomeEndAge = Math.floor(num('hIncomeEndAge') || 65);
     const wIncomeEndAge = Math.floor(num('wIncomeEndAge') || 65);
@@ -3256,7 +3262,9 @@ function generatePDF(){
     const proposedGuaranteedIncome = Math.max(num('fiaAnnualIncome'), firstAfter.guaranteedTaxableIncome || firstAfter.guaranteedTaxFreeIncome || firstAfter.taxFreeIncome || 0);
     const proposedIncomeTreatment = fiaIncomeIsTaxFree() ? 'tax-free' : 'taxable';
     const beforeTaxable = sumExistingAnnuityIncome();
-    const annualTaxableReduction = beforeTaxable;
+    const annuityIntentForReport = existingAnnuityStrategyIntent();
+    const existingContractCount = getExistingAnnuityRiders().length;
+    const existingContractLabel = `${existingContractCount} existing FIA contract${existingContractCount === 1 ? '' : 's'}: ${fmt2(sumExistingAnnuityValue())}`;
 
     // Mind map style left/right boxes
     doc.setFont(undefined,'bold');
@@ -3271,7 +3279,7 @@ function generatePDF(){
     doc.roundedRect(430, yA+34, 310, 220, 10, 10, 'FD');
     doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(30,30,30);
     const leftLines = [
-      `Two existing FIA contracts: ${fmt2(sumExistingAnnuityValue())}`,
+      existingContractLabel,
       `Annual rider income: ${fmt2(beforeTaxable)}`,
       `Payout setting: single-life riders stop at owner death; joint riders continue to survivor.`,
       `Income tax treatment: ${num('existingAnnuityTaxablePct').toFixed(0)}% taxable`,
@@ -3294,7 +3302,7 @@ function generatePDF(){
     doc.setFillColor(11,58,111);
     doc.roundedRect(52, yA+270, 688, 34, 6, 6, 'F');
     doc.setTextColor(255,255,255); doc.setFontSize(11);
-    doc.text(riderStrategyText.bottom(annualTaxableReduction), 64, yA+292, {maxWidth:665});
+    doc.text(riderStrategyText.bottom(beforeTaxable), 64, yA+292, {maxWidth:665});
     addPdfFooter(doc, doc.getNumberOfPages());
   }
 
