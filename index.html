@@ -262,7 +262,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     <div class="hero-flex">
       <div class="hero-left">
         <h1>Fidelity Mutual Financial</h1>
-        <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF. Version includes forced NQ withdrawal schedule, green guaranteed tax-free income reporting, widow Social Security switch modeling, IRA percentage withdrawal schedules, and a one-click widow case preset.</p>
+        <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF. Version 7/21/2026 Rider Retention Fix: retained annuity income now remains in the After Conversion calculations and report, Social Security taxation continues correctly, and existing contract counts are dynamic.</p>
       </div>
       <div class="hero-right">
         <img src="logo-white.png" alt="Fidelity Mutual Financial Logo" />
@@ -1171,7 +1171,11 @@ function existingAnnuityComparisonEnabled(){
   return (document.getElementById('existingAnnuityCompareEnabled')?.value || 'no') === 'yes';
 }
 function existingAnnuityStrategyIntent(){
-  return (document.getElementById('existingAnnuityStrategyIntent')?.value || 'replace');
+  return String(document.getElementById('existingAnnuityStrategyIntent')?.value || 'replace').trim().toLowerCase();
+}
+function shouldRetainExistingAnnuityInStrategy(){
+  const intent = existingAnnuityStrategyIntent();
+  return intent !== 'replace';
 }
 function existingAnnuityStrategyText(){
   const intent = existingAnnuityStrategyIntent();
@@ -1855,7 +1859,7 @@ function buildScenario(useStrategy){
     // Strategy side it remains active when the advisor selects Retain or Supplement,
     // and is removed only when Replace Existing Income Rider is selected.
     const annuityIntent = existingAnnuityStrategyIntent();
-    const includeExistingAnnuityInScenario = !useStrategy || annuityIntent === 'retain' || annuityIntent === 'supplement';
+    const includeExistingAnnuityInScenario = !useStrategy || shouldRetainExistingAnnuityInStrategy();
     const existingAnnuityInfo = includeExistingAnnuityInScenario
       ? getExistingAnnuityIncomeForAge(primaryAge, filingStart, deathApplied, deathWho)
       : {gross:0,taxable:0,riders:[]};
@@ -2702,7 +2706,9 @@ function tableConfigFromDetails(details, mode='before'){
 
   const showTaxFreeRothIncome = reportColumnHasMoney(rowsData, ['taxFreeIncome']);
   const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
+  const showExistingAnnuityIncome = rowsData.some(r => Math.abs(Number(r.existingAnnuityIncome || 0)) > 0.004);
   const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+  if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
   if(showIraWithdrawal) cols.push('RMD\nRequired\nWithdrawal');
   if(showNqWithdrawal){ cols.push('NQ\nWithdrawal','TAX-FREE\nNQ BASIS','TAXABLE\nNQ AMOUNT'); }
   cols.push('Conversion','Conversion\nTaxes');
@@ -2715,6 +2721,7 @@ function tableConfigFromDetails(details, mode='before'){
 
   const rows = rowsData.map(r => {
     const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
+    if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
     if(showIraWithdrawal) row.push(fmt2(r.iraWithdrawal));
     if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0), fmt2(r.nqTaxFreeWithdrawal||0), fmt2(r.nqTaxableWithdrawal||0));
     row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
@@ -3264,7 +3271,7 @@ function generatePDF(){
     const beforeTaxable = sumExistingAnnuityIncome();
     const annuityIntentForReport = existingAnnuityStrategyIntent();
     const existingContractCount = getExistingAnnuityRiders().length;
-    const existingContractLabel = `${existingContractCount} existing FIA contract${existingContractCount === 1 ? '' : 's'}: ${fmt2(sumExistingAnnuityValue())}`;
+    const existingContractLabel = `${existingContractCount} existing income annuity contract${existingContractCount === 1 ? '' : 's'}: ${fmt2(sumExistingAnnuityValue())}`;
 
     // Mind map style left/right boxes
     doc.setFont(undefined,'bold');
