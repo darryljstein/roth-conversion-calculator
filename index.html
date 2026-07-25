@@ -26,6 +26,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <option value="roth">Roth</option>
         <option value="traditional">Traditional IRA / Qualified Account</option>
         <option value="nonqualified">Non-Qualified</option>
+        <option value="municipal">Tax-Exempt Municipal Bond</option>
       </select>
     </div>
     <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
@@ -156,6 +157,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <option value="roth">Roth</option>
         <option value="traditional">Traditional IRA / Qualified Account</option>
         <option value="nonqualified">Non-Qualified</option>
+        <option value="municipal">Tax-Exempt Municipal Bond</option>
       </select>
     </div>
   `;
@@ -262,7 +264,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     <div class="hero-flex">
       <div class="hero-left">
         <h1>Fidelity Mutual Financial</h1>
-        <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF. Version 7/21/2026 Rider Retention Fix: retained annuity income now remains in the After Conversion calculations and report, Social Security taxation continues correctly, and existing contract counts are dynamic.</p>
+        <p>Final Engine with locked bracket-fill math, desired income targeting, editable conversion years, survivor tax compression modeling, pension continuation logic, Social Security spousal step-up modeling, logo-enabled PDF output, IRMAA visibility, year-by-year reporting, and a downloadable client PDF. Version 7/25/2026 IRMAA + Municipal Bond Fix: retained annuity income now remains in the After Conversion calculations and report, Social Security taxation continues correctly, and existing contract counts are dynamic.</p>
       </div>
       <div class="hero-right">
         <img src="logo-white.png" alt="Fidelity Mutual Financial Logo" />
@@ -559,6 +561,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                   </div>
                   <div class="field"><label>Max Conversion Stretch Years</label><input id="irmaaMaxConversionYears" type="number" value="15" min="1" max="25" step="1" /></div>
                   <div class="field"><label>IRMAA Safety Buffer</label><input id="irmaaSafetyBuffer" type="number" value="1000" min="0" step="100" /></div>
+                  <div class="field"><label>IRMAA MAGI - 2 Years Before Projection</label><input id="irmaaMagiTwoYearsPrior" type="number" value="0" min="0" step="1000" /><div class="mode-help">Used for Year 1 Medicare IRMAA. Enter the actual MAGI from two calendar years before the first projection year.</div></div>
+                  <div class="field"><label>IRMAA MAGI - 1 Year Before Projection</label><input id="irmaaMagiPriorYear" type="number" value="0" min="0" step="1000" /><div class="mode-help">Used for Year 2 Medicare IRMAA. Enter the actual MAGI from the calendar year immediately before the first projection year.</div></div>
                   <div class="field"><label>UHNW Optimization Mode</label>
                     <select id="uhnwOptimizationMode">
                       <option value="off" selected>Off</option>
@@ -578,7 +582,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div class="account-panel-header">
               <div>
                 <div class="account-panel-title">Additional Accounts</div>
-                <div class="account-panel-subtitle">Model extra Roth, Traditional/Qualified, or Non-Qualified assets with account-specific bonus and growth assumptions.</div>
+                <div class="account-panel-subtitle">Model extra Roth, Traditional/Qualified, Non-Qualified, or Tax-Exempt Municipal Bond assets with account-specific growth assumptions. Municipal-bond growth is tracked separately as tax-exempt estate value and does not receive a Roth bonus.</div>
               </div>
               <button type="button" id="addAccountBtn" class="mini-btn ghost">+ Add Account</button>
             </div>
@@ -591,6 +595,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                     <option value="roth" selected>Roth</option>
                     <option value="traditional">Traditional IRA / Qualified Account</option>
                     <option value="nonqualified">Non-Qualified</option>
+        <option value="municipal">Tax-Exempt Municipal Bond</option>
                   </select>
                 </div>
                 <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
@@ -1350,7 +1355,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1540,6 +1545,7 @@ function additionalAccountTotals(){
     rothStartWithBonus: accounts.filter(a=>a.type==='roth').reduce((s,a)=>s + a.funds*(1+a.bonusPct/100),0),
     traditional: accounts.filter(a=>a.type==='traditional').reduce((s,a)=>s+a.funds,0),
     nonqualified: accounts.filter(a=>a.type==='nonqualified').reduce((s,a)=>s+a.funds,0),
+    municipal: accounts.filter(a=>a.type==='municipal').reduce((s,a)=>s+a.funds,0),
     totalFunds: accounts.reduce((s,a)=>s+a.funds,0)
   };
 }
@@ -1782,6 +1788,10 @@ function buildScenario(useStrategy){
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   let additionalTraditional = additionalTotals.traditional;
   let additionalNq = additionalTotals.nonqualified;
+  let municipalAccounts = additionalAccounts
+    .filter(a=>a.type==='municipal')
+    .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:a.growthPct, funds:a.funds}));
+  let municipalEstate = municipalAccounts.reduce((s,a)=>s+a.balance,0);
   // Dedicated NQ / brokerage tracking. If an explicit account value is entered, it
   // drives the withdrawal schedule; otherwise the engine falls back to additional
   // non-qualified accounts for backward compatibility.
@@ -1791,7 +1801,7 @@ function buildScenario(useStrategy){
   const nqTaxTreatment = document.getElementById('nqTaxTreatment')?.value || 'taxfree';
   const nqCustomTaxablePct = Math.max(0, Math.min(1, num('nqCustomTaxablePct') / 100));
   ira += additionalTraditional;
-  outside += additionalNq;
+  outside += additionalNq + municipalEstate;
   const plannedIraWithdrawalBase=num('plannedIraWithdrawal');
   const plannedIraEndAge=Math.floor(num('plannedIraEndAge') || 70);
   const plannedNqWithdrawalBase=num('plannedNqWithdrawal');
@@ -2051,9 +2061,23 @@ function buildScenario(useStrategy){
     const taxWithoutBrokerage = ordinaryTax(taxableBaseWithoutBrokerage, taxCfg);
     const brokerageTaxDrag = Math.max(0, detailTax - taxWithoutBrokerage);
     const currentYearMAGIForIRMAA = taxableBaseAfterConversion;
-    const lookbackMAGI = irmaaMagiHistory.length >= 2 ? irmaaMagiHistory[irmaaMagiHistory.length - 2] : currentYearMAGIForIRMAA;
-    const lookbackYearForIRMAA = Math.max(1, year - 2);
-    irmaa = calcIRMAA(lookbackMAGI, currentStatus, hAge, wAge, lookbackYearForIRMAA);
+    let lookbackMAGI;
+    let lookbackYearForIRMAA;
+    if(year === 1){
+      const entered = num('irmaaMagiTwoYearsPrior');
+      lookbackMAGI = entered > 0 ? entered : currentYearMAGIForIRMAA;
+      lookbackYearForIRMAA = -1;
+    } else if(year === 2){
+      const entered = num('irmaaMagiPriorYear');
+      lookbackMAGI = entered > 0 ? entered : currentYearMAGIForIRMAA;
+      lookbackYearForIRMAA = 0;
+    } else {
+      lookbackMAGI = irmaaMagiHistory[year - 3] ?? currentYearMAGIForIRMAA;
+      lookbackYearForIRMAA = year - 2;
+    }
+    // Use the surcharge schedule applicable to the Medicare year being displayed,
+    // while sourcing MAGI from the proper two-calendar-year lookback.
+    irmaa = calcIRMAA(lookbackMAGI, currentStatus, hAge, wAge, year);
     irmaaMagiHistory.push(currentYearMAGIForIRMAA);
 
     const effectiveFeeRate = year <= feeYears ? annualFeeRate : 0;
@@ -2075,6 +2099,15 @@ function buildScenario(useStrategy){
         a.balance = a.balance * Math.max(0, (1 + g) * (1 - effectiveFeeRate));
       });
       additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
+    }
+    if(municipalAccounts.length){
+      const priorMunicipalEstate = municipalEstate;
+      municipalAccounts.forEach(a=>{
+        const g = Math.max(0, (Number(a.growthPct) || 0) / 100);
+        a.balance = a.balance * (1 + g);
+      });
+      municipalEstate = municipalAccounts.reduce((sum,a)=>sum+a.balance,0);
+      outside += Math.max(0, municipalEstate - priorMunicipalEstate);
     }
 
     // Reduce NQ/outside assets by the actual NQ amount used for income this year.
@@ -2187,6 +2220,7 @@ function buildScenario(useStrategy){
       currentTaxableIncome,
       alimonyDeduction,
       additionalRoth,
+      municipalEstate,
       conversionRoth: Math.max(0, roth - additionalRoth)
     });
 
@@ -2229,7 +2263,7 @@ function buildScenario(useStrategy){
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
-    taxableEstate: ira+outside, finalIra: ira, finalOutside: outside, taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
+    taxableEstate: Math.max(0, ira+outside-municipalEstate), municipalEstate, finalIra: ira, finalOutside: outside, taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
@@ -2246,6 +2280,7 @@ function fillMetricTable(id,scenario){
     [`Tax on Reinvested Brokerage Interest/Dividends`,fmt2(scenario.totalBrokerageTaxes || 0)],
     [`Total IRMAA by Age ${planningHorizonAge()}`,fmt2(scenario.totalIRMAA)],
     [`Taxable Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
+    [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`,fmt2(scenario.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxFreeEstate)]
   ];
   document.getElementById(id).innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
@@ -3114,6 +3149,7 @@ function generatePDF(){
     head:[['Legacy Metric','Before Strategy','After Strategy','Estimated Impact']],
     body:[
       ['Taxable Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
+      ['Tax-Exempt Municipal Bond Estate', fmt2(before.municipalEstate||0), fmt2(after.municipalEstate||0), fmt2((after.municipalEstate||0)-(before.municipalEstate||0))],
       ['Tax-Free / Roth Estate', fmt2(before.taxFreeEstate||0), fmt2(after.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)-(before.taxFreeEstate||0))],
       ['Projected Tax-Free Residual Benefit (Non-Guaranteed)', fmt2(0), fmt2(after.projectedTaxFreeResidualBenefit||0), fmt2(after.projectedTaxFreeResidualBenefit||0)],
       ['Total Potential Tax-Free Benefit', fmt2(before.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)+(after.projectedTaxFreeResidualBenefit||0)), fmt2(((after.taxFreeEstate||0)+(after.projectedTaxFreeResidualBenefit||0))-(before.taxFreeEstate||0))],
@@ -3195,6 +3231,7 @@ function generatePDF(){
     [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
     [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
     [`Taxable Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
+    [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`, before.municipalEstate || 0, after.municipalEstate || 0, (after.municipalEstate || 0) - (before.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
@@ -3527,7 +3564,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use a two-year MAGI lookback when prior projection years are available. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page intentionally combines all Roth and tax-free assets together under Tax-Free Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use the entered pre-projection MAGI for Years 1 and 2, then use the proper projected MAGI from two calendar years earlier beginning in Year 3. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page separates Roth assets under Tax-Free Estate and municipal bonds under Tax-Exempt Municipal Bond Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
 
@@ -3846,6 +3883,7 @@ function setAdditionalAccountsFromSave(accounts){
           <option value="roth" ${a.type === 'roth' ? 'selected' : ''}>Roth</option>
           <option value="traditional" ${a.type === 'traditional' ? 'selected' : ''}>Traditional IRA / Qualified Account</option>
           <option value="nonqualified" ${a.type === 'nonqualified' ? 'selected' : ''}>Non-Qualified</option>
+          <option value="municipal" ${a.type === 'municipal' ? 'selected' : ''}>Tax-Exempt Municipal Bond</option>
         </select>
       </div>
       <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="${escapeHtmlAttr(a.bonus ?? '0')}" step="0.1" /></div>
