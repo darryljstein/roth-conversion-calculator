@@ -20,7 +20,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
   div.className = 'additional-account';
   div.innerHTML = `
     <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="Additional Account ${count}" placeholder="Existing Roth Annuity" /></div>
-    <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
+    <div class="field"><label>Current Account Balance ($)</label><input class="additionalAccountFunds" type="number" value="0" min="0" step="1000" placeholder="Enter dollar amount" /></div>
     <div class="field"><label>Type</label>
       <select class="additionalAccountType">
         <option value="roth">Roth</option>
@@ -151,7 +151,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
   const div = document.createElement('div');
   div.className = 'additional-account';
   div.innerHTML = `
-    <div class="field"><label>Additional Account Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
+    <div class="field"><label>Current Account Balance ($)</label><input class="additionalAccountFunds" type="number" value="0" min="0" step="1000" placeholder="Enter dollar amount" /></div>
     <div class="field"><label>Account Type</label>
       <select class="additionalAccountType">
         <option value="roth">Roth</option>
@@ -592,7 +592,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div id="additionalAccountsContainer">
               <div class="additional-account">
                 <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="Additional Account 1" placeholder="Existing Roth Annuity" /></div>
-                <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="0" step="1000" /></div>
+                <div class="field"><label>Current Account Balance ($)</label><input class="additionalAccountFunds" type="number" value="0" min="0" step="1000" placeholder="Enter dollar amount" /></div>
                 <div class="field"><label>Type</label>
                   <select class="additionalAccountType">
                     <option value="roth" selected>Roth</option>
@@ -760,7 +760,7 @@ function additionalAccountRowHtml(index, values={}){
   const legacyTreatment = values.legacyTreatment || 'aftertax';
   return `<div class="additional-account">
     <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="${title}" placeholder="Example: CD or Checking and Savings" /></div>
-    <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="${funds}" step="1000" /></div>
+    <div class="field"><label>Current Account Balance ($)</label><input class="additionalAccountFunds" type="number" value="${funds}" min="0" step="1000" placeholder="Enter dollar amount" /></div>
     <div class="field"><label>Type</label><select class="additionalAccountType">
       <option value="roth" ${type==='roth'?'selected':''}>Roth</option>
       <option value="traditional" ${type==='traditional'?'selected':''}>Traditional IRA / Qualified Account</option>
