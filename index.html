@@ -1806,9 +1806,9 @@ function buildScenario(useStrategy){
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   let additionalTraditional = additionalTotals.traditional;
   let additionalNq = additionalTotals.nonqualified;
-  const additionalNqGrowthRate = additionalNq > 0
-    ? additionalAccounts.filter(a=>a.type==='nonqualified').reduce((sum,a)=>sum + (a.funds/additionalNq) * Math.max(0, Number(a.growthPct||0)/100), 0)
-    : Math.max(0, percent('growth'));
+  let additionalNqAccounts = additionalAccounts
+    .filter(a=>a.type==='nonqualified')
+    .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:Math.max(0,Number(a.growthPct||0)), funds:a.funds}));
   let municipalAccounts = additionalAccounts
     .filter(a=>a.type==='municipal')
     .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:a.growthPct, funds:a.funds}));
@@ -2141,11 +2141,27 @@ function buildScenario(useStrategy){
 
     // Reduce NQ/outside assets by the actual NQ amount used for income this year.
     if(nqUsed > 0){
-      if(nqBalance > 0) nqBalance = Math.max(0, nqBalance - nqUsed);
+      if(nqBalance > 0){
+        if(enteredNqAccountValue <= 0 && additionalNqAccounts.length){
+          const balanceBeforeWithdrawal = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
+          additionalNqAccounts.forEach(a=>{
+            const share = balanceBeforeWithdrawal > 0 ? a.balance / balanceBeforeWithdrawal : 0;
+            a.balance = Math.max(0, a.balance - nqUsed * share);
+          });
+          nqBalance = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
+        } else {
+          nqBalance = Math.max(0, nqBalance - nqUsed);
+        }
+      }
       nqBasis = Math.max(0, nqBasis - nqBasisReduction);
     }
     if(nqBalance > 0){
-      nqBalance = nqBalance * (1 + additionalNqGrowthRate);
+      if(enteredNqAccountValue <= 0 && additionalNqAccounts.length){
+        additionalNqAccounts.forEach(a=>{ a.balance = a.balance * (1 + a.growthPct/100); });
+        nqBalance = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
+      } else {
+        nqBalance = nqBalance * (1 + Math.max(0, percent('growth')));
+      }
       nqBasis = Math.min(nqBalance, nqBasis);
     }
 
@@ -2255,6 +2271,7 @@ function buildScenario(useStrategy){
       alimonyDeduction,
       additionalRoth,
       nqBalance,
+      nonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct})),
       municipalEstate,
       conversionRoth: Math.max(0, roth - additionalRoth)
     });
@@ -2298,7 +2315,7 @@ function buildScenario(useStrategy){
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
-    taxableEstate: Math.max(0, ira + outside - municipalEstate + nqBalance + taxableBrokerage), municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
+    taxableEstate: Math.max(0, ira + outside - municipalEstate + nqBalance + taxableBrokerage), municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
@@ -2743,6 +2760,7 @@ function tableConfigFromDetails(details, mode='before'){
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.iraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
   const showAdditionalAssets = rowsData.some(r => Math.abs(Number(r.additionalRoth || 0)) > 0.004);
+  const showNonQualifiedAssets = rowsData.some(r => Math.abs(Number(r.nqBalance || 0)) > 0.004);
   const showGuaranteedLifetimeIncome = rowsData.some(r => Math.abs(Number(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0)) > 0.004);
 
   if(mode === 'before'){
@@ -2758,6 +2776,7 @@ function tableConfigFromDetails(details, mode='before'){
     cols.push('IRA');
     if(showExcessRmd) cols.push('EXCESS RMD\nREINVESTED','BROKERAGE\nVALUE','BROKERAGE\nTAX DRAG');
     if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
+    if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
 
     const rows = rowsData.map(r => {
       const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
@@ -2769,6 +2788,7 @@ function tableConfigFromDetails(details, mode='before'){
       row.push(fmt2(r.ira));
       if(showExcessRmd) row.push(fmt2(r.excessRmdReinvested||0), fmt2(r.taxableBrokerage||0), fmt2(r.brokerageTaxDrag||0));
       if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+      if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
       return row;
     });
     return {cols:[cols], rows};
@@ -2789,6 +2809,7 @@ function tableConfigFromDetails(details, mode='before'){
   cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
   if(showIRMAA) cols.push('IRMAA');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
+  if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
   if(showTaxFreeEstate) cols.push('TAX-FREE\nESTATE');
 
   const rows = rowsData.map(r => {
@@ -2802,6 +2823,7 @@ function tableConfigFromDetails(details, mode='before'){
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+    if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
     if(showTaxFreeEstate) row.push(fmt2(r.roth));
     return row;
   });
@@ -3188,10 +3210,23 @@ function generatePDF(){
   const beforeNetLegacy = useUhnwLegacy ? (estimatedAfterTaxLegacyUHNW(before) + (before.taxFreeEstate || 0)) : (estimatedAfterTaxLegacy(before.taxableEstate, (document.getElementById('filingStatus')?.value || 'MFJ')) + (before.taxFreeEstate || 0));
   const afterNetLegacy = useUhnwLegacy ? (estimatedAfterTaxLegacyUHNW(after) + (after.taxFreeEstate || 0) + Math.max(0, after.projectedTaxFreeResidualBenefit || 0)) : (estimatedAfterTaxLegacy(after.taxableEstate, (document.getElementById('filingStatus')?.value || 'MFJ')) + (after.taxFreeEstate || 0));
   const legacyImprovement = afterNetLegacy - beforeNetLegacy;
+  const nqAccountTitles = Array.from(new Set([...(before.finalNonQualifiedAccounts||[]), ...(after.finalNonQualifiedAccounts||[])].map(a=>a.title)));
+  const nqLegacyRows = nqAccountTitles.map(title=>{
+    const beforeAccount = (before.finalNonQualifiedAccounts||[]).find(a=>a.title===title);
+    const afterAccount = (after.finalNonQualifiedAccounts||[]).find(a=>a.title===title);
+    const beforeValue = beforeAccount?.balance || 0;
+    const afterValue = afterAccount?.balance || 0;
+    const growthLabel = afterAccount?.growthPct ?? beforeAccount?.growthPct ?? 0;
+    return [`${title} (${Number(growthLabel).toFixed(2)}% growth)`, fmt2(beforeValue), fmt2(afterValue), fmt2(afterValue-beforeValue)];
+  });
   doc.autoTable({
     startY:76,
     head:[['Legacy Metric','Before Strategy','After Strategy','Estimated Impact']],
     body:[
+      ['Remaining Liquid IRA', fmt2(before.finalIra||0), fmt2(after.finalIra||0), fmt2((after.finalIra||0)-(before.finalIra||0))],
+      ...nqLegacyRows,
+      ['Total Nonqualified / Cash Accounts', fmt2(before.finalNonQualified||0), fmt2(after.finalNonQualified||0), fmt2((after.finalNonQualified||0)-(before.finalNonQualified||0))],
+      ['Taxable Brokerage from Reinvested Excess RMDs', fmt2(before.finalTaxableBrokerage||0), fmt2(after.finalTaxableBrokerage||0), fmt2((after.finalTaxableBrokerage||0)-(before.finalTaxableBrokerage||0))],
       ['Taxable Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
       ['Tax-Exempt Municipal Bond Estate', fmt2(before.municipalEstate||0), fmt2(after.municipalEstate||0), fmt2((after.municipalEstate||0)-(before.municipalEstate||0))],
       ['Tax-Free / Roth Estate', fmt2(before.taxFreeEstate||0), fmt2(after.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)-(before.taxFreeEstate||0))],
@@ -3203,7 +3238,7 @@ function generatePDF(){
     headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[245,247,250]},
     didParseCell:function(data){ applyFinalReportColumnStyling(data); 
-      if(data.section==='body' && data.row.index===2){
+      if(data.section==='body' && String((data.row.raw||[])[0]||'')==='Tax-Free / Roth Estate'){
         data.cell.styles.fontStyle='bold';
         if(data.column.index===2 || data.column.index===3){
           data.cell.styles.fillColor=[0,200,83];
@@ -3214,10 +3249,12 @@ function generatePDF(){
     margin:{left:40,right:40}
   });
   const legacyChartUrl = createLegacyBarChartDataUrl(beforeNetLegacy, afterNetLegacy);
-  doc.addImage(legacyChartUrl, 'PNG', 72, 190, 660, 260);
+  const legacyChartY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 180) + 14;
+  const legacyChartHeight = Math.max(0, Math.min(190, 455 - legacyChartY));
+  if(legacyChartHeight >= 90) doc.addImage(legacyChartUrl, 'PNG', 72, legacyChartY, 660, legacyChartHeight);
   doc.setFontSize(9);
   doc.setTextColor(90,90,90);
-  doc.text(doc.splitTextToSize('This page is an illustration only. Taxable retirement assets may create income tax exposure for heirs, while Roth assets may provide a more tax-efficient legacy. Actual results depend on future tax law, beneficiary circumstances, account performance, distributions, and estate planning choices.', 680), 58, 470);
+  doc.text(doc.splitTextToSize('Taxable Estate is the combined total of remaining liquid IRA assets, nonqualified/cash accounts, taxable brokerage assets, and other taxable outside assets. An IRA amount allocated to the lifetime-income annuity is no longer shown as liquid IRA value in the strategy column. This page is illustrative; actual results depend on account performance, distributions, taxes, and estate planning choices.', 680), 58, 478);
   addPdfFooter(doc, doc.getNumberOfPages());
 
   // Page 2
