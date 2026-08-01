@@ -2340,6 +2340,8 @@ function buildScenario(useStrategy){
       taxableSSIncome,
       completionYear: completionYear ? 'Yes' : '',
       taxableIncome: taxableBaseAfterConversion,
+      client1EmploymentIncome: husbandCurrentGrossIncome,
+      client2EmploymentIncome: wifeCurrentGrossIncome,
       currentTaxableIncome,
       alimonyDeduction,
       additionalRoth,
@@ -2860,6 +2862,8 @@ function deathEventNoticeText(){
 
 function tableConfigFromDetails(details, mode='before'){
   const rowsData = Array.isArray(details) ? details : [];
+  const showClient1EmploymentIncome = rowsData.some(r => Math.abs(Number(r.client1EmploymentIncome || 0)) > 0.004);
+  const showClient2EmploymentIncome = rowsData.some(r => Math.abs(Number(r.client2EmploymentIncome || 0)) > 0.004);
   const showRmd = rowsData.some(r => Math.abs(Number(r.rmd || 0)) > 0.004);
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.nonRmdIraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
@@ -2869,7 +2873,10 @@ function tableConfigFromDetails(details, mode='before'){
 
   if(mode === 'before'){
     const showExistingAnnuityIncome = rowsData.some(r => Math.abs(Number(r.existingAnnuityIncome || 0)) > 0.004);
-    const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+    const cols = ['Year','Age'];
+    if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment Income`);
+    if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment Income`);
+    cols.push('SS','Taxable\nSS','Pension');
     if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
     if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
     if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
@@ -2884,7 +2891,10 @@ function tableConfigFromDetails(details, mode='before'){
     if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
 
     const rows = rowsData.map(r => {
-      const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
+      const row = [`Year ${r.year}`, r.age];
+      if(showClient1EmploymentIncome) row.push(fmt2(r.client1EmploymentIncome||0));
+      if(showClient2EmploymentIncome) row.push(fmt2(r.client2EmploymentIncome||0));
+      row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
       if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
       if(showRmd) row.push(fmt2(r.rmd||0));
       if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
@@ -2905,7 +2915,10 @@ function tableConfigFromDetails(details, mode='before'){
   const showTaxFreeEstate = reportColumnHasMoney(rowsData, ['roth']);
   const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
   const showExistingAnnuityIncome = rowsData.some(r => Math.abs(Number(r.existingAnnuityIncome || 0)) > 0.004);
-  const cols = ['Year','Age','SS','Taxable\nSS','Pension'];
+  const cols = ['Year','Age'];
+  if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment Income`);
+  if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment Income`);
+  cols.push('SS','Taxable\nSS','Pension');
   if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
   if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
   if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
@@ -2920,7 +2933,10 @@ function tableConfigFromDetails(details, mode='before'){
   if(showTaxFreeEstate) cols.push('TAX-FREE\nESTATE');
 
   const rows = rowsData.map(r => {
-    const row = [`Year ${r.year}`, r.age, fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension)];
+    const row = [`Year ${r.year}`, r.age];
+    if(showClient1EmploymentIncome) row.push(fmt2(r.client1EmploymentIncome||0));
+    if(showClient2EmploymentIncome) row.push(fmt2(r.client2EmploymentIncome||0));
+    row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
     if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
     if(showRmd) row.push(fmt2(r.rmd||0));
     if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
