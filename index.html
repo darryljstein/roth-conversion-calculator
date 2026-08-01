@@ -504,8 +504,11 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="field"><label>Enable Guaranteed Lifetime Income</label><select id="fiaEnabled"><option value="yes">Yes</option><option value="no" selected>No</option></select></div>
               <div class="field"><label>Income Tax Treatment</label><select id="fiaTaxTreatment"><option value="taxfree" selected>Roth / Tax-Free</option><option value="taxable">Taxable / Non-Roth</option></select></div>
               <div class="field"><label>Income Title</label><input id="fiaTitle" type="text" value="Fixed Index Annuity Guaranteed Lifetime Income" /></div>
-              <div class="field"><label>Annual Guaranteed Income</label><input id="fiaAnnualIncome" type="number" value="0" step="100" /></div>
-              <div class="field"><label>Begins in Strategy Year</label><input id="fiaStartYear" type="number" value="6" min="1" max="40" step="1" /></div>
+              <div class="field"><label>Initial FIA Income Payment</label><input id="fiaInitialIncomePayment" type="number" value="0" min="0" step="100" /><div class="mode-help">One-time initial income payment before joint lifetime income begins.</div></div>
+              <div class="field"><label>Initial Payment Begins in Days</label><input id="fiaInitialPaymentDays" type="number" value="30" min="1" max="365" step="1" /></div>
+              <div class="field"><label>Annual Joint Lifetime Income</label><input id="fiaAnnualIncome" type="number" value="0" step="100" /></div>
+              <div class="field"><label>Joint Lifetime Income Begins in Month</label><input id="fiaJointIncomeStartMonth" type="number" value="0" min="0" max="480" step="1" /><div class="mode-help">Example: Month 13 begins in projection Year 2. Leave 0 to use Begins in Strategy Year below.</div></div>
+              <div class="field"><label>Begins in Strategy Year (Fallback)</label><input id="fiaStartYear" type="number" value="6" min="1" max="40" step="1" /></div>
               <div class="field"><label>Income COLA %</label><input id="fiaCola" type="number" value="0" step="0.1" /></div>
               <div class="field"><label>Owner</label><select id="fiaOwner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
               <div class="field"><label>Survivor Continuation</label><select id="fiaSurvivorPct"><option value="0">0%</option><option value="50">50%</option><option value="100" selected>100%</option><option value="custom">Custom %</option></select></div>
@@ -636,7 +639,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <div class="small" id="premiumModeNote" style="margin-bottom:10px;">Used only in FIA / Income or Hybrid mode. In Roth Conversion Only mode, the conversion base is the entered IRA balance.</div>
         <div class="inputs-grid">
           <div class="field"><label>Premium</label><input id="premium" type="number" value="0" step="1000" /></div>
-          <div class="field"><label>Lifetime Income Annuity Funding From Qualified IRA</label><input id="lifetimeIncomeIraFunding" type="number" value="0" min="0" step="1000" /><div class="mode-help">Enter qualified IRA funds used directly to purchase the lifetime income annuity. This amount is not treated as a Roth conversion and is not left in the IRA for future RMDs.</div></div>
+          <div class="field"><label>Client 1 IRA Assets Used to Fund Lifetime Income Annuity</label><input id="client1LifetimeIncomeIraFunding" type="number" value="0" min="0" step="1000" /><div class="mode-help">Removed from Client 1's liquid IRA under the strategy; not treated as a Roth conversion and not included in future RMDs.</div></div>
+          <div class="field spouse-field"><label>Client 2 IRA Assets Used to Fund Lifetime Income Annuity</label><input id="client2LifetimeIncomeIraFunding" type="number" value="0" min="0" step="1000" /><div class="mode-help">Removed from Client 2's liquid IRA under the strategy; not treated as a Roth conversion and not included in future RMDs.</div></div>
           <div class="field"><label>Premium Finance Roth Conversion Bonus %</label><input id="bonusPct" type="number" value="0" step="0.1" /></div>
           <div class="field"><label>Annual Fee %</label><input id="feePct" type="number" value="0.95" min="0" max="3" step="0.01" /></div>
           <div class="field"><label>Annual Fee Product Type</label><select id="feeType"><option value="annual" selected>Annual Fee Product</option><option value="nofee">No Fee Product</option></select></div>
@@ -1156,16 +1160,30 @@ function fiaIncomeIsTaxFree(){
 function fiaIncomeLabel(){
   return fiaIncomeIsTaxFree() ? 'GUARANTEED\nTAX-FREE INCOME' : 'GUARANTEED\nTAXABLE INCOME';
 }
-function getGuaranteedLifetimeIncome(year, useStrategy, filingStart, deathApplied, deathWho){
+function fiaJointIncomeStartYear(){
+  const startMonth = Math.max(0, Math.floor(num('fiaJointIncomeStartMonth')));
+  if(startMonth > 0) return Math.max(1, Math.floor((startMonth - 1) / 12) + 1);
+  return Math.max(1, Math.floor(num('fiaStartYear') || 6));
+}
+function getGuaranteedLifetimeIncomeComponents(year, useStrategy, filingStart, deathApplied, deathWho){
   const enabled = (document.getElementById('fiaEnabled')?.value || 'no') === 'yes';
-  if(getStrategyMasterMode && getStrategyMasterMode()==='rothOnly') return 0;
-  if(!enabled || !useStrategy) return 0;
-  const startYear = Math.max(1, Math.floor(num('fiaStartYear') || 6));
-  if(year < startYear) return 0;
-  const owner = document.getElementById('fiaOwner')?.value || 'husband';
-  const continuation = (deathApplied && filingStart === 'MFJ' && deathWho === owner) ? getFiaSurvivorPct() : 1;
-  const cola = percent('fiaCola');
-  return Math.max(0, num('fiaAnnualIncome')) * Math.pow(1 + cola, Math.max(0, year - startYear)) * continuation;
+  if(getStrategyMasterMode && getStrategyMasterMode()==='rothOnly') return {initialPayment:0, jointLifetimeIncome:0, total:0};
+  if(!enabled || !useStrategy) return {initialPayment:0, jointLifetimeIncome:0, total:0};
+  const initialDays = Math.max(1, Math.floor(num('fiaInitialPaymentDays') || 30));
+  const initialYear = Math.max(1, Math.ceil(initialDays / 365));
+  const initialPayment = year === initialYear ? Math.max(0, num('fiaInitialIncomePayment')) : 0;
+  const startYear = fiaJointIncomeStartYear();
+  let jointLifetimeIncome = 0;
+  if(year >= startYear){
+    const owner = document.getElementById('fiaOwner')?.value || 'husband';
+    const continuation = (deathApplied && filingStart === 'MFJ' && deathWho === owner) ? getFiaSurvivorPct() : 1;
+    const cola = percent('fiaCola');
+    jointLifetimeIncome = Math.max(0, num('fiaAnnualIncome')) * Math.pow(1 + cola, Math.max(0, year - startYear)) * continuation;
+  }
+  return {initialPayment, jointLifetimeIncome, total:initialPayment + jointLifetimeIncome};
+}
+function getGuaranteedLifetimeIncome(year, useStrategy, filingStart, deathApplied, deathWho){
+  return getGuaranteedLifetimeIncomeComponents(year, useStrategy, filingStart, deathApplied, deathWho).total;
 }
 function getGuaranteedTaxFreeIncome(year, useStrategy, filingStart, deathApplied, deathWho){
   return fiaIncomeIsTaxFree() ? getGuaranteedLifetimeIncome(year, useStrategy, filingStart, deathApplied, deathWho) : 0;
@@ -1356,7 +1374,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','lifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaAnnualIncome','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1771,8 +1789,7 @@ function buildScenario(useStrategy){
   const premium = (useStrategy && masterMode === 'rothOnly') ? enteredIraTotal : premiumInputValue;
   const premiumBonusRate = (useStrategy && masterMode === 'rothOnly') ? 0 : effectivePremiumBonusRate();
   const bonus = premium * premiumBonusRate;
-  let ira = useStrategy ? ((masterMode === 'rothOnly') ? enteredIraTotal : (premium+bonus)) : enteredIraTotal;
-  const initialIra = ira;
+  let ira = enteredIraTotal;
   let outside=num('outsideAssets');
   const additionalTotals = additionalAccountTotals();
   const additionalAccounts = additionalTotals.accounts;
@@ -1806,10 +1823,13 @@ function buildScenario(useStrategy){
   const nqCustomTaxablePct = Math.max(0, Math.min(1, num('nqCustomTaxablePct') / 100));
   ira += additionalTraditional;
   outside += municipalEstate;
-  const lifetimeIncomeIraFunding = useStrategy ? Math.max(0, num('lifetimeIncomeIraFunding')) : 0;
+  const client1LifetimeIncomeIraFunding = useStrategy ? Math.min(Math.max(0, enteredHusbandIra), Math.max(0, num('client1LifetimeIncomeIraFunding'))) : 0;
+  const client2LifetimeIncomeIraFunding = useStrategy ? Math.min(Math.max(0, enteredWifeIra), Math.max(0, num('client2LifetimeIncomeIraFunding'))) : 0;
+  const lifetimeIncomeIraFunding = client1LifetimeIncomeIraFunding + client2LifetimeIncomeIraFunding;
   if(lifetimeIncomeIraFunding > 0){
     ira = Math.max(0, ira - lifetimeIncomeIraFunding);
   }
+  const initialIra = ira;
   const plannedIraWithdrawalBase=num('plannedIraWithdrawal');
   const plannedIraEndAge=Math.floor(num('plannedIraEndAge') || 70);
   const plannedNqWithdrawalBase=num('plannedNqWithdrawal');
@@ -1870,7 +1890,8 @@ function buildScenario(useStrategy){
     const currentStatus=status;
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
     let {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
-    const guaranteedLifetimeIncome = getGuaranteedLifetimeIncome(year, useStrategy, filingStart, deathApplied, deathWho);
+    const guaranteedIncomeComponents = getGuaranteedLifetimeIncomeComponents(year, useStrategy, filingStart, deathApplied, deathWho);
+    const guaranteedLifetimeIncome = guaranteedIncomeComponents.total;
     const guaranteedTaxFreeIncome = fiaIncomeIsTaxFree() ? guaranteedLifetimeIncome : 0;
     const guaranteedTaxableIncome = fiaIncomeIsTaxFree() ? 0 : guaranteedLifetimeIncome;
     // Existing rider income always appears on the Current Situation side. On the
@@ -2205,6 +2226,8 @@ function buildScenario(useStrategy){
       guaranteedTaxFreeIncome,
       guaranteedTaxableIncome,
       guaranteedLifetimeIncome,
+      fiaInitialIncomePayment: guaranteedIncomeComponents.initialPayment,
+      fiaJointLifetimeIncome: guaranteedIncomeComponents.jointLifetimeIncome,
       ira,
       roth,
       tax: detailTax,
@@ -2279,7 +2302,7 @@ function buildScenario(useStrategy){
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
-    currentTaxableIncome, plannedIraWithdrawalBase, plannedIraEndAge, alimonyDeductionBase, alimonyEndAge, additionalAccountFunds, additionalAccounts, additionalRoth, lifetimeIncomeIraFunding, horizonAge, masterMode
+    currentTaxableIncome, plannedIraWithdrawalBase, plannedIraEndAge, alimonyDeductionBase, alimonyEndAge, additionalAccountFunds, additionalAccounts, additionalRoth, client1LifetimeIncomeIraFunding, client2LifetimeIncomeIraFunding, lifetimeIncomeIraFunding, horizonAge, masterMode
   };
 }
 
@@ -3383,7 +3406,9 @@ function generatePDF(){
     addPdfLogo(doc);
     const horizonAge = planningHorizonAge();
     const firstFiaRow = after.details.find(r => (r.guaranteedTaxFreeIncome || 0) > 0) || after.details[0] || {};
-    const startAgeText = firstFiaRow.age ? String(firstFiaRow.age) : ('Year ' + Math.max(1, Math.floor(num('fiaStartYear') || 6)));
+    const jointStartYear = fiaJointIncomeStartYear();
+    const jointStartRow = after.details.find(r => (r.fiaJointLifetimeIncome || 0) > 0) || firstFiaRow;
+    const startAgeText = jointStartRow.age ? String(jointStartRow.age) : ('Year ' + jointStartYear);
     const annualTaxFreeIncome = Math.max(0, num('fiaAnnualIncome'));
     const totalJointIncome = (fiaIncomeIsTaxFree() ? after.totalGuaranteedTaxFreeIncome : after.totalGuaranteedTaxableIncome) || after.details.reduce((s,r)=>s + Math.max(0, Number(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0)),0);
     const guaranteedDeathBenefitAtHorizon = Math.max(0, num('fiaDeathBenefitHorizon'));
@@ -3401,7 +3426,7 @@ function generatePDF(){
     const flowX = [48, 48+(flowBoxW+flowGap), 48+(flowBoxW+flowGap)*2, 48+(flowBoxW+flowGap)*3, 48+(flowBoxW+flowGap)*4];
     const flowLabels = [
       ['IRA / Taxable','Account'],
-      ['Roth','Conversion'],
+      [fiaIncomeIsTaxFree() ? 'Roth' : 'Qualified IRA','Annuity Funding'],
       [fiaIncomeIsTaxFree() ? 'Tax-Free' : 'Taxable','Funding Pool'],
       ['Joint Lifetime','Income'],
       ['Residual','Benefit']
@@ -3427,8 +3452,12 @@ function generatePDF(){
 
     const tradeRows = [
       ['Lifetime Income Annuity Funding Base', fmt2(rothFundingBase)],
+      ['Client 1 IRA Assets Allocated to Annuity', fmt2(after.client1LifetimeIncomeIraFunding || 0)],
+      ['Client 2 IRA Assets Allocated to Annuity', fmt2(after.client2LifetimeIncomeIraFunding || 0)],
+      ['Initial FIA Income Payment', fmt2(num('fiaInitialIncomePayment'))],
+      ['Initial Payment Timing', `${Math.max(1,Math.floor(num('fiaInitialPaymentDays') || 30))} days`],
       ['Annual Lifetime Income at Start', fmt2(annualTaxFreeIncome)],
-      ['Income begins', `Year ${Math.max(1, Math.floor(num('fiaStartYear') || 6))} / Age ${startAgeText}`],
+      ['Joint Lifetime Income Begins', `Month ${Math.max(1,Math.floor(num('fiaJointIncomeStartMonth') || ((jointStartYear-1)*12+1)))} / Year ${jointStartYear} / Age ${startAgeText}`],
       ['Cumulative Total Lifetime Income Paid', fmt2(totalJointIncome)],
       ['Guaranteed death benefit at horizon (0% scenario)', fmt2(guaranteedDeathBenefitAtHorizon)],
       ['Projected tax-free residual benefit at horizon', fmt2(projectedResidualAtHorizon)],
