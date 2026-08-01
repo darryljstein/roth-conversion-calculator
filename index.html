@@ -791,6 +791,7 @@ function removeAdditionalAccount(btn){
 }
 
 const fmt2 = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2,minimumFractionDigits:2}).format(isFinite(n)?n:0);
+const roundMoney = n => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const num = id => {
   const node = document.getElementById(id);
   if(!node) return 0;
@@ -1982,7 +1983,9 @@ function buildScenario(useStrategy){
     const wifeCurrentTaxableIncome = (currentStatus==='MFJ' && wAge < wIncomeEndAge) ? num('wTaxableIncome') : 0;
     currentTaxableIncome = husbandCurrentTaxableIncome + wifeCurrentTaxableIncome;
 
-    const hSS = getClient1SocialSecurity(hAge, cola);
+    const hSS = (currentStatus==='Single' && deathApplied)
+      ? ((hSSBase>0 && hAge>=hSSStart) ? hSSBase*Math.pow(1+cola,Math.max(0,hAge-hSSStart)) : 0)
+      : getClient1SocialSecurity(hAge, cola);
     let wSS = (currentStatus==='MFJ' && wSSBase>0 && wAge>=wSSStart) ? wSSBase*Math.pow(1+cola,Math.max(0,wAge-wSSStart)) : 0;
     if(currentStatus==='MFJ' && applySpousal && wAge>=wSSStart && hAge>=Math.max(hSSStart,hFRAAge) && hPIA>0 && wPIA>0){
       const ownReduced = wOwnSSCurrent*Math.pow(1+cola,Math.max(0,wAge-wSSStart));
@@ -2350,8 +2353,19 @@ function buildScenario(useStrategy){
       const trigger = (deathWho==='husband' && hAge>=deathAge) || (deathWho==='wife' && wAge>=deathAge);
       if(trigger){
         deathApplied=true;
-        carriedHigherSS=Math.max(hSSBase||0, wSSBase||0);
-        const survivorSSStart=Math.min(hSSStart||99, wSSStart||99);
+        // Survivor keeps the larger actual benefit being paid in the death year.
+        // Store that COLA-adjusted amount at the survivor's current age so the
+        // next projection year applies exactly one additional COLA increase.
+        const survivorAgeAtDeath = deathWho==='husband' ? wAge : hAge;
+        let survivorSSStart;
+        if(Math.max(hSS||0, wSS||0) > 0){
+          carriedHigherSS=Math.max(hSS||0, wSS||0);
+          survivorSSStart=survivorAgeAtDeath;
+        } else {
+          const client1IsHigher=(hSSBase||0)>=(wSSBase||0);
+          carriedHigherSS=Math.max(hSSBase||0, wSSBase||0);
+          survivorSSStart=client1IsHigher ? hSSStart : wSSStart;
+        }
         const snapshot={
           year,
           atAge: currentAgeDisplay,
@@ -2381,9 +2395,13 @@ function buildScenario(useStrategy){
 
   const finalAfterTaxNonQualified = additionalNqAccounts.filter(a=>a.legacyTreatment!=='taxable').reduce((sum,a)=>sum+a.balance,0) + (enteredNqAccountValue>0 ? nqBalance : 0);
   const finalTaxableNonQualified = additionalNqAccounts.filter(a=>a.legacyTreatment==='taxable').reduce((sum,a)=>sum+a.balance,0);
-  const afterTaxLegacyEstate = Math.max(0, outside - municipalEstate) + finalAfterTaxNonQualified;
-  const taxableEstate = Math.max(0, ira + taxableBrokerage + finalTaxableNonQualified);
-  const grossLegacyEstate = taxableEstate + afterTaxLegacyEstate + municipalEstate + roth;
+  // Reconcile report totals from cent-rounded components so visible line items
+  // always add exactly to the visible Gross Legacy Estate amount.
+  const afterTaxLegacyEstate = roundMoney(Math.max(0, outside - municipalEstate) + finalAfterTaxNonQualified);
+  const taxableEstate = roundMoney(Math.max(0, ira + taxableBrokerage + finalTaxableNonQualified));
+  const grossLegacyEstate = roundMoney(
+    taxableEstate + afterTaxLegacyEstate + roundMoney(municipalEstate) + roundMoney(roth)
+  );
   return {
     premium, bonus, bonusPct: premiumBonusRate * 100, beginning: premium+bonus, firstConv,
     yearsToComplete: conversionYears,
@@ -3614,8 +3632,8 @@ function generatePDF(){
 
     const tradeRows = [
       ['Lifetime Income Annuity Funding Base', fmt2(rothFundingBase)],
-      ['Client 1 IRA Assets Allocated to Annuity', fmt2(after.client1LifetimeIncomeIraFunding || 0)],
-      ['Client 2 IRA Assets Allocated to Annuity', fmt2(after.client2LifetimeIncomeIraFunding || 0)],
+      [`${displayClient1Name()} IRA Assets Allocated to Annuity`, fmt2(after.client1LifetimeIncomeIraFunding || 0)],
+      [`${displayClient2Name()} IRA Assets Allocated to Annuity`, fmt2(after.client2LifetimeIncomeIraFunding || 0)],
       ['Initial FIA Income Payment', fmt2(num('fiaInitialIncomePayment'))],
       ['Initial Payment Timing', `${Math.max(1,Math.floor(num('fiaInitialPaymentDays') || 30))} days`],
       ['Annual Lifetime Income at Start', fmt2(annualTaxFreeIncome)],
