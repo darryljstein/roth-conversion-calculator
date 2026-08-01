@@ -587,7 +587,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 <div class="account-panel-title">Additional Accounts</div>
                 <div class="account-panel-subtitle">Model extra Roth, Traditional/Qualified, Non-Qualified, or Tax-Exempt Municipal Bond assets with account-specific growth assumptions. Municipal-bond growth is tracked separately as tax-exempt estate value and does not receive a Roth bonus.</div>
               </div>
-              <button type="button" id="addAccountBtn" class="mini-btn ghost">+ Add Account</button>
+              <button type="button" id="addAccountBtn" class="mini-btn ghost" onclick="addAdditionalAccount()">+ Add Account</button>
             </div>
             <div id="additionalAccountsContainer">
               <div class="additional-account">
@@ -603,6 +603,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 </div>
                 <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
                 <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
+                <div class="field"><label>Beneficiary Income-Tax Treatment</label><select class="additionalAccountLegacyTreatment"><option value="aftertax" selected>After-Tax Asset - Received Without Income Tax</option><option value="taxable">Tax-Deferred Asset - Taxable to Beneficiary</option></select></div>
                 <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
               </div>
             </div>
@@ -617,6 +618,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Assumed Conversion Start Year</label><input id="startYear" type="number" value="1" min="1" max="10" step="1" /></div>
           <div class="field spouse-field"><label>Who Dies First? (optional)</label><select id="deathWho"><option value="">No death event</option><option value="husband">Client 1 dies first</option><option value="wife">Client 2 dies first</option></select></div>
           <div class="field spouse-field"><label>Death Age (optional)</label><input id="deathAge" type="number" placeholder="Example: 85" min="50" max="100" /></div>
+          <div class="field spouse-field"><label>Reduce Survivor Income Need</label><select id="survivorIncomeNeedReduction" onchange="refreshSurvivorIncomeNeedVisibility()"><option value="0" selected>No Reduction</option><option value="25">Reduce by 25%</option><option value="50">Reduce by 50%</option><option value="75">Reduce by 75%</option><option value="custom">User Defined</option></select></div>
+          <div class="field spouse-field hidden" id="survivorIncomeNeedCustomWrap"><label>User-Defined Income-Need Reduction %</label><input id="survivorIncomeNeedCustomPct" type="number" value="0" min="0" max="100" step="1" /><div class="mode-help">Applied beginning with the first survivor-only projection year.</div></div>
         </div>
 
       </div>
@@ -748,6 +751,45 @@ function clone(obj){
 }
 window.clone = clone;
 
+function additionalAccountRowHtml(index, values={}){
+  const title = escapeHtmlAttr(values.title || `Additional Account ${index}`);
+  const funds = escapeHtmlAttr(values.funds ?? '0');
+  const type = values.type || 'nonqualified';
+  const bonus = escapeHtmlAttr(values.bonus ?? '0');
+  const growth = escapeHtmlAttr(values.growth ?? '0');
+  const legacyTreatment = values.legacyTreatment || 'aftertax';
+  return `<div class="additional-account">
+    <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="${title}" placeholder="Example: CD or Checking and Savings" /></div>
+    <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="${funds}" step="1000" /></div>
+    <div class="field"><label>Type</label><select class="additionalAccountType">
+      <option value="roth" ${type==='roth'?'selected':''}>Roth</option>
+      <option value="traditional" ${type==='traditional'?'selected':''}>Traditional IRA / Qualified Account</option>
+      <option value="nonqualified" ${type==='nonqualified'?'selected':''}>Non-Qualified</option>
+      <option value="municipal" ${type==='municipal'?'selected':''}>Tax-Exempt Municipal Bond</option>
+    </select></div>
+    <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="${bonus}" step="0.1" /></div>
+    <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="${growth}" step="0.1" /></div>
+    <div class="field"><label>Beneficiary Income-Tax Treatment</label><select class="additionalAccountLegacyTreatment">
+      <option value="aftertax" ${legacyTreatment==='aftertax'?'selected':''}>After-Tax Asset - Received Without Income Tax</option>
+      <option value="taxable" ${legacyTreatment==='taxable'?'selected':''}>Tax-Deferred Asset - Taxable to Beneficiary</option>
+    </select></div>
+    <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
+  </div>`;
+}
+function addAdditionalAccount(){
+  const container = document.getElementById('additionalAccountsContainer');
+  if(!container) return;
+  const index = container.querySelectorAll('.additional-account').length + 1;
+  container.insertAdjacentHTML('beforeend', additionalAccountRowHtml(index));
+  bindAdditionalAccountInputs(container.lastElementChild);
+  safeCalculate();
+}
+function removeAdditionalAccount(btn){
+  const row = btn?.closest?.('.additional-account');
+  const container = document.getElementById('additionalAccountsContainer');
+  if(row && container && container.querySelectorAll('.additional-account').length > 1){ row.remove(); safeCalculate(); }
+}
+
 const fmt2 = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2,minimumFractionDigits:2}).format(isFinite(n)?n:0);
 const num = id => {
   const node = document.getElementById(id);
@@ -763,6 +805,17 @@ const TAX = {
   HOH:{ded:23600,irmaa1:109000,brackets:{12:69400,22:118200,24:190300,32:243700}}
 };
 function capFirst(s){return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';}
+function survivorIncomeNeedReductionPct(){
+  const selected = document.getElementById('survivorIncomeNeedReduction')?.value || '0';
+  const raw = selected === 'custom' ? num('survivorIncomeNeedCustomPct') : Number(selected || 0);
+  return Math.max(0, Math.min(100, raw));
+}
+function refreshSurvivorIncomeNeedVisibility(){
+  const wrap = document.getElementById('survivorIncomeNeedCustomWrap');
+  const selected = document.getElementById('survivorIncomeNeedReduction')?.value || '0';
+  const isJoint = (document.getElementById('filingStatus')?.value || 'MFJ') === 'MFJ';
+  if(wrap) wrap.classList.toggle('hidden', selected !== 'custom' || !isJoint);
+}
 
 function displayClient1Name(){
   const v = (document.getElementById('client1Name')?.value || '').trim();
@@ -1328,8 +1381,11 @@ function setupSpouseVisibility(){
   document.querySelectorAll('#pensionRows .pension-row').forEach((row, idx)=>{ const n = idx+1; refreshPensionRowVisibility(n); const owner = document.getElementById(`pension${n}Owner`); if(owner) owner.disabled = status!=='MFJ'; });
   document.getElementById('deathWho').disabled = status!=='MFJ';
   document.getElementById('deathAge').disabled = status!=='MFJ';
+  document.getElementById('survivorIncomeNeedReduction').disabled = status!=='MFJ';
+  document.getElementById('survivorIncomeNeedCustomPct').disabled = status!=='MFJ';
   ['applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor'].forEach(id=>{document.getElementById(id).disabled = status!=='MFJ';});
   refreshFiaVisibility();
+  refreshSurvivorIncomeNeedVisibility();
   if((document.getElementById('feeType')?.value || '')==='nofee'){
     const feePctEl = document.getElementById('feePct');
     if(feePctEl){ feePctEl.value = '0'; feePctEl.disabled = true; }
@@ -1547,13 +1603,15 @@ function getAdditionalAccounts(){
     const bonusPct = parseFloat(bonusEl && bonusEl.value ? bonusEl.value : '0') || 0;
     const growthEl = row.querySelector('.additionalAccountGrowth');
     const growthPct = parseFloat(growthEl && growthEl.value ? growthEl.value : '6') || 0;
+    const legacyTreatmentEl = row.querySelector('.additionalAccountLegacyTreatment');
     return {
       title: titleEl && titleEl.value.trim() ? titleEl.value.trim() : `Additional Account ${idx+1}`,
       funds,
       type: typeEl ? typeEl.value : 'roth',
       typeLabel: typeEl && typeEl.selectedOptions && typeEl.selectedOptions[0] ? typeEl.selectedOptions[0].text : 'Roth',
       bonusPct,
-      growthPct
+      growthPct,
+      legacyTreatment: legacyTreatmentEl ? legacyTreatmentEl.value : 'aftertax'
     };
   }).filter(a => a.funds !== 0);
 }
@@ -1808,7 +1866,7 @@ function buildScenario(useStrategy){
   let additionalNq = additionalTotals.nonqualified;
   let additionalNqAccounts = additionalAccounts
     .filter(a=>a.type==='nonqualified')
-    .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:Math.max(0,Number(a.growthPct||0)), funds:a.funds}));
+    .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:Math.max(0,Number(a.growthPct||0)), funds:a.funds, legacyTreatment:a.legacyTreatment||'aftertax'}));
   let municipalAccounts = additionalAccounts
     .filter(a=>a.type==='municipal')
     .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:a.growthPct, funds:a.funds}));
@@ -1935,11 +1993,13 @@ function buildScenario(useStrategy){
     // withdrawal from IRA/NQ assets is itself the income goal. This prevents the
     // Year-by-Year pages from showing $0 income goal while the client is actually
     // taking planned IRA income during the conversion window.
-    const retirementIncomeGoal = (primaryAge >= incomeStartAge)
+    const unreducedRetirementIncomeGoal = (primaryAge >= incomeStartAge)
       ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
       : 0;
+    const survivorIncomeNeedFactor = deathApplied ? (1 - survivorIncomeNeedReductionPct()/100) : 1;
+    const retirementIncomeGoal = unreducedRetirementIncomeGoal * survivorIncomeNeedFactor;
     const bridgeIncomeGoal = (primaryAge < incomeStartAge) ? Math.max(0, plannedIraWithdrawal + plannedNqWithdrawal) : 0;
-    const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal);
+    const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal * survivorIncomeNeedFactor);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
     const rmdAge=fixedRmdStartAge;
@@ -2223,6 +2283,8 @@ function buildScenario(useStrategy){
       income: displayedIncome,
       grossIncome: displayedIncome,
       incomeGoal: desiredIncome,
+      unreducedIncomeGoal: Math.max(unreducedRetirementIncomeGoal, bridgeIncomeGoal),
+      survivorIncomeNeedReductionPct: deathApplied ? survivorIncomeNeedReductionPct() : 0,
       actualIncome: displayedIncome,
       incomeGap: displayedIncome - desiredIncome,
       iraWithdrawal,
@@ -2309,13 +2371,18 @@ function buildScenario(useStrategy){
     if(hAge>=horizonAge && (status!=='MFJ' || wAge>=horizonAge)) break;
   }
 
+  const finalAfterTaxNonQualified = additionalNqAccounts.filter(a=>a.legacyTreatment!=='taxable').reduce((sum,a)=>sum+a.balance,0) + (enteredNqAccountValue>0 ? nqBalance : 0);
+  const finalTaxableNonQualified = additionalNqAccounts.filter(a=>a.legacyTreatment==='taxable').reduce((sum,a)=>sum+a.balance,0);
+  const afterTaxLegacyEstate = Math.max(0, outside - municipalEstate) + finalAfterTaxNonQualified;
+  const taxableEstate = Math.max(0, ira + taxableBrokerage + finalTaxableNonQualified);
+  const grossLegacyEstate = taxableEstate + afterTaxLegacyEstate + municipalEstate + roth;
   return {
     premium, bonus, bonusPct: premiumBonusRate * 100, beginning: premium+bonus, firstConv,
     yearsToComplete: conversionYears,
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
-    taxableEstate: Math.max(0, ira + outside - municipalEstate + nqBalance + taxableBrokerage), municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
+    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
@@ -2331,7 +2398,9 @@ function fillMetricTable(id,scenario){
     [`Total RMDs by Age ${planningHorizonAge()}`,fmt2(scenario.totalRMDs)],
     [`Tax on Reinvested Brokerage Interest/Dividends`,fmt2(scenario.totalBrokerageTaxes || 0)],
     [`Total IRMAA by Age ${planningHorizonAge()}`,fmt2(scenario.totalIRMAA)],
-    [`Taxable Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
+    [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
+    [`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`,fmt2(scenario.afterTaxLegacyEstate||0)],
+    [`Gross Legacy Estate by Age ${planningHorizonAge()}`,fmt2(scenario.grossLegacyEstate||0)],
     [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`,fmt2(scenario.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxFreeEstate)]
   ];
@@ -2384,7 +2453,7 @@ function calculate(){
   document.getElementById('pfFeeDisplay').textContent=feeLabel();
   const pensionOwnerLabel = 'Each pension carries its own owner and survivor election';
   const deathSummary = ((document.getElementById('filingStatus')?.value || 'MFJ')==='MFJ' && effectiveDeathWho() && num('deathAge'))
-    ? `${capFirst(effectiveDeathWho())} dies first at age ${Math.floor(num('deathAge'))}. ${deathEventNoticeText()}`
+    ? `${capFirst(effectiveDeathWho())} dies first at age ${Math.floor(num('deathAge'))}. Survivor income need is reduced by ${survivorIncomeNeedReductionPct().toFixed(0)}% beginning in the first survivor-only year. ${deathEventNoticeText()}`
     : 'No death event is applied.';
   document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and a planned NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)} before it uses Desired Income as a gap-filler. NQ withdrawals use the selected tax treatment and track remaining cost basis so only the taxable portion enters federal taxable income. Each pension is modeled separately with its own taxable amount, tax-free amount, owner, and survivor continuation. Guaranteed FIA income, when enabled, is modeled separately from Roth withdrawals and begins in the entered strategy year. If the income tax treatment is set to Taxable / Non-Roth, that income is included in taxable income instead of tax-free income. Widow Social Security switch modeling, when enabled, uses the widow benefit first and switches to the client's own benefit at the selected age. IRA percentage schedule modeling, when enabled, replaces the flat IRA withdrawal with the entered age-based percentages. Any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${Number(after.bonusPct || 0).toFixed(1)}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode ignores bracket, IRMAA, and UHNW annual caps so the selected conversion window is treated as a hard deadline.' : 'Conversion is constrained by the selected tax bracket and inflation-adjusted tax limits. When IRMAA-aware optimization is enabled, the engine can stretch the conversion period up to the entered maximum years and cap annual conversions to avoid or reduce Medicare IRMAA exposure when possible.'} ${conversionRuleDescription()} ${pensionOwnerLabel}. If a death event is entered, each pension applies its own survivor continuation based on its assigned owner. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.additionalRoth||0)}</td><td>${fmt2(m.conversionRoth||0)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
@@ -2485,8 +2554,14 @@ function survivorRows(before, after){
   }
   const b = before.survivorSnapshotBefore || {};
   const a = after.survivorSnapshotAfter || {};
+  const bSurvivor = (before.details||[]).find(r=>r.status==='Single') || {};
+  const aSurvivor = (after.details||[]).find(r=>r.status==='Single') || {};
+  const reductionPct = survivorIncomeNeedReductionPct();
   return [
     ['Year of death event', b.year || a.year || '—', b.atAge || a.atAge || '—', 'MFJ to Single transition'],
+    ['Survivor income-need reduction', `${reductionPct.toFixed(0)}%`, `${reductionPct.toFixed(0)}%`, 'Begins in first survivor-only year'],
+    ['First survivor-year income goal', fmt2(bSurvivor.incomeGoal||0), fmt2(aSurvivor.incomeGoal||0), `Reduced from ${fmt2(aSurvivor.unreducedIncomeGoal||bSurvivor.unreducedIncomeGoal||0)}`],
+    ['First survivor-year income gap / surplus', fmt2(bSurvivor.incomeGap||0), fmt2(aSurvivor.incomeGap||0), 'Calculated after survivor income-need reduction'],
     ['Taxable income in survivor transition year', fmt2(b.taxableIncome||0), fmt2(a.taxableIncome||0), 'Shows single-filer compression'],
     ['Federal tax in survivor transition year', fmt2(b.tax||0), fmt2(a.tax||0), 'Before vs after Roth conversion'],
     ['IRMAA in survivor transition year', fmt2(b.irmaa||0), fmt2(a.irmaa||0), 'Potential Medicare shock'],
@@ -3207,8 +3282,9 @@ function generatePDF(){
   addTitle(doc,'Legacy Value Comparison','Illustrates projected net legacy value before and after the Roth strategy.');
   addPdfLogo(doc);
   const useUhnwLegacy = getUhnwOptimizationMode() !== 'off' || isUhnwCase(before, after);
-  const beforeNetLegacy = useUhnwLegacy ? (estimatedAfterTaxLegacyUHNW(before) + (before.taxFreeEstate || 0)) : (estimatedAfterTaxLegacy(before.taxableEstate, (document.getElementById('filingStatus')?.value || 'MFJ')) + (before.taxFreeEstate || 0));
-  const afterNetLegacy = useUhnwLegacy ? (estimatedAfterTaxLegacyUHNW(after) + (after.taxFreeEstate || 0) + Math.max(0, after.projectedTaxFreeResidualBenefit || 0)) : (estimatedAfterTaxLegacy(after.taxableEstate, (document.getElementById('filingStatus')?.value || 'MFJ')) + (after.taxFreeEstate || 0));
+  const modeledAnnuityLegacy = Math.max(0, after.projectedTaxFreeResidualBenefit || 0, after.guaranteedAnnuityDeathBenefit || 0);
+  const beforeNetLegacy = (useUhnwLegacy ? estimatedAfterTaxLegacyUHNW(before) : estimatedAfterTaxLegacy(before.taxableEstate, (document.getElementById('filingStatus')?.value || 'MFJ'))) + (before.afterTaxLegacyEstate || 0) + (before.municipalEstate || 0) + (before.taxFreeEstate || 0);
+  const afterNetLegacy = (useUhnwLegacy ? estimatedAfterTaxLegacyUHNW(after) : estimatedAfterTaxLegacy(after.taxableEstate, (document.getElementById('filingStatus')?.value || 'MFJ'))) + (after.afterTaxLegacyEstate || 0) + (after.municipalEstate || 0) + (after.taxFreeEstate || 0) + modeledAnnuityLegacy;
   const legacyImprovement = afterNetLegacy - beforeNetLegacy;
   const nqAccountTitles = Array.from(new Set([...(before.finalNonQualifiedAccounts||[]), ...(after.finalNonQualifiedAccounts||[])].map(a=>a.title)));
   const nqLegacyRows = nqAccountTitles.map(title=>{
@@ -3217,7 +3293,9 @@ function generatePDF(){
     const beforeValue = beforeAccount?.balance || 0;
     const afterValue = afterAccount?.balance || 0;
     const growthLabel = afterAccount?.growthPct ?? beforeAccount?.growthPct ?? 0;
-    return [`${title} (${Number(growthLabel).toFixed(2)}% growth)`, fmt2(beforeValue), fmt2(afterValue), fmt2(afterValue-beforeValue)];
+    const treatment = afterAccount?.legacyTreatment ?? beforeAccount?.legacyTreatment ?? 'aftertax';
+    const treatmentLabel = treatment==='taxable' ? 'taxable to beneficiary' : 'after-tax legacy';
+    return [`${title} (${Number(growthLabel).toFixed(2)}% growth; ${treatmentLabel})`, fmt2(beforeValue), fmt2(afterValue), fmt2(afterValue-beforeValue)];
   });
   doc.autoTable({
     startY:76,
@@ -3226,12 +3304,14 @@ function generatePDF(){
       ['Remaining Liquid IRA', fmt2(before.finalIra||0), fmt2(after.finalIra||0), fmt2((after.finalIra||0)-(before.finalIra||0))],
       ...nqLegacyRows,
       ['Total Nonqualified / Cash Accounts', fmt2(before.finalNonQualified||0), fmt2(after.finalNonQualified||0), fmt2((after.finalNonQualified||0)-(before.finalNonQualified||0))],
+      ['After-Tax / Nonqualified Legacy', fmt2(before.afterTaxLegacyEstate||0), fmt2(after.afterTaxLegacyEstate||0), fmt2((after.afterTaxLegacyEstate||0)-(before.afterTaxLegacyEstate||0))],
       ['Taxable Brokerage from Reinvested Excess RMDs', fmt2(before.finalTaxableBrokerage||0), fmt2(after.finalTaxableBrokerage||0), fmt2((after.finalTaxableBrokerage||0)-(before.finalTaxableBrokerage||0))],
-      ['Taxable Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
+      ['Income-Tax-Exposed Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))],
       ['Tax-Exempt Municipal Bond Estate', fmt2(before.municipalEstate||0), fmt2(after.municipalEstate||0), fmt2((after.municipalEstate||0)-(before.municipalEstate||0))],
       ['Tax-Free / Roth Estate', fmt2(before.taxFreeEstate||0), fmt2(after.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)-(before.taxFreeEstate||0))],
       ['Projected Tax-Free Residual Benefit (Non-Guaranteed)', fmt2(0), fmt2(after.projectedTaxFreeResidualBenefit||0), fmt2(after.projectedTaxFreeResidualBenefit||0)],
-      ['Total Potential Tax-Free Benefit', fmt2(before.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)+(after.projectedTaxFreeResidualBenefit||0)), fmt2(((after.taxFreeEstate||0)+(after.projectedTaxFreeResidualBenefit||0))-(before.taxFreeEstate||0))],
+      ['Guaranteed Annuity Death Benefit at Horizon', fmt2(0), fmt2(after.guaranteedAnnuityDeathBenefit||0), fmt2(after.guaranteedAnnuityDeathBenefit||0)],
+      ['Total Potential Tax-Free Benefit', fmt2(before.taxFreeEstate||0), fmt2((after.taxFreeEstate||0)+modeledAnnuityLegacy), fmt2(((after.taxFreeEstate||0)+modeledAnnuityLegacy)-(before.taxFreeEstate||0))],
       ['Estimated Net Legacy Value', fmt2(beforeNetLegacy), fmt2(afterNetLegacy), fmt2(legacyImprovement)]
     ],
     styles:{fontSize:10,cellPadding:4,halign:'center'},
@@ -3254,7 +3334,7 @@ function generatePDF(){
   if(legacyChartHeight >= 90) doc.addImage(legacyChartUrl, 'PNG', 72, legacyChartY, 660, legacyChartHeight);
   doc.setFontSize(9);
   doc.setTextColor(90,90,90);
-  doc.text(doc.splitTextToSize('Taxable Estate is the combined total of remaining liquid IRA assets, nonqualified/cash accounts, taxable brokerage assets, and other taxable outside assets. An IRA amount allocated to the lifetime-income annuity is no longer shown as liquid IRA value in the strategy column. This page is illustrative; actual results depend on account performance, distributions, taxes, and estate planning choices.', 680), 58, 478);
+  doc.text(doc.splitTextToSize('Income-Tax-Exposed Estate includes remaining traditional IRA assets, taxable-to-beneficiary accounts, and taxable brokerage assets. After-Tax / Nonqualified Legacy separately shows cash, checking, savings, CDs, and other assets selected as received without beneficiary income tax. These assets may still be part of the gross estate for estate-tax or probate purposes. An IRA amount allocated to the lifetime-income annuity is no longer shown as liquid IRA value.', 680), 58, 478);
   addPdfFooter(doc, doc.getNumberOfPages());
 
   // Page 2
@@ -3315,7 +3395,9 @@ function generatePDF(){
     [`Total Lifetime Guaranteed Income by Age ${planningHorizonAge()}`, (before.totalGuaranteedTaxFreeIncome || 0) + (before.totalGuaranteedTaxableIncome || 0), (after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0), ((after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0)) - ((before.totalGuaranteedTaxFreeIncome || 0) + (before.totalGuaranteedTaxableIncome || 0))],
     [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
     [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
-    [`Taxable Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
+    [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
+    [`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`, before.afterTaxLegacyEstate||0, after.afterTaxLegacyEstate||0, (after.afterTaxLegacyEstate||0)-(before.afterTaxLegacyEstate||0)],
+    [`Gross Legacy Estate by Age ${planningHorizonAge()}`, before.grossLegacyEstate||0, after.grossLegacyEstate||0, (after.grossLegacyEstate||0)-(before.grossLegacyEstate||0)],
     [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`, before.municipalEstate || 0, after.municipalEstate || 0, (after.municipalEstate || 0) - (before.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
@@ -3569,7 +3651,7 @@ function generatePDF(){
       [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
       [`Total RMDs by Age ${planningHorizonAge()}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
       [`Total IRMAA by Age ${planningHorizonAge()}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
-      [`Taxable Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
+      [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
       [`Tax-Free Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
     ];
     doc.autoTable({
@@ -3917,7 +3999,8 @@ function collectAdditionalAccountsForSave(){
     funds: row.querySelector('.additionalAccountFunds')?.value || '0',
     type: row.querySelector('.additionalAccountType')?.value || 'roth',
     bonus: row.querySelector('.additionalAccountBonus')?.value || '0',
-    growth: row.querySelector('.additionalAccountGrowth')?.value || '6'
+    growth: row.querySelector('.additionalAccountGrowth')?.value || '6',
+    legacyTreatment: row.querySelector('.additionalAccountLegacyTreatment')?.value || 'aftertax'
   }));
 }
 function collectPlannerClientCase(name){
@@ -3968,23 +4051,8 @@ function setPensionRowsFromSave(rows){
 function setAdditionalAccountsFromSave(accounts){
   const container = document.getElementById('additionalAccountsContainer');
   if(!container) return;
-  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'roth', bonus:'0', growth:'6'}];
-  container.innerHTML = rows.map((a,idx)=>`
-    <div class="additional-account">
-      <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="${escapeHtmlAttr(a.title || `Additional Account ${idx+1}`)}" placeholder="Existing Roth Annuity" /></div>
-      <div class="field"><label>Funds</label><input class="additionalAccountFunds" type="number" value="${escapeHtmlAttr(a.funds ?? '0')}" step="1000" /></div>
-      <div class="field"><label>Type</label>
-        <select class="additionalAccountType">
-          <option value="roth" ${a.type === 'roth' ? 'selected' : ''}>Roth</option>
-          <option value="traditional" ${a.type === 'traditional' ? 'selected' : ''}>Traditional IRA / Qualified Account</option>
-          <option value="nonqualified" ${a.type === 'nonqualified' ? 'selected' : ''}>Non-Qualified</option>
-          <option value="municipal" ${a.type === 'municipal' ? 'selected' : ''}>Tax-Exempt Municipal Bond</option>
-        </select>
-      </div>
-      <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="${escapeHtmlAttr(a.bonus ?? '0')}" step="0.1" /></div>
-      <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="${escapeHtmlAttr(a.growth ?? '6')}" step="0.1" /></div>
-      <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
-    </div>`).join('');
+  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'nonqualified', bonus:'0', growth:'0', legacyTreatment:'aftertax'}];
+  container.innerHTML = rows.map((a,idx)=>additionalAccountRowHtml(idx+1,a)).join('');
   if(typeof bindAdditionalAccountInputs === 'function') bindAdditionalAccountInputs(container);
 }
 function escapeHtmlAttr(value){
