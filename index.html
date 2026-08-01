@@ -1068,6 +1068,7 @@ function applyMasterModeReset(){
     premiumNote && (premiumNote.textContent='Disabled in Roth Conversion Only mode. Conversion base comes from Client IRA balances.');
   } else if(mode === 'fiaIncome'){
     if(fiaEnabled) fiaEnabled.value='yes';
+    setFieldValueSoft('fiaTaxTreatment','taxable');
     help && (help.textContent='FIA / Income Strategy: premium drives the annuity/income illustration. Roth conversion-only fields should be used only if intentionally part of the case.');
     warn && (warn.innerHTML='<b>Mode check:</b> FIA / Income Strategy is active. Premium and bonus will drive the funding base.');
     premiumNote && (premiumNote.textContent='Active. Premium and bonus drive the FIA / income strategy funding base.');
@@ -1210,6 +1211,10 @@ function refreshFiaVisibility(){
   }
 }
 function fiaIncomeIsTaxFree(){
+  // Traditional IRA dollars allocated directly to an FIA remain taxable when paid.
+  // They are not Roth dollars merely because they are no longer held as liquid IRA assets.
+  const traditionalIraFunding = Math.max(0, num('client1LifetimeIncomeIraFunding')) + Math.max(0, num('client2LifetimeIncomeIraFunding'));
+  if(getStrategyMasterMode() === 'fiaIncome' && traditionalIraFunding > 0) return false;
   return (document.getElementById('fiaTaxTreatment')?.value || 'taxfree') !== 'taxable';
 }
 function fiaIncomeLabel(){
@@ -2461,7 +2466,9 @@ function calculate(){
   document.getElementById('assumptionText').innerHTML=`Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually. The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and a planned NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)} before it uses Desired Income as a gap-filler. NQ withdrawals use the selected tax treatment and track remaining cost basis so only the taxable portion enters federal taxable income. Each pension is modeled separately with its own taxable amount, tax-free amount, owner, and survivor continuation. Guaranteed FIA income, when enabled, is modeled separately from Roth withdrawals and begins in the entered strategy year. If the income tax treatment is set to Taxable / Non-Roth, that income is included in taxable income instead of tax-free income. Widow Social Security switch modeling, when enabled, uses the widow benefit first and switches to the client's own benefit at the selected age. IRA percentage schedule modeling, when enabled, replaces the flat IRA withdrawal with the entered age-based percentages. Any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${Number(after.bonusPct || 0).toFixed(1)}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode ignores bracket, IRMAA, and UHNW annual caps so the selected conversion window is treated as a hard deadline.' : 'Conversion is constrained by the selected tax bracket and inflation-adjusted tax limits. When IRMAA-aware optimization is enabled, the engine can stretch the conversion period up to the entered maximum years and cap annual conversions to avoid or reduce Medicare IRMAA exposure when possible.'} ${conversionRuleDescription()} ${pensionOwnerLabel}. If a death event is entered, each pension applies its own survivor continuation based on its assigned owner. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.additionalRoth||0)}</td><td>${fmt2(m.conversionRoth||0)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before); fillMetricTable('afterMetrics',after);
-  document.getElementById('estateExplain').innerHTML=`Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon. In this run, the model starts with a premium of ${fmt2(after.premium)} plus a one-time bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), for a beginning value of ${fmt2(after.beginning)}. That base then compounds each year at ${num('growth').toFixed(1)}% gross, less the displayed ${feeLabel()} for the first 10 years only, with Roth conversions added according to the entered ${after.yearsToComplete}-year schedule. The redesigned engine first respects the entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and the entered NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)} using the selected basis/tax treatment, then adds any enabled guaranteed tax-free FIA income, then uses matured Roth money and only then additional IRA gap-fill if needed. Taxable and tax-free pensions are tracked separately, and the deduction stream of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets and deductions are indexed upward by ${num('taxInflation').toFixed(1)}% annually, and the additional 65+ deduction input of ${fmt2(num('seniorDeduction'))} per eligible person is also indexed each year. Both IRA and Roth balances then receive end-of-year growth, with growth and fees applied as separate compounding steps. Additional Roth account funds, if entered, are tracked as tax-free assets with bonus, fee, and growth treatment but are not reduced by Roth conversion taxes. Pension income follows the selected survivor continuation rule if the pension owner dies first. The model's ending projected tax-free estate at age 95 is ${fmt2(after.taxFreeEstate)}. ${after.applySpousal ? `This run also includes a Client 2 spousal Social Security step-up once Client 1 reaches age ${after.hFRAAge.toFixed(1)}.` : ''}`;
+  document.getElementById('estateExplain').innerHTML= fiaIncomeIsTaxFree()
+    ? `Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon.`
+    : `The guaranteed lifetime income in this run is taxable because it is funded directly with traditional IRA assets and no Roth conversion is modeled. Tax-Free Estate is ${fmt2(after.taxFreeEstate)} because no Roth assets were entered or created.`;
   renderDetailPreview(after);
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
@@ -2550,7 +2557,7 @@ function rowsFromDetails(details, mode='before'){
   return tableConfigFromDetails(details, mode).rows;
 }
 
-function survivorRows(before, after){
+function survivorRows(before, after, hasRothConversion=false){
   const has = before.survivorSnapshotBefore || after.survivorSnapshotAfter;
   if(!has){
     return [['No survivor event entered','—','—','—']];
@@ -2566,13 +2573,13 @@ function survivorRows(before, after){
     ['First survivor-year income goal', fmt2(bSurvivor.incomeGoal||0), fmt2(aSurvivor.incomeGoal||0), `Reduced from ${fmt2(aSurvivor.unreducedIncomeGoal||bSurvivor.unreducedIncomeGoal||0)}`],
     ['First survivor-year income gap / surplus', fmt2(bSurvivor.incomeGap||0), fmt2(aSurvivor.incomeGap||0), 'Calculated after survivor income-need reduction'],
     ['Taxable income in survivor transition year', fmt2(b.taxableIncome||0), fmt2(a.taxableIncome||0), 'Shows single-filer compression'],
-    ['Federal tax in survivor transition year', fmt2(b.tax||0), fmt2(a.tax||0), 'Before vs after Roth conversion'],
+    ['Federal tax in survivor transition year', fmt2(b.tax||0), fmt2(a.tax||0), hasRothConversion ? 'Before vs after Roth conversion' : 'Current path vs lifetime-income strategy'],
     ['IRMAA in survivor transition year', fmt2(b.irmaa||0), fmt2(a.irmaa||0), 'Potential Medicare shock'],
     ['Pension after death event', fmt2(b.pension||0), fmt2(a.pension||0), 'Reflects survivor continuation setting'],
     ['Social Security after death event', fmt2(b.ssIncome||0), fmt2(a.ssIncome||0), 'Higher benefit is carried forward'],
     ['RMD after death event', fmt2(b.rmd||0), fmt2(a.rmd||0), 'Double-RMD pressure often shows up here'],
-    ['IRA after death event', fmt2(b.ira||0), fmt2(a.ira||0), 'After strategy should reduce this materially'],
-    ['Tax-Free assets after death event', fmt2(b.roth||0), fmt2(a.roth||0), 'After strategy should be materially higher']
+    ['IRA after death event', fmt2(b.ira||0), fmt2(a.ira||0), hasRothConversion ? 'After strategy should reduce this materially' : 'IRA assets allocated to the annuity are no longer liquid IRA assets'],
+    ['Tax-Free assets after death event', fmt2(b.roth||0), fmt2(a.roth||0), hasRothConversion ? 'After strategy should be materially higher' : 'No Roth assets are created by this strategy']
   ];
 }
 function scenarioHasSurvivorEvent(before, after){
@@ -3311,7 +3318,7 @@ function generatePDF(){
 
   // Legacy Value Comparison page
   doc.addPage();
-  addTitle(doc,'Legacy Value Comparison','Illustrates projected net legacy value before and after the Roth strategy.');
+  addTitle(doc,'Legacy Value Comparison',hasRothConversion ? 'Illustrates projected net legacy value before and after the Roth strategy.' : 'Illustrates projected values at the planning horizon before and after funding the lifetime-income annuity.');
   addPdfLogo(doc);
   const useUhnwLegacy = getUhnwOptimizationMode() !== 'off' || isUhnwCase(before, after);
   const modeledAnnuityLegacy = Math.max(0, after.projectedTaxFreeResidualBenefit || 0, after.guaranteedAnnuityDeathBenefit || 0);
@@ -3928,8 +3935,8 @@ function generatePDF(){
     addPdfLogo(doc);
     doc.autoTable({
       startY:78,
-      head:[['Metric','Without Roth Conversion','With Roth Conversion','Commentary']],
-      body: survivorRows(before, after),
+      head:[['Metric',hasRothConversion ? 'Without Roth Conversion' : 'Current Situation',hasRothConversion ? 'With Roth Conversion' : 'Lifetime Income Strategy','Commentary']],
+      body: survivorRows(before, after, hasRothConversion),
       styles:{fontSize:9},
       headStyles:{fillColor:[11,58,111]},
       margin:{bottom:85}
@@ -3945,7 +3952,7 @@ function generatePDF(){
   addPdfLogo(doc);
   doc.setFontSize(13);
   doc.setTextColor(70,70,70);
-  doc.text(doc.splitTextToSize('We look forward to helping you make confident, informed decisions with a focus on long-term tax efficiency, tax-free retirement income, and creating a more efficient legacy for your beneficiaries.', 620), 90, 160);
+  doc.text(doc.splitTextToSize(hasRothConversion ? 'We look forward to helping you make confident, informed decisions with a focus on long-term tax efficiency, tax-free retirement income, and creating a more efficient legacy for your beneficiaries.' : 'We look forward to helping you make confident, informed decisions with a focus on dependable lifetime income, tax awareness, and creating a more efficient legacy for your beneficiaries.', 620), 90, 160);
   doc.setFontSize(12);
   doc.text('Please call anytime with questions.', 90, 238);
   doc.setFont(undefined,'bold');
