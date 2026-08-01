@@ -604,6 +604,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
                 <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
                 <div class="field"><label>Beneficiary Income-Tax Treatment</label><select class="additionalAccountLegacyTreatment"><option value="aftertax" selected>After-Tax Asset - Received Without Income Tax</option><option value="taxable">Tax-Deferred Asset - Taxable to Beneficiary</option></select></div>
+                <div class="field"><label>Available to Fund Income Gaps? (Non-Qualified Only)</label><select class="additionalAccountGapAvailable"><option value="no" selected>No - Preserve for Emergency / Legacy</option><option value="yes">Yes - Use After IRA Is Exhausted</option></select></div>
+                <div class="field"><label>Minimum Balance to Preserve ($)</label><input class="additionalAccountMinimumReserve" type="number" value="0" min="0" step="1000" /></div>
                 <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
               </div>
             </div>
@@ -758,6 +760,8 @@ function additionalAccountRowHtml(index, values={}){
   const bonus = escapeHtmlAttr(values.bonus ?? '0');
   const growth = escapeHtmlAttr(values.growth ?? '0');
   const legacyTreatment = values.legacyTreatment || 'aftertax';
+  const availableForGap = values.availableForGap || 'no';
+  const minimumReserve = escapeHtmlAttr(values.minimumReserve ?? '0');
   return `<div class="additional-account">
     <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="${title}" placeholder="Example: CD or Checking and Savings" /></div>
     <div class="field"><label>Current Account Balance ($)</label><input class="additionalAccountFunds" type="number" value="${funds}" min="0" step="1000" placeholder="Enter dollar amount" /></div>
@@ -773,6 +777,11 @@ function additionalAccountRowHtml(index, values={}){
       <option value="aftertax" ${legacyTreatment==='aftertax'?'selected':''}>After-Tax Asset - Received Without Income Tax</option>
       <option value="taxable" ${legacyTreatment==='taxable'?'selected':''}>Tax-Deferred Asset - Taxable to Beneficiary</option>
     </select></div>
+    <div class="field"><label>Available to Fund Income Gaps? (Non-Qualified Only)</label><select class="additionalAccountGapAvailable">
+      <option value="no" ${availableForGap!=='yes'?'selected':''}>No - Preserve for Emergency / Legacy</option>
+      <option value="yes" ${availableForGap==='yes'?'selected':''}>Yes - Use After IRA Is Exhausted</option>
+    </select></div>
+    <div class="field"><label>Minimum Balance to Preserve ($)</label><input class="additionalAccountMinimumReserve" type="number" value="${minimumReserve}" min="0" step="1000" /></div>
     <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
   </div>`;
 }
@@ -1612,6 +1621,8 @@ function getAdditionalAccounts(){
     const growthEl = row.querySelector('.additionalAccountGrowth');
     const growthPct = parseFloat(growthEl && growthEl.value ? growthEl.value : '6') || 0;
     const legacyTreatmentEl = row.querySelector('.additionalAccountLegacyTreatment');
+    const gapAvailableEl = row.querySelector('.additionalAccountGapAvailable');
+    const minimumReserveEl = row.querySelector('.additionalAccountMinimumReserve');
     return {
       title: titleEl && titleEl.value.trim() ? titleEl.value.trim() : `Additional Account ${idx+1}`,
       funds,
@@ -1619,7 +1630,9 @@ function getAdditionalAccounts(){
       typeLabel: typeEl && typeEl.selectedOptions && typeEl.selectedOptions[0] ? typeEl.selectedOptions[0].text : 'Roth',
       bonusPct,
       growthPct,
-      legacyTreatment: legacyTreatmentEl ? legacyTreatmentEl.value : 'aftertax'
+      legacyTreatment: legacyTreatmentEl ? legacyTreatmentEl.value : 'aftertax',
+      availableForGap: gapAvailableEl ? gapAvailableEl.value : 'no',
+      minimumReserve: Math.max(0, parseFloat(minimumReserveEl && minimumReserveEl.value ? minimumReserveEl.value : '0') || 0)
     };
   }).filter(a => a.funds !== 0);
 }
@@ -1875,7 +1888,15 @@ function buildScenario(useStrategy){
   let additionalNq = additionalTotals.nonqualified;
   let additionalNqAccounts = additionalAccounts
     .filter(a=>a.type==='nonqualified')
-    .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:Math.max(0,Number(a.growthPct||0)), funds:a.funds, legacyTreatment:a.legacyTreatment||'aftertax'}));
+    .map(a=>({
+      title:a.title,
+      balance:Math.max(0,a.funds),
+      growthPct:Math.max(0,Number(a.growthPct||0)),
+      funds:a.funds,
+      legacyTreatment:a.legacyTreatment||'aftertax',
+      availableForGap:a.availableForGap==='yes',
+      minimumReserve:Math.max(0,Number(a.minimumReserve||0))
+    }));
   let municipalAccounts = additionalAccounts
     .filter(a=>a.type==='municipal')
     .map(a=>({title:a.title, balance:Math.max(0,a.funds), growthPct:a.growthPct, funds:a.funds}));
@@ -2030,6 +2051,14 @@ function buildScenario(useStrategy){
     const hasTrackedNqAccount = nqBalance > 0 || enteredNqAccountValue > 0 || additionalNq > 0;
     const nqAvailableForYear = hasTrackedNqAccount ? Math.min(plannedNqWithdrawal, nqBalance) : plannedNqWithdrawal;
     let nqUsed = Math.max(0, nqAvailableForYear);
+    const plannedNqWithdrawalsByAccount = additionalNqAccounts.map(()=>0);
+    if(nqUsed > 0 && enteredNqAccountValue <= 0 && additionalNqAccounts.length){
+      const balanceBeforePlannedWithdrawal = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
+      additionalNqAccounts.forEach((a,index)=>{
+        const share = balanceBeforePlannedWithdrawal > 0 ? a.balance / balanceBeforePlannedWithdrawal : 0;
+        plannedNqWithdrawalsByAccount[index] = Math.min(a.balance, nqUsed * share);
+      });
+    }
 
     // Separate the cash withdrawal from the amount that is taxable. This allows a
     // brokerage withdrawal to be shown as tax-free return of basis without falsely
@@ -2076,6 +2105,24 @@ function buildScenario(useStrategy){
 
     let iraWithdrawal = Math.max(rmd, iraUsedForIncome + extraIraGapWithdrawal);
     iraWithdrawal = Math.min(ira, Math.max(0, iraWithdrawal));
+
+    // Optional account-level gap funding begins only after all available IRA
+    // dollars have been used. Eligible accounts are used in the order entered,
+    // while respecting each account's minimum preserved balance.
+    let nqGapWithdrawal = 0;
+    const nqGapWithdrawalsByAccount = additionalNqAccounts.map(()=>0);
+    let remainingGapAfterIra = Math.max(0, desiredIncome - (baseIncome + nqUsed + rothWithdrawal + iraWithdrawal));
+    if(remainingGapAfterIra > 0){
+      additionalNqAccounts.forEach((a,index)=>{
+        if(remainingGapAfterIra <= 0 || !a.availableForGap) return;
+        const afterPlannedWithdrawal = Math.max(0, a.balance - (plannedNqWithdrawalsByAccount[index] || 0));
+        const availableAboveReserve = Math.max(0, afterPlannedWithdrawal - Math.min(afterPlannedWithdrawal, a.minimumReserve || 0));
+        const used = Math.min(availableAboveReserve, remainingGapAfterIra);
+        nqGapWithdrawalsByAccount[index] = used;
+        nqGapWithdrawal += used;
+        remainingGapAfterIra -= used;
+      });
+    }
 
     // User-entered taxable income portions exclude Social Security.
     // Taxable Social Security is calculated separately from provisional income.
@@ -2213,10 +2260,8 @@ function buildScenario(useStrategy){
     if(nqUsed > 0){
       if(nqBalance > 0){
         if(enteredNqAccountValue <= 0 && additionalNqAccounts.length){
-          const balanceBeforeWithdrawal = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
-          additionalNqAccounts.forEach(a=>{
-            const share = balanceBeforeWithdrawal > 0 ? a.balance / balanceBeforeWithdrawal : 0;
-            a.balance = Math.max(0, a.balance - nqUsed * share);
+          additionalNqAccounts.forEach((a,index)=>{
+            a.balance = Math.max(0, a.balance - (plannedNqWithdrawalsByAccount[index] || 0));
           });
           nqBalance = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
         } else {
@@ -2224,6 +2269,15 @@ function buildScenario(useStrategy){
         }
       }
       nqBasis = Math.max(0, nqBasis - nqBasisReduction);
+    }
+    if(nqGapWithdrawal > 0 && additionalNqAccounts.length){
+      additionalNqAccounts.forEach((a,index)=>{
+        a.balance = Math.max(0, a.balance - (nqGapWithdrawalsByAccount[index] || 0));
+      });
+      if(enteredNqAccountValue <= 0){
+        nqBalance = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
+        nqBasis = Math.max(0, nqBasis - nqGapWithdrawal);
+      }
     }
     if(nqBalance > 0){
       if(enteredNqAccountValue <= 0 && additionalNqAccounts.length){
@@ -2261,7 +2315,7 @@ function buildScenario(useStrategy){
     totalRMDs += rmd;
     totalBrokerageTaxes += brokerageTaxDrag;
 
-    const spendableIncomeBeforeBrokerage = currentGrossIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + iraWithdrawal + rothWithdrawal;
+    const spendableIncomeBeforeBrokerage = currentGrossIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
     const displayedIncome = spendableIncomeBeforeBrokerage + brokerageOrdinaryIncome;
     const excessRmdReinvested = (desiredIncome > 0 && rmd > 0) ? Math.min(rmd, Math.max(0, spendableIncomeBeforeBrokerage - desiredIncome)) : 0;
     // Brokerage balance is shown after reinvesting this year's excess RMD and the year's interest/dividends.
@@ -2301,6 +2355,8 @@ function buildScenario(useStrategy){
       nonRmdIraWithdrawal: Math.max(0, iraWithdrawal - rmd),
       plannedIraWithdrawal,
       plannedNqWithdrawal: nqUsed,
+      nqGapWithdrawal,
+      nqGapWithdrawalsByAccount: additionalNqAccounts.map((a,index)=>({title:a.title,amount:nqGapWithdrawalsByAccount[index]||0})),
       plannedNqWithdrawalPlanned: plannedNqWithdrawal,
       nqTaxFreeWithdrawal,
       nqTaxableWithdrawal,
@@ -2346,7 +2402,7 @@ function buildScenario(useStrategy){
       alimonyDeduction,
       additionalRoth,
       nqBalance,
-      nonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct})),
+      nonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})),
       municipalEstate,
       conversionRoth: Math.max(0, roth - additionalRoth)
     });
@@ -2410,7 +2466,7 @@ function buildScenario(useStrategy){
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
-    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
+    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
@@ -2867,6 +2923,7 @@ function tableConfigFromDetails(details, mode='before'){
   const showRmd = rowsData.some(r => Math.abs(Number(r.rmd || 0)) > 0.004);
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.nonRmdIraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
+  const showNqGapWithdrawal = rowsData.some(r => Math.abs(Number(r.nqGapWithdrawal || 0)) > 0.004);
   const showAdditionalAssets = rowsData.some(r => Math.abs(Number(r.additionalRoth || 0)) > 0.004);
   const showNonQualifiedAssets = rowsData.some(r => Math.abs(Number(r.nqBalance || 0)) > 0.004);
   const showGuaranteedLifetimeIncome = rowsData.some(r => Math.abs(Number(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0)) > 0.004);
@@ -2881,6 +2938,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
     if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
     if(showNqWithdrawal){ cols.push('NQ\nWithdrawal','TAX-FREE\nNQ BASIS','TAXABLE\nNQ AMOUNT'); }
+    if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
     const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
     const showExcessRmd = reportColumnHasMoney(rowsData, ['excessRmdReinvested','taxableBrokerage','brokerageTaxDrag']);
     cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
@@ -2899,6 +2957,7 @@ function tableConfigFromDetails(details, mode='before'){
       if(showRmd) row.push(fmt2(r.rmd||0));
       if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
       if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0), fmt2(r.nqTaxFreeWithdrawal||0), fmt2(r.nqTaxableWithdrawal||0));
+      if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
       row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
       if(showIRMAA) row.push(fmt2(r.irmaa));
       row.push(fmt2(r.ira));
@@ -2923,6 +2982,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
   if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
   if(showNqWithdrawal){ cols.push('NQ\nWithdrawal','TAX-FREE\nNQ BASIS','TAXABLE\nNQ AMOUNT'); }
+  if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
   if(showConversion) cols.push('Conversion','Conversion\nTaxes');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
@@ -2941,6 +3001,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showRmd) row.push(fmt2(r.rmd||0));
     if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
     if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0), fmt2(r.nqTaxFreeWithdrawal||0), fmt2(r.nqTaxableWithdrawal||0));
+    if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
     if(showConversion) row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
@@ -3923,14 +3984,14 @@ function generatePDF(){
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='head' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || (fiaIncomeIsTaxFree() && data.column.index===guaranteedLifetimeIndex))){
+        if(mode==='after' && data.section==='head' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='body' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || (fiaIncomeIsTaxFree() && data.column.index===guaranteedLifetimeIndex))){
+        if(mode==='after' && data.section==='body' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
@@ -4079,7 +4140,9 @@ function collectAdditionalAccountsForSave(){
     type: row.querySelector('.additionalAccountType')?.value || 'roth',
     bonus: row.querySelector('.additionalAccountBonus')?.value || '0',
     growth: row.querySelector('.additionalAccountGrowth')?.value || '6',
-    legacyTreatment: row.querySelector('.additionalAccountLegacyTreatment')?.value || 'aftertax'
+    legacyTreatment: row.querySelector('.additionalAccountLegacyTreatment')?.value || 'aftertax',
+    availableForGap: row.querySelector('.additionalAccountGapAvailable')?.value || 'no',
+    minimumReserve: row.querySelector('.additionalAccountMinimumReserve')?.value || '0'
   }));
 }
 function collectPlannerClientCase(name){
@@ -4130,7 +4193,7 @@ function setPensionRowsFromSave(rows){
 function setAdditionalAccountsFromSave(accounts){
   const container = document.getElementById('additionalAccountsContainer');
   if(!container) return;
-  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'nonqualified', bonus:'0', growth:'0', legacyTreatment:'aftertax'}];
+  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'nonqualified', bonus:'0', growth:'0', legacyTreatment:'aftertax',availableForGap:'no',minimumReserve:'0'}];
   container.innerHTML = rows.map((a,idx)=>additionalAccountRowHtml(idx+1,a)).join('');
   if(typeof bindAdditionalAccountInputs === 'function') bindAdditionalAccountInputs(container);
 }
