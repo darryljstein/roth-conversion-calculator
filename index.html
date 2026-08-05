@@ -380,7 +380,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="mode-help" id="strategyModeHelp">Roth Conversion Only ignores Premium Finance inputs and converts only entered IRA assets.</div>
             </div>
           </div>
-          <div id="strategyModeWarning" class="mode-warning"><b>Mode check:</b> Roth Conversion Only is active. Premium and bonus inputs are ignored for conversion math.</div>
+          <div id="strategyModeWarning" class="mode-warning"><b>Mode check:</b> Roth Conversion Only is active. Premium, bonus, and FIA funding inputs are ignored; the conversion solver uses the entered Client IRA balances.</div>
         </div>
 
         <div class="client-bio-top">
@@ -468,6 +468,27 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div class="field"><label>Annuity 2 Payout Type</label><select id="existingAnnuity2Payout"><option value="single" selected>Single Life / Stops at Owner Death</option><option value="joint">Joint / Continues to Survivor</option></select></div>
           </div>
           <div class="small" style="margin-top:10px;">When enabled, the Before side treats these rider payments as taxable IRA income streams. Use the Owner and Payout Type fields to show whether each rider is single-life and stops when that owner dies, or joint and continues to the survivor. The Strategy side assumes those accounts are replaced through the Roth conversion / tax-free income strategy, so the report can show why the proposed plan may reduce taxable income and improve legacy value.</div>
+        </div>
+
+        <div class="account-panel" style="margin-bottom:16px;">
+          <div class="account-panel-header">
+            <div>
+              <div class="account-panel-title">Rental / Other Recurring Income</div>
+              <div class="account-panel-subtitle">Models rental cash flow separately from employment and pensions, including a last age received when the property may be sold.</div>
+            </div>
+          </div>
+          <div class="inputs-grid">
+            <div class="field"><label>Include Rental / Recurring Income?</label><select id="rentalIncomeEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+            <div class="field"><label>Income Title</label><input id="rentalIncomeTitle" type="text" value="Rental Property Income" /></div>
+            <div class="field"><label>Annual Cash Flow Received ($)</label><input id="rentalGrossIncome" type="number" value="0" min="0" step="1000" /></div>
+            <div class="field"><label>Annual Taxable Rental Income ($)</label><input id="rentalTaxableIncome" type="number" value="0" min="0" step="1000" /><div class="mode-help">Enter net taxable income after expenses and depreciation, not automatically the gross cash received.</div></div>
+            <div class="field"><label>Income Starts at Household Age</label><input id="rentalStartAge" type="number" value="0" min="0" max="100" step="1" /><div class="mode-help">Use 0 when the income is already being received.</div></div>
+            <div class="field"><label>Last Household Age Income Is Received</label><input id="rentalEndAge" type="number" value="95" min="40" max="100" step="1" /></div>
+            <div class="field"><label>Annual Income Growth %</label><input id="rentalIncomeCola" type="number" value="0" step="0.1" /></div>
+            <div class="field"><label>Property / Income Owner</label><select id="rentalIncomeOwner"><option value="joint" selected>Joint / Household</option><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
+            <div class="field"><label>Income Continuing After Owner's Death %</label><input id="rentalIncomeSurvivorPct" type="number" value="100" min="0" max="100" step="1" /></div>
+          </div>
+          <div class="small" style="margin-top:10px;">This section stops the rental income after the entered last age. Property-sale proceeds, capital gain, depreciation recapture, and reinvestment of net proceeds are not included unless entered separately.</div>
         </div>
 
         <div class="shared-grid">
@@ -849,6 +870,11 @@ function refreshClientDisplay(){
     const owner = document.getElementById(`existingAnnuity${i}Owner`);
     if(owner && owner.options.length >= 2){ owner.options[0].text = c1; owner.options[1].text = c2; }
   });
+  const rentalOwner = document.getElementById('rentalIncomeOwner');
+  if(rentalOwner && rentalOwner.options.length >= 3){
+    rentalOwner.options[1].text = c1;
+    rentalOwner.options[2].text = c2;
+  }
 }
 
 
@@ -1073,8 +1099,8 @@ function applyMasterModeReset(){
     setFieldValueSoft('feePct',0);
     if(feeType) feeType.value='nofee';
     if(fiaEnabled) fiaEnabled.value='no';
-    help && (help.textContent='Roth Conversion Only: the planner uses Client IRA balances only. Premium, bonus, and FIA income fields are cleared/ignored.');
-    warn && (warn.innerHTML='<b>Mode check:</b> Roth Conversion Only is active. Premium and bonus inputs are ignored, so a leftover $4,000,000 premium cannot drive the plan.');
+    help && (help.textContent='Roth Conversion Only: the planner uses Client IRA balances only. Premium, bonus, FIA income, and IRA-to-annuity funding fields are ignored.');
+    warn && (warn.innerHTML='<b>Mode check:</b> Roth Conversion Only is active. Premium, bonus, and FIA funding inputs are ignored; the conversion solver uses the entered Client IRA balances.');
     premiumNote && (premiumNote.textContent='Disabled in Roth Conversion Only mode. Conversion base comes from Client IRA balances.');
   } else if(mode === 'fiaIncome'){
     if(fiaEnabled) fiaEnabled.value='yes';
@@ -1260,6 +1286,23 @@ function getGuaranteedTaxFreeIncome(year, useStrategy, filingStart, deathApplied
 }
 function getGuaranteedTaxableIncome(year, useStrategy, filingStart, deathApplied, deathWho){
   return fiaIncomeIsTaxFree() ? 0 : getGuaranteedLifetimeIncome(year, useStrategy, filingStart, deathApplied, deathWho);
+}
+function getRentalIncomeStream(year, primaryAge, filingStart, deathApplied, deathWho){
+  if((document.getElementById('rentalIncomeEnabled')?.value || 'no') !== 'yes') return {gross:0,taxable:0};
+  const startAge = Math.max(0, Math.floor(num('rentalStartAge')));
+  const endAge = Math.max(startAge || 0, Math.floor(num('rentalEndAge') || 95));
+  if((startAge > 0 && primaryAge < startAge) || primaryAge > endAge) return {gross:0,taxable:0};
+  const growth = Math.max(-0.99, percent('rentalIncomeCola'));
+  const elapsed = startAge > 0 ? Math.max(0, primaryAge - startAge) : Math.max(0, year - 1);
+  let continuation = 1;
+  const owner = document.getElementById('rentalIncomeOwner')?.value || 'joint';
+  if(filingStart==='MFJ' && deathApplied && owner!=='joint' && owner===deathWho){
+    continuation = Math.max(0, Math.min(1, num('rentalIncomeSurvivorPct') / 100));
+  }
+  const factor = Math.pow(1 + growth, elapsed) * continuation;
+  const gross = Math.max(0, num('rentalGrossIncome')) * factor;
+  const taxable = Math.max(0, num('rentalTaxableIncome')) * factor;
+  return {gross,taxable};
 }
 function existingAnnuityComparisonEnabled(){
   return (document.getElementById('existingAnnuityCompareEnabled')?.value || 'no') === 'yes';
@@ -1447,7 +1490,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1735,6 +1778,7 @@ function isTaxableReportColumn(h){
     || v === 'conversion taxes'
     || v === 'rmd required withdrawal'
     || v === 'pension'
+    || v === 'taxable rental income'
     || v === 'guaranteed taxable income'
     || v === 'taxable nq amount';
 }
@@ -1911,8 +1955,11 @@ function buildScenario(useStrategy){
   const nqCustomTaxablePct = Math.max(0, Math.min(1, num('nqCustomTaxablePct') / 100));
   ira += additionalTraditional;
   outside += municipalEstate;
-  const client1LifetimeIncomeIraFunding = useStrategy ? Math.min(Math.max(0, enteredHusbandIra), Math.max(0, num('client1LifetimeIncomeIraFunding'))) : 0;
-  const client2LifetimeIncomeIraFunding = useStrategy ? Math.min(Math.max(0, enteredWifeIra), Math.max(0, num('client2LifetimeIncomeIraFunding'))) : 0;
+  // Strict mode isolation: Roth Conversion Only always uses the entered IRA
+  // balances and ignores any FIA funding values retained in a saved client case.
+  const fiaFundingActive = useStrategy && masterMode !== 'rothOnly';
+  const client1LifetimeIncomeIraFunding = fiaFundingActive ? Math.min(Math.max(0, enteredHusbandIra), Math.max(0, num('client1LifetimeIncomeIraFunding'))) : 0;
+  const client2LifetimeIncomeIraFunding = fiaFundingActive ? Math.min(Math.max(0, enteredWifeIra), Math.max(0, num('client2LifetimeIncomeIraFunding'))) : 0;
   const lifetimeIncomeIraFunding = client1LifetimeIncomeIraFunding + client2LifetimeIncomeIraFunding;
   if(lifetimeIncomeIraFunding > 0){
     ira = Math.max(0, ira - lifetimeIncomeIraFunding);
@@ -2003,6 +2050,9 @@ function buildScenario(useStrategy){
     const husbandCurrentTaxableIncome = (hAge < hIncomeEndAge) ? num('hTaxableIncome') : 0;
     const wifeCurrentTaxableIncome = (currentStatus==='MFJ' && wAge < wIncomeEndAge) ? num('wTaxableIncome') : 0;
     currentTaxableIncome = husbandCurrentTaxableIncome + wifeCurrentTaxableIncome;
+    const rentalIncomeStream = getRentalIncomeStream(year, primaryAge, filingStart, deathApplied, deathWho);
+    const rentalIncome = rentalIncomeStream.gross;
+    const taxableRentalIncome = rentalIncomeStream.taxable;
 
     const hSS = (currentStatus==='Single' && deathApplied)
       ? ((hSSBase>0 && hAge>=hSSStart) ? hSSBase*Math.pow(1+cola,Math.max(0,hAge-hSSStart)) : 0)
@@ -2047,7 +2097,7 @@ function buildScenario(useStrategy){
     // then IRA, then Roth, then any extra IRA gap-fill if Roth is unavailable.
     // NQ withdrawals are intentionally schedule-driven, not just gap-fill driven,
     // so a planned $20,000 from age 67-72 appears every eligible year.
-    const baseIncome = currentGrossIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome;
+    const baseIncome = currentGrossIncome + rentalIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome;
     const hasTrackedNqAccount = nqBalance > 0 || enteredNqAccountValue > 0 || additionalNq > 0;
     const nqAvailableForYear = hasTrackedNqAccount ? Math.min(plannedNqWithdrawal, nqBalance) : plannedNqWithdrawal;
     let nqUsed = Math.max(0, nqAvailableForYear);
@@ -2130,7 +2180,7 @@ function buildScenario(useStrategy){
     // We first calculate the no-conversion taxable SS amount for the base tax, then
     // recalculate it after the conversion is selected so the report and taxes reflect
     // the conversion-driven Social Security taxability correctly.
-    const taxableNonSSBeforeConversion = currentTaxableIncome + taxablePension + existingAnnuityTaxableIncome + guaranteedTaxableIncome + nqTaxableWithdrawal + iraWithdrawal + brokerageOrdinaryIncome - alimonyDeduction;
+    const taxableNonSSBeforeConversion = currentTaxableIncome + taxableRentalIncome + taxablePension + existingAnnuityTaxableIncome + guaranteedTaxableIncome + nqTaxableWithdrawal + iraWithdrawal + brokerageOrdinaryIncome - alimonyDeduction;
     const taxableSSBeforeConversion = taxableSS(ssIncome, taxableNonSSBeforeConversion, currentStatus);
     let taxableSSIncome = taxableSSBeforeConversion;
 
@@ -2315,7 +2365,7 @@ function buildScenario(useStrategy){
     totalRMDs += rmd;
     totalBrokerageTaxes += brokerageTaxDrag;
 
-    const spendableIncomeBeforeBrokerage = currentGrossIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
+    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
     const displayedIncome = spendableIncomeBeforeBrokerage + brokerageOrdinaryIncome;
     const excessRmdReinvested = (desiredIncome > 0 && rmd > 0) ? Math.min(rmd, Math.max(0, spendableIncomeBeforeBrokerage - desiredIncome)) : 0;
     // Brokerage balance is shown after reinvesting this year's excess RMD and the year's interest/dividends.
@@ -2398,6 +2448,9 @@ function buildScenario(useStrategy){
       taxableIncome: taxableBaseAfterConversion,
       client1EmploymentIncome: husbandCurrentGrossIncome,
       client2EmploymentIncome: wifeCurrentGrossIncome,
+      rentalIncome,
+      taxableRentalIncome,
+      rentalIncomeTitle: (document.getElementById('rentalIncomeTitle')?.value || 'Rental Property Income').trim() || 'Rental Property Income',
       currentTaxableIncome,
       alimonyDeduction,
       additionalRoth,
@@ -2920,6 +2973,9 @@ function tableConfigFromDetails(details, mode='before'){
   const rowsData = Array.isArray(details) ? details : [];
   const showClient1EmploymentIncome = rowsData.some(r => Math.abs(Number(r.client1EmploymentIncome || 0)) > 0.004);
   const showClient2EmploymentIncome = rowsData.some(r => Math.abs(Number(r.client2EmploymentIncome || 0)) > 0.004);
+  const showRentalIncome = rowsData.some(r => Math.abs(Number(r.rentalIncome || 0)) > 0.004);
+  const showSeparateTaxableRental = showRentalIncome && rowsData.some(r => Math.abs(Number(r.rentalIncome || 0) - Number(r.taxableRentalIncome || 0)) > 0.004);
+  const rentalColumnTitle = `${String((rowsData.find(r=>r.rentalIncomeTitle)?.rentalIncomeTitle) || 'Rental Income')}\nCash Flow`;
   const showRmd = rowsData.some(r => Math.abs(Number(r.rmd || 0)) > 0.004);
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.nonRmdIraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
@@ -2933,6 +2989,8 @@ function tableConfigFromDetails(details, mode='before'){
     const cols = ['Year','Age'];
     if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment Income`);
     if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment Income`);
+    if(showRentalIncome) cols.push(rentalColumnTitle);
+    if(showSeparateTaxableRental) cols.push('Taxable\nRental Income');
     cols.push('SS','Taxable\nSS','Pension');
     if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
     if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
@@ -2952,6 +3010,8 @@ function tableConfigFromDetails(details, mode='before'){
       const row = [`Year ${r.year}`, r.age];
       if(showClient1EmploymentIncome) row.push(fmt2(r.client1EmploymentIncome||0));
       if(showClient2EmploymentIncome) row.push(fmt2(r.client2EmploymentIncome||0));
+      if(showRentalIncome) row.push(fmt2(r.rentalIncome||0));
+      if(showSeparateTaxableRental) row.push(fmt2(r.taxableRentalIncome||0));
       row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
       if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
       if(showRmd) row.push(fmt2(r.rmd||0));
@@ -2977,6 +3037,8 @@ function tableConfigFromDetails(details, mode='before'){
   const cols = ['Year','Age'];
   if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment Income`);
   if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment Income`);
+  if(showRentalIncome) cols.push(rentalColumnTitle);
+  if(showSeparateTaxableRental) cols.push('Taxable\nRental Income');
   cols.push('SS','Taxable\nSS','Pension');
   if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
   if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
@@ -2996,6 +3058,8 @@ function tableConfigFromDetails(details, mode='before'){
     const row = [`Year ${r.year}`, r.age];
     if(showClient1EmploymentIncome) row.push(fmt2(r.client1EmploymentIncome||0));
     if(showClient2EmploymentIncome) row.push(fmt2(r.client2EmploymentIncome||0));
+    if(showRentalIncome) row.push(fmt2(r.rentalIncome||0));
+    if(showSeparateTaxableRental) row.push(fmt2(r.taxableRentalIncome||0));
     row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
     if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
     if(showRmd) row.push(fmt2(r.rmd||0));
@@ -3234,10 +3298,17 @@ function validateReportInputs(){
   if(bonusPct>100) errors.push(`Premium Finance bonus is ${bonusPct.toLocaleString()}%. Enter a percentage, not an account dollar amount.`);
   if(c1Funding>c1Ira+0.01) errors.push('Client 1 annuity funding exceeds Client 1 IRA assets.');
   if(c2Funding>c2Ira+0.01) errors.push('Client 2 annuity funding exceeds Client 2 IRA assets.');
-  if(totalFunding>0 && mode==='rothOnly') errors.push('IRA assets are allocated to a lifetime-income annuity, but Strategy Type is Roth Conversion Only. Select FIA / Income Strategy or Hybrid.');
+  // FIA funding fields are intentionally ignored in Roth Conversion Only mode,
+  // so stale values from a saved FIA case do not block or reduce the conversion.
   if((mode==='fiaIncome'||mode==='hybrid') && !fiaEnabled) errors.push('FIA / income strategy is selected, but Guaranteed Lifetime Income is disabled.');
   if(mode==='hybrid' && !fiaEnabled) errors.push('Hybrid mode requires both an active FIA income strategy and an intentional Roth conversion strategy.');
   if(fiaEnabled && Math.max(0,num('fiaInitialIncomePayment'))===0 && Math.max(0,num('fiaAnnualIncome'))===0) errors.push('Guaranteed Lifetime Income is enabled, but both the initial payment and annual lifetime income are $0.');
+  if((document.getElementById('rentalIncomeEnabled')?.value||'no')==='yes'){
+    if(Math.max(0,num('rentalGrossIncome'))===0) errors.push('Rental / recurring income is enabled, but annual cash flow is $0.');
+    const rentalStart=Math.max(0,Math.floor(num('rentalStartAge')));
+    const rentalEnd=Math.max(0,Math.floor(num('rentalEndAge')));
+    if(rentalStart>0 && rentalEnd<rentalStart) errors.push('Rental income last age must be the same as or later than its start age.');
+  }
   return errors;
 }
 
