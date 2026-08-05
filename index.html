@@ -380,7 +380,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="mode-help" id="strategyModeHelp">Roth Conversion Only ignores Premium Finance inputs and converts only entered IRA assets.</div>
             </div>
           </div>
-          <div id="strategyModeWarning" class="mode-warning"><b>Mode check:</b> Roth Conversion Only is active. Premium, bonus, and FIA funding inputs are ignored; the conversion solver uses the entered Client IRA balances.</div>
+          <div id="strategyModeWarning" class="mode-warning"><b>Mode check:</b> Roth Conversion Only is active. The conversion base comes from Client IRA balances; bonus and fee assumptions remain editable. FIA funding inputs are ignored.</div>
         </div>
 
         <div class="client-bio-top">
@@ -1090,18 +1090,17 @@ function applyMasterModeReset(){
   const premiumNote=document.getElementById('premiumModeNote');
   const premiumIgnored = mode === 'rothOnly';
   if(premium){ premium.disabled = premiumIgnored; }
-  if(bonus){ bonus.disabled = premiumIgnored; }
-  if(fee){ fee.disabled = premiumIgnored; }
-  if(feeType){ feeType.disabled = premiumIgnored; }
+  // Roth-only derives the premium base from the IRA, but its product bonus and
+  // annual fee assumptions remain active and editable.
+  if(bonus){ bonus.disabled = false; }
+  if(fee){ fee.disabled = false; }
+  if(feeType){ feeType.disabled = false; }
   if(mode === 'rothOnly'){
     setFieldValueSoft('premium',0);
-    setFieldValueSoft('bonusPct',0);
-    setFieldValueSoft('feePct',0);
-    if(feeType) feeType.value='nofee';
     if(fiaEnabled) fiaEnabled.value='no';
-    help && (help.textContent='Roth Conversion Only: the planner uses Client IRA balances only. Premium, bonus, FIA income, and IRA-to-annuity funding fields are ignored.');
-    warn && (warn.innerHTML='<b>Mode check:</b> Roth Conversion Only is active. Premium, bonus, and FIA funding inputs are ignored; the conversion solver uses the entered Client IRA balances.');
-    premiumNote && (premiumNote.textContent='Disabled in Roth Conversion Only mode. Conversion base comes from Client IRA balances.');
+    help && (help.textContent='Roth Conversion Only: Client IRA balances determine the conversion base. The Premium Finance bonus and selected annual fee remain active; FIA income and IRA-to-annuity funding fields are ignored.');
+    warn && (warn.innerHTML='<b>Mode check:</b> Roth Conversion Only is active. The conversion base comes from Client IRA balances; bonus and fee assumptions remain editable. FIA funding inputs are ignored.');
+    premiumNote && (premiumNote.textContent='Conversion base comes from Client IRA balances. Premium Finance bonus and fee assumptions remain active.');
   } else if(mode === 'fiaIncome'){
     if(fiaEnabled) fiaEnabled.value='yes';
     setFieldValueSoft('fiaTaxTreatment','taxable');
@@ -1911,7 +1910,7 @@ function buildScenario(useStrategy){
   const conversionEnabled = masterMode === 'rothOnly' || masterMode === 'hybrid';
   const premiumInputValue = num('premium');
   const premium = (useStrategy && masterMode === 'rothOnly') ? enteredIraTotal : premiumInputValue;
-  const premiumBonusRate = (useStrategy && masterMode === 'rothOnly') ? 0 : effectivePremiumBonusRate();
+  const premiumBonusRate = useStrategy ? effectivePremiumBonusRate() : 0;
   const bonus = premium * premiumBonusRate;
   let ira = enteredIraTotal;
   let outside=num('outsideAssets');
@@ -2342,7 +2341,8 @@ function buildScenario(useStrategy){
     if(useStrategy){
       const netToRoth = includeTaxFundingComparison ? conversion : Math.max(0, conversion - conversionTax);
       if(netToRoth > 0){
-        rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: netToRoth * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
+        const creditedRothDeposit = netToRoth * (1 + premiumBonusRate);
+        rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: creditedRothDeposit * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
       }
       roth = rothBuckets.reduce((s,b)=>s+b.balance,0) + additionalRoth;
       ira = Math.max(0, (ira - iraWithdrawal - conversion) * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)));
