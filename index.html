@@ -3601,7 +3601,6 @@ function generatePDF(){
     [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
     [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
     [`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`, before.afterTaxLegacyEstate||0, after.afterTaxLegacyEstate||0, (after.afterTaxLegacyEstate||0)-(before.afterTaxLegacyEstate||0)],
-    [`Gross Legacy Estate by Age ${planningHorizonAge()}`, before.grossLegacyEstate||0, after.grossLegacyEstate||0, (after.grossLegacyEstate||0)-(before.grossLegacyEstate||0)],
     [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`, before.municipalEstate || 0, after.municipalEstate || 0, (after.municipalEstate || 0) - (before.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
