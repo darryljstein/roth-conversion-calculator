@@ -397,7 +397,9 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="field"><label>Client 1 IRA</label><input id="hIra" type="number" value="2000000" step="1000" /></div>
               <div class="field"><label>Taxable Pension Annual</label><input id="pension" type="number" value="0" step="1000" /></div>
               <div class="field"><label>Client 1 SS Start Age</label><input id="hSSAge" type="number" value="66" min="62" max="75" step="0.1" /></div>
-              <div class="field"><label>Client 1 SS Annual</label><input id="hSS" type="number" value="25000" /></div>
+              <div class="field"><label>Client 1 Current Annual SS Benefit</label><input id="hSS" type="number" value="25000" /><div class="mode-help">If already receiving Social Security, enter the current annual amount. If benefits begin later, enter the expected annual amount at the future start age.</div></div>
+              <div class="field"><label>Client 1 SS Payment Timing</label><select id="hSSTiming"><option value="current" selected>Already Receiving - Full Year</option><option value="year1">Starts During Projection Year 1</option><option value="age">Starts at Entered Start Age</option></select></div>
+              <div class="field"><label>Client 1 First Payment Month</label><input id="hSSStartMonth" type="number" value="1" min="1" max="12" step="1" /><div class="mode-help">1 = January and 12 = December. Used when benefits start during the projection.</div></div>
               <div class="field"><label>Client 1 Current Annual Income</label><input id="hCurrentIncome" type="number" value="50000" step="1000" /></div>
               <div class="field"><label>Client 1 Taxable Non-SS Income</label><input id="hTaxableIncome" type="number" value="20000" step="1000" /></div>
               <div class="field"><label>Client 1 Income Ends At Age</label><input id="hIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
@@ -411,7 +413,9 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="field spouse-field"><label>Client 2 Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
               <div class="field spouse-field"><label>Client 2 IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
               <div class="field spouse-field"><label>Client 2 SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" step="0.1" /></div>
-              <div class="field spouse-field"><label>Client 2 SS Annual</label><input id="wSS" type="number" value="25000" /></div>
+              <div class="field spouse-field"><label>Client 2 Current Annual SS Benefit</label><input id="wSS" type="number" value="25000" /><div class="mode-help">If already receiving Social Security, enter the current annual amount. If benefits begin later, enter the expected annual amount at the future start age.</div></div>
+              <div class="field spouse-field"><label>Client 2 SS Payment Timing</label><select id="wSSTiming"><option value="current" selected>Already Receiving - Full Year</option><option value="year1">Starts During Projection Year 1</option><option value="age">Starts at Entered Start Age</option></select></div>
+              <div class="field spouse-field"><label>Client 2 First Payment Month</label><input id="wSSStartMonth" type="number" value="1" min="1" max="12" step="1" /><div class="mode-help">1 = January and 12 = December. Used when benefits start during the projection.</div></div>
               <div class="field spouse-field"><label>Client 2 Current Annual Income</label><input id="wCurrentIncome" type="number" value="87000" step="1000" /></div>
               <div class="field spouse-field"><label>Client 2 Taxable Non-SS Income</label><input id="wTaxableIncome" type="number" value="87000" step="1000" /></div>
               <div class="field spouse-field"><label>Client 2 Income Ends At Age</label><input id="wIncomeEndAge" type="number" value="65" min="40" max="95" step="1" /></div>
@@ -599,7 +603,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                   <div class="field"><label>NQ Step-Up Tax Haircut %</label><input id="uhnwNqTaxHaircut" type="number" value="0" min="0" max="60" step="0.1" /></div>
 <div class="field"><label>Legacy Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Tax Bracket Inflation %</label><input id="taxInflation" type="number" value="2.6" step="0.1" /></div>
-          <div class="field"><label>Additional 65+ Deduction (Per Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /></div>
+          <div class="field"><label>Other Advisor-Entered Deduction (Per 65+ Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /><div class="mode-help">The regular age-65 standard deduction and temporary enhanced senior deduction are now calculated automatically. Use this only for an additional planning assumption.</div></div>
           <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="1000000" step="1000" /></div>
           <div class="account-panel">
@@ -821,6 +825,7 @@ function removeAdditionalAccount(btn){
 }
 
 const fmt2 = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2,minimumFractionDigits:2}).format(isFinite(n)?n:0);
+const fmtPct = n => `${(Math.max(0,Number(n||0))*100).toFixed(2)}%`;
 const roundMoney = n => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 const num = id => {
   const node = document.getElementById(id);
@@ -831,10 +836,11 @@ const num = id => {
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
 const TAX = {
-  MFJ:{ded:32200,irmaa1:218000,brackets:{12:97000,22:211400,24:403200,32:513300}},
-  Single:{ded:16100,irmaa1:109000,brackets:{12:48500,22:105700,24:201775,32:256225}},
-  HOH:{ded:23600,irmaa1:109000,brackets:{12:69400,22:118200,24:190300,32:243700}}
+  MFJ:{ded:32200,irmaa1:218000,brackets:{10:24800,12:100800,22:211400,24:403550,32:512450,35:768700}},
+  Single:{ded:16100,irmaa1:109000,brackets:{10:12400,12:50400,22:105700,24:201775,32:256225,35:640600}},
+  HOH:{ded:24150,irmaa1:109000,brackets:{10:17700,12:67450,22:105700,24:201750,32:256200,35:640600}}
 };
+const PROJECTION_BASE_TAX_YEAR = 2026;
 function capFirst(s){return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';}
 function survivorIncomeNeedReductionPct(){
   const selected = document.getElementById('survivorIncomeNeedReduction')?.value || '0';
@@ -1118,7 +1124,7 @@ function applyMasterModeReset(){
 function widowSwitchEnabled(){
   return (document.getElementById('widowSwitchEnabled')?.value || 'no') === 'yes';
 }
-function getClient1SocialSecurity(currentAge, cola){
+function getClient1SocialSecurity(currentAge, cola, projectionStartAge=currentAge){
   if(widowSwitchEnabled()){
     const widowStart = num('widowSSStartAge');
     const ownStart = num('ownSSSwitchAge');
@@ -1132,7 +1138,27 @@ function getClient1SocialSecurity(currentAge, cola){
   }
   const hSSStartLocal = num('hSSAge');
   const hSSBaseLocal = num('hSS');
-  return (hSSBaseLocal > 0 && currentAge >= hSSStartLocal) ? hSSBaseLocal * Math.pow(1 + cola, Math.max(0, currentAge - hSSStartLocal)) : 0;
+  // If benefits already started, the entered amount is today's annual benefit,
+  // not the historical amount received at the original claim age.
+  const benefitBaseAge = Math.max(hSSStartLocal, projectionStartAge);
+  return (hSSBaseLocal > 0 && currentAge >= hSSStartLocal) ? hSSBaseLocal * Math.pow(1 + cola, Math.max(0, currentAge - benefitBaseAge)) : 0;
+}
+function projectedSocialSecurityBenefit(baseAmount, timing, startAge, currentAge, projectionStartAge, projectionYear, startMonth, cola){
+  const base = Math.max(0, Number(baseAmount || 0));
+  if(base <= 0) return 0;
+  const mode = timing || 'current';
+  const month = Math.max(1, Math.min(12, Math.floor(Number(startMonth || 1))));
+  if(mode === 'current'){
+    return base * Math.pow(1 + cola, Math.max(0, projectionYear - 1));
+  }
+  if(mode === 'year1'){
+    if(projectionYear === 1) return base * ((13 - month) / 12);
+    return base * Math.pow(1 + cola, Math.max(0, projectionYear - 1));
+  }
+  if(currentAge < startAge) return 0;
+  const yearsAfterStart = Math.max(0, currentAge - startAge);
+  const annual = base * Math.pow(1 + cola, yearsAfterStart);
+  return Math.floor(currentAge) === Math.floor(startAge) ? annual * ((13 - month) / 12) : annual;
 }
 function iraPctScheduleEnabled(){
   return (document.getElementById('iraPctScheduleEnabled')?.value || 'no') === 'yes';
@@ -1489,7 +1515,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','wSSAge','wSS','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1585,31 +1611,61 @@ function taxableSS(ss, otherTaxableIncome=0, status='Single'){
 
   return Math.min(0.85 * socialSecurity, Math.max(0, taxable));
 }
-function getTaxConfig(status, year, hAge, wAge){
+function enhancedSeniorDeduction(status, taxYear, seniorCount, magi){
+  if(taxYear < 2025 || taxYear > 2028 || seniorCount <= 0) return 0;
+  const maximum = 6000 * seniorCount;
+  const phaseoutStart = status === 'MFJ' ? 150000 : 75000;
+  return Math.max(0, maximum - (Math.max(0, Number(magi || 0) - phaseoutStart) * 0.06));
+}
+function getTaxConfig(status, year, hAge, wAge, magi=0){
   const base = TAX[status];
   const taxInflation = percent('taxInflation') || 0;
   const factor = Math.pow(1 + taxInflation, Math.max(0, year - 1));
-  const seniorBase = num('seniorDeduction');
+  const advisorSeniorDeduction = Math.max(0, num('seniorDeduction'));
   const seniorCount = status === 'MFJ'
     ? (Number(hAge) >= 65 ? 1 : 0) + (Number(wAge) >= 65 ? 1 : 0)
     : (Number(hAge) >= 65 ? 1 : 0);
-  const ded = (base.ded * factor) + (seniorBase * factor * seniorCount);
+  const regularSeniorPerPerson = status === 'MFJ' ? 1650 : 2050;
+  const regularSeniorDeduction = regularSeniorPerPerson * factor * seniorCount;
+  const taxYear = PROJECTION_BASE_TAX_YEAR + Math.max(0, Number(year || 1) - 1);
+  const enhancedDeduction = enhancedSeniorDeduction(status, taxYear, seniorCount, magi);
+  const ded = (base.ded * factor) + regularSeniorDeduction + enhancedDeduction + (advisorSeniorDeduction * factor * seniorCount);
   return {
     ded,
+    basicDeduction: base.ded * factor,
+    regularSeniorDeduction,
+    enhancedSeniorDeduction: enhancedDeduction,
+    advisorSeniorDeduction: advisorSeniorDeduction * factor * seniorCount,
+    seniorCount,
+    taxYear,
     irmaa1: base.irmaa1 * factor,
     brackets: {
+      10: base.brackets[10] * factor,
       12: base.brackets[12] * factor,
       22: base.brackets[22] * factor,
       24: base.brackets[24] * factor,
-      32: base.brackets[32] * factor
+      32: base.brackets[32] * factor,
+      35: base.brackets[35] * factor
     }
   };
 }
 function ordinaryTax(income, cfg){
   const taxable=Math.max(0,income-cfg.ded), b=cfg.brackets;
-  let tax=0, prev=0; const levels=[[12,b[12]],[22,b[22]],[24,b[24]],[32,b[32]]];
+  let tax=0, prev=0; const levels=[[10,b[10]],[12,b[12]],[22,b[22]],[24,b[24]],[32,b[32]],[35,b[35]]];
   for(const [rate,top] of levels){ const amt=Math.max(0,Math.min(taxable,top)-prev); tax+=amt*(rate/100); prev=top; if(taxable<=top) return tax; }
-  tax+=Math.max(0,taxable-b[32])*0.35; return tax;
+  tax+=Math.max(0,taxable-b[35])*0.37; return tax;
+}
+function marginalTaxRate(income, cfg){
+  const taxable = Math.max(0, Number(income || 0) - cfg.ded);
+  if(taxable <= 0) return 0;
+  const b = cfg.brackets;
+  if(taxable <= b[10]) return 0.10;
+  if(taxable <= b[12]) return 0.12;
+  if(taxable <= b[22]) return 0.22;
+  if(taxable <= b[24]) return 0.24;
+  if(taxable <= b[32]) return 0.32;
+  if(taxable <= b[35]) return 0.35;
+  return 0.37;
 }
 function irmaaOptimizationLabel(){
   const mode = document.getElementById('irmaaOptimizationMode')?.value || 'off';
@@ -1901,6 +1957,7 @@ function buildScenario(useStrategy){
   const filingStart=(document.getElementById('filingStatus')?.value || 'MFJ');
   let status=filingStart;
   let hAge=num('hAge'), wAge=num('wAge');
+  const projectionStartHAge=hAge, projectionStartWAge=wAge;
   const startingPrimaryAge = filingStart==='MFJ' ? Math.max(hAge,wAge) : hAge;
   const primaryBirthYear = estimatedBirthYearFromStartingAge(startingPrimaryAge);
   const fixedRmdStartAge = rmdStartAgeFromBirthYear(primaryBirthYear);
@@ -1980,6 +2037,10 @@ function buildScenario(useStrategy){
 
   let hSSBase=num('hSS'), wSSBase=num('wSS');
   let hSSStart=num('hSSAge'), wSSStart=num('wSSAge');
+  const hSSTiming=document.getElementById('hSSTiming')?.value || 'current';
+  const wSSTiming=document.getElementById('wSSTiming')?.value || 'current';
+  const hSSStartMonth=Math.max(1,Math.min(12,Math.floor(num('hSSStartMonth')||1)));
+  const wSSStartMonth=Math.max(1,Math.min(12,Math.floor(num('wSSStartMonth')||1)));
   const applySpousal=(filingStart==='MFJ' && (document.getElementById('applySpousal')?.value || 'no')==='yes');
   const hFRAAge=num('hFRAAge');
   const hPIA=num('hPIA');
@@ -2007,7 +2068,8 @@ function buildScenario(useStrategy){
 
   let roth=0;
   let rothBuckets=[];
-  let totalTaxes=0,totalTaxFreeIncome=0,totalGuaranteedTaxFreeIncome=0,totalGuaranteedTaxableIncome=0,totalRMDs=0,totalIRMAA=0,totalBrokerageTaxes=0,firstConv=0;
+  let totalTaxes=0,totalTaxableIncome=0,totalTaxFreeIncome=0,totalGuaranteedTaxFreeIncome=0,totalGuaranteedTaxableIncome=0,totalRMDs=0,totalIRMAA=0,totalBrokerageTaxes=0,firstConv=0;
+  let year1MarginalTaxRate=0;
   // Taxable brokerage side account: excess RMD income above the income goal is assumed
   // to be reinvested here. Annual interest/dividend growth is taxed as ordinary income.
   let taxableBrokerage=0;
@@ -2017,6 +2079,7 @@ function buildScenario(useStrategy){
   let survivorSnapshotBefore=null, survivorSnapshotAfter=null;
   let conversionFinishedYear = null;
   let carriedHigherSS = 0;
+  let survivorSSBaseYear = 0;
   let currentGrossIncome = 0;
   let currentTaxableIncome = 0;
 
@@ -2054,11 +2117,13 @@ function buildScenario(useStrategy){
     const taxableRentalIncome = rentalIncomeStream.taxable;
 
     const hSS = (currentStatus==='Single' && deathApplied)
-      ? ((hSSBase>0 && hAge>=hSSStart) ? hSSBase*Math.pow(1+cola,Math.max(0,hAge-hSSStart)) : 0)
-      : getClient1SocialSecurity(hAge, cola);
-    let wSS = (currentStatus==='MFJ' && wSSBase>0 && wAge>=wSSStart) ? wSSBase*Math.pow(1+cola,Math.max(0,wAge-wSSStart)) : 0;
+      ? carriedHigherSS*Math.pow(1+cola,Math.max(0,year-survivorSSBaseYear))
+      : projectedSocialSecurityBenefit(hSSBase,hSSTiming,hSSStart,hAge,projectionStartHAge,year,hSSStartMonth,cola);
+    let wSS = currentStatus==='MFJ'
+      ? projectedSocialSecurityBenefit(wSSBase,wSSTiming,wSSStart,wAge,projectionStartWAge,year,wSSStartMonth,cola)
+      : 0;
     if(currentStatus==='MFJ' && applySpousal && wAge>=wSSStart && hAge>=Math.max(hSSStart,hFRAAge) && hPIA>0 && wPIA>0){
-      const ownReduced = wOwnSSCurrent*Math.pow(1+cola,Math.max(0,wAge-wSSStart));
+      const ownReduced = projectedSocialSecurityBenefit(wOwnSSCurrent,wSSTiming,wSSStart,wAge,projectionStartWAge,year,wSSStartMonth,cola);
       const spousalExcess = Math.max(0, (0.5*hPIA) - wPIA);
       const reducedExcess = spousalExcess * spousalFactor * Math.pow(1+cola,Math.max(0,hAge-hFRAAge));
       wSS = Math.max(wSS, ownReduced + reducedExcess);
@@ -2189,9 +2254,9 @@ function buildScenario(useStrategy){
     let irmaa=0;
     let detailTax=0;
 
-    const taxCfg = getTaxConfig(currentStatus, year, hAge, wAge);
     const bracketTarget = parseInt((document.getElementById('targetBracket')?.value || '24'),10);
     const taxableBaseBeforeConversion = Math.max(0, taxableNonSSBeforeConversion + taxableSSIncome);
+    const taxCfg = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseBeforeConversion);
     if(useStrategy && conversionEnabled && year>=startYear && year<=conversionEndYear && ira>0){
       // Standard mode tries to complete before RMDs when practical.
       // IRMAA-aware mode is allowed to stretch longer so conversion years do not unnecessarily
@@ -2242,18 +2307,25 @@ function buildScenario(useStrategy){
     const taxableSSAfterConversion = taxableSS(ssIncome, taxableNonSSBeforeConversion + conversion, currentStatus);
     taxableSSIncome = useStrategy ? taxableSSAfterConversion : taxableSSBeforeConversion;
     const taxableBaseAfterConversion = Math.max(0, taxableNonSSBeforeConversion + conversion + taxableSSAfterConversion);
-    const baseTax = ordinaryTax(taxableBaseBeforeConversion, taxCfg);
-    const totalTaxWithConversion = ordinaryTax(taxableBaseAfterConversion, taxCfg);
+    const taxCfgBefore = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseBeforeConversion);
+    const taxCfgAfter = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseAfterConversion);
+    const baseTax = ordinaryTax(taxableBaseBeforeConversion, taxCfgBefore);
+    const totalTaxWithConversion = ordinaryTax(taxableBaseAfterConversion, taxCfgAfter);
     conversionTax = Math.max(0, totalTaxWithConversion - baseTax);
     detailTax = useStrategy ? totalTaxWithConversion : baseTax;
     totalTax = detailTax;
+    const activeTaxCfg = useStrategy ? taxCfgAfter : taxCfgBefore;
+    const activeTaxableIncome = useStrategy ? taxableBaseAfterConversion : taxableBaseBeforeConversion;
+    const activeMarginalTaxRate = marginalTaxRate(activeTaxableIncome, activeTaxCfg);
+    if(year===1) year1MarginalTaxRate=activeMarginalTaxRate;
 
     // Estimate the tax specifically attributable to reinvested brokerage interest/dividends.
     // This is ordinary-income tax drag caused by reinvesting excess RMDs rather than needing them for lifestyle.
     const nonSSWithoutBrokerage = Math.max(0, taxableNonSSBeforeConversion - brokerageOrdinaryIncome);
     const taxableSSWithoutBrokerage = taxableSS(ssIncome, nonSSWithoutBrokerage + (useStrategy ? conversion : 0), currentStatus);
     const taxableBaseWithoutBrokerage = Math.max(0, nonSSWithoutBrokerage + (useStrategy ? conversion : 0) + taxableSSWithoutBrokerage);
-    const taxWithoutBrokerage = ordinaryTax(taxableBaseWithoutBrokerage, taxCfg);
+    const taxCfgWithoutBrokerage = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseWithoutBrokerage);
+    const taxWithoutBrokerage = ordinaryTax(taxableBaseWithoutBrokerage, taxCfgWithoutBrokerage);
     const brokerageTaxDrag = Math.max(0, detailTax - taxWithoutBrokerage);
     const currentYearMAGIForIRMAA = taxableBaseAfterConversion;
     let lookbackMAGI;
@@ -2361,6 +2433,7 @@ function buildScenario(useStrategy){
     }
 
     totalTaxes += totalTax;
+    totalTaxableIncome += activeTaxableIncome;
     totalIRMAA += irmaa;
     totalRMDs += rmd;
     totalBrokerageTaxes += brokerageTaxDrag;
@@ -2427,6 +2500,10 @@ function buildScenario(useStrategy){
       roth,
       tax: detailTax,
       totalTax,
+      totalDeductions: activeTaxCfg.ded,
+      taxableIncomeAfterDeductions: Math.max(0,activeTaxableIncome-activeTaxCfg.ded),
+      effectiveTaxRate: activeTaxableIncome > 0 ? detailTax/activeTaxableIncome : 0,
+      marginalTaxRate: activeMarginalTaxRate,
       irmaa,
       irmaaMAGI: lookbackMAGI,
       irmaaLookbackYear: lookbackYearForIRMAA,
@@ -2477,6 +2554,7 @@ function buildScenario(useStrategy){
           carriedHigherSS=Math.max(hSSBase||0, wSSBase||0);
           survivorSSStart=client1IsHigher ? hSSStart : wSSStart;
         }
+        survivorSSBaseYear=year;
         const snapshot={
           year,
           atAge: currentAgeDisplay,
@@ -2518,7 +2596,7 @@ function buildScenario(useStrategy){
     yearsToComplete: conversionYears,
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
-    totalTaxes, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
+    totalTaxes, totalTaxableIncome, lifetimeEffectiveTaxRate: totalTaxableIncome > 0 ? totalTaxes/totalTaxableIncome : 0, year1MarginalTaxRate, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
     taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
@@ -2530,6 +2608,8 @@ function buildScenario(useStrategy){
 function fillMetricTable(id,scenario){
   const rows=[
     [`Total Federal Taxes by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxes)],
+    [`Lifetime Effective Federal Tax Rate on Taxable Income`,fmtPct(scenario.lifetimeEffectiveTaxRate)],
+    [`Year 1 Marginal Federal Tax Rate`,fmtPct(scenario.year1MarginalTaxRate)],
     [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxFreeIncome)],
     [`Total Guaranteed Tax-Free Income by Age ${planningHorizonAge()}`,fmt2(scenario.totalGuaranteedTaxFreeIncome || 0)],
     [`Total RMDs by Age ${planningHorizonAge()}`,fmt2(scenario.totalRMDs)],
@@ -3605,6 +3685,10 @@ function generatePDF(){
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
+  comparisonBody.splice(1,0,
+    ['Lifetime Effective Federal Tax Rate on Taxable Income',fmtPct(before.lifetimeEffectiveTaxRate),fmtPct(after.lifetimeEffectiveTaxRate),`${((before.lifetimeEffectiveTaxRate-after.lifetimeEffectiveTaxRate)*100).toFixed(2)} pts`],
+    ['Year 1 Marginal Federal Tax Rate',fmtPct(before.year1MarginalTaxRate),fmtPct(after.year1MarginalTaxRate),`${((before.year1MarginalTaxRate-after.year1MarginalTaxRate)*100).toFixed(2)} pts`]
+  );
   doc.autoTable({
     startY:78,
     head:[[
@@ -4386,13 +4470,14 @@ function standaloneRothCalculate(){
     const years=Math.max(1,Math.floor(standaloneRothNum('saYears')||1));
     const heirRate=standaloneRothNum('saHeirTaxRate')/100;
 
-    const cfg=(typeof getTaxConfig==='function') ? getTaxConfig(status,1,c1Age,c2Age) : null;
     const taxableSSBefore=(typeof taxableSS==='function') ? taxableSS(ss,currentIncome,status) : 0;
     const taxableBefore=currentIncome+taxableSSBefore;
     const taxableSSAfter=(typeof taxableSS==='function') ? taxableSS(ss,currentIncome+conversion,status) : taxableSSBefore;
     const taxableAfter=currentIncome+conversion+taxableSSAfter;
-    const taxBefore=cfg && typeof ordinaryTax==='function' ? ordinaryTax(taxableBefore,cfg) : taxableBefore*0.22;
-    const taxAfter=cfg && typeof ordinaryTax==='function' ? ordinaryTax(taxableAfter,cfg) : taxableAfter*0.22;
+    const cfgBefore=(typeof getTaxConfig==='function') ? getTaxConfig(status,1,c1Age,c2Age,taxableBefore) : null;
+    const cfgAfter=(typeof getTaxConfig==='function') ? getTaxConfig(status,1,c1Age,c2Age,taxableAfter) : null;
+    const taxBefore=cfgBefore && typeof ordinaryTax==='function' ? ordinaryTax(taxableBefore,cfgBefore) : taxableBefore*0.22;
+    const taxAfter=cfgAfter && typeof ordinaryTax==='function' ? ordinaryTax(taxableAfter,cfgAfter) : taxableAfter*0.22;
     const conversionTax=Math.max(0,taxAfter-taxBefore);
     const effectiveRate=conversion>0 ? conversionTax/conversion : 0;
 
