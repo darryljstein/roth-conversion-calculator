@@ -3128,7 +3128,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showConversion) cols.push('Conversion','Conversion\nTaxes');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
-  cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
+  cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes','GROSS\nINCOME');
   if(showIRMAA) cols.push('IRMAA');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
   if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
@@ -3149,7 +3149,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showConversion) row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
-    row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
+    row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.grossIncome || 0));
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
     if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
@@ -4053,6 +4053,7 @@ function generatePDF(){
     let tableCfg = tableConfigFromDetails(details, mode);
     const greenIncomeIndex = tableCfg.cols[0].indexOf('TAX-FREE\nROTH INCOME');
     const guaranteedLifetimeIndex = tableCfg.cols[0].indexOf(fiaIncomeLabel());
+    const grossIncomeIndex = tableCfg.cols[0].indexOf('GROSS\nINCOME');
     const greenEstateIndex = tableCfg.cols[0].indexOf('TAX-FREE\nESTATE');
     const additionalAssetsIndex = tableCfg.cols[0].indexOf('ADDITIONAL\nACCOUNT ASSETS');
     const colCount = (tableCfg.cols && tableCfg.cols[0]) ? tableCfg.cols[0].length : 12;
@@ -4143,14 +4144,14 @@ function generatePDF(){
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='head' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex)){
+        if(mode==='after' && data.section==='head' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex || data.column.index===grossIncomeIndex)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='body' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex)){
+        if(mode==='after' && data.section==='body' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex || data.column.index===grossIncomeIndex)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
