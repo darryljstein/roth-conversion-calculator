@@ -3685,9 +3685,14 @@ function generatePDF(){
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
+  const comparisonImpactSigns = comparisonRows.map(r => Number(r[3] || 0));
   comparisonBody.splice(1,0,
     ['Lifetime Effective Federal Tax Rate on Taxable Income',fmtPct(before.lifetimeEffectiveTaxRate),fmtPct(after.lifetimeEffectiveTaxRate),`${((before.lifetimeEffectiveTaxRate-after.lifetimeEffectiveTaxRate)*100).toFixed(2)} pts`],
     ['Year 1 Marginal Federal Tax Rate',fmtPct(before.year1MarginalTaxRate),fmtPct(after.year1MarginalTaxRate),`${((before.year1MarginalTaxRate-after.year1MarginalTaxRate)*100).toFixed(2)} pts`]
+  );
+  comparisonImpactSigns.splice(1,0,
+    Number(before.lifetimeEffectiveTaxRate || 0) - Number(after.lifetimeEffectiveTaxRate || 0),
+    Number(before.year1MarginalTaxRate || 0) - Number(after.year1MarginalTaxRate || 0)
   );
   doc.autoTable({
     startY:78,
@@ -3716,7 +3721,7 @@ function generatePDF(){
         data.cell.styles.fontStyle='bold';
       }
       if(data.section==='body' && data.column.index===3){
-        const raw = comparisonRows[data.row.index][3];
+        const raw = Number(comparisonImpactSigns[data.row.index] || 0);
         data.cell.styles.fillColor = raw >= 0 ? [0,200,83] : [220,53,69];
         data.cell.styles.textColor = [255,255,255];
         data.cell.styles.fontStyle = 'bold';
