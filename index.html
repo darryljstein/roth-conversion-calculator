@@ -4157,31 +4157,47 @@ function generatePDF(){
         }
       }
     });
-    if(mode==='before' && details.some(r => Number(r.excessRmdReinvested || 0) > 0)){
-      const noteY = Math.min(525, ((doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 14 : 520));
-      doc.setFontSize(8);
-      doc.setTextColor(146,64,14);
-      doc.setFont(undefined,'bold');
-      doc.text(doc.splitTextToSize('Excess RMD Reinvestment: required IRA distributions above the retirement income goal are reinvested into a brokerage account. Modeled account growth is shown as unrealized appreciation and does not create current-year taxable income.', 720), 28, noteY);
+    let detailNoteY = ((doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 11 : 500);
+    const writeDetailNote = (message, color=[75,85,99], bold=false, fontSize=7.2) => {
+      doc.setFontSize(fontSize);
+      doc.setTextColor(...color);
+      doc.setFont(undefined,bold ? 'bold' : 'normal');
+      const lines = doc.splitTextToSize(message, 720);
+      doc.text(lines, 28, detailNoteY);
+      detailNoteY += (lines.length * (fontSize + 1.2)) + 3;
       doc.setFont(undefined,'normal');
-      doc.setTextColor(90,90,90);
+    };
+    if(mode==='before' && details.some(r => Number(r.excessRmdReinvested || 0) > 0)){
+      writeDetailNote('Excess RMD Reinvestment: required IRA distributions above the retirement income goal are reinvested into a brokerage account. Modeled account growth is shown as unrealized appreciation and does not create current-year taxable income.', [146,64,14], true);
     }
     if(mode==='after' && details.some(r => Number(r.surplusIncomeReinvested || 0) > 0)){
-      const noteY = Math.min(525, ((doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 14 : 520));
-      doc.setFontSize(8);
-      doc.setTextColor(146,64,14);
-      doc.setFont(undefined,'bold');
-      doc.text(doc.splitTextToSize('Surplus Income Reinvestment: modeled income above the annual income goal is deposited into a brokerage account. Modeled account growth is shown as unrealized appreciation and remains invested without creating current-year taxable income.', 720), 28, noteY);
-      doc.setFont(undefined,'normal');
-      doc.setTextColor(90,90,90);
+      writeDetailNote('Surplus Income Reinvestment: modeled income above the annual income goal is deposited into a brokerage account. Modeled account growth is shown as unrealized appreciation and remains invested without creating current-year taxable income.', [146,64,14], true);
+    }
+    const zeroTaxSsAndRothYears = mode==='after' ? details.filter(r => {
+      const onlySsAndRothCashFlow = Number(r.ssIncome || 0) > 0.004
+        && Number(r.taxFreeIncome || 0) > 0.004
+        && Math.abs(Number(r.grossIncome || 0) - Number(r.ssIncome || 0) - Number(r.taxFreeIncome || 0)) < 0.02;
+      const noOtherTaxableSources = Math.abs(Number(r.conversion || 0)) < 0.004
+        && Math.abs(Number(r.iraWithdrawal || 0)) < 0.004
+        && Math.abs(Number(r.plannedNqWithdrawal || 0)) < 0.004
+        && Math.abs(Number(r.nqGapWithdrawal || 0)) < 0.004
+        && Math.abs(Number(r.pension || 0)) < 0.004
+        && Math.abs(Number(r.existingAnnuityIncome || 0)) < 0.004
+        && Math.abs(Number(r.guaranteedLifetimeIncome || 0)) < 0.004
+        && Math.abs(Number(r.client1EmploymentIncome || 0)) < 0.004
+        && Math.abs(Number(r.client2EmploymentIncome || 0)) < 0.004
+        && Math.abs(Number(r.rentalIncome || 0)) < 0.004;
+      return Number(r.tax || 0) < 0.004 && onlySsAndRothCashFlow && noOtherTaxableSources;
+    }) : [];
+    if(zeroTaxSsAndRothYears.length){
+      const firstAge = zeroTaxSsAndRothYears[0].age;
+      const lastAge = zeroTaxSsAndRothYears[zeroTaxSsAndRothYears.length-1].age;
+      const ageRange = firstAge === lastAge ? `age ${firstAge}` : `ages ${firstAge} through ${lastAge}`;
+      writeDetailNote(`Why Federal Tax Is $0 in Certain Years (${ageRange}): the modeled cash flow consists only of Social Security and qualified tax-free Roth withdrawals. Provisional income equals other taxable income plus one-half of Social Security; qualified Roth withdrawals are excluded. Only the resulting taxable portion of Social Security enters taxable income. After the standard deduction and applicable age-65 deductions, taxable income after deductions is $0, so modeled federal income tax is $0.`, [11,58,111], true, 7.1);
     }
     const gapColPresent = tableCfg && tableCfg.cols && tableCfg.cols[0] && tableCfg.cols[0].includes('Gap /\nSurplus');
     if(gapColPresent){
-      const gapNoteY = Math.min(540, ((doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 26 : 536));
-      doc.setFontSize(7.5);
-      doc.setTextColor(75,85,99);
-      doc.setFont(undefined,'normal');
-      doc.text(doc.splitTextToSize('Income Gap / Surplus shows actual modeled income sources minus the stated Income Goal. Negative amounts indicate a shortfall; positive amounts indicate surplus income above the goal.', 720), 28, gapNoteY);
+      writeDetailNote('Income Gap / Surplus shows actual modeled income sources minus the stated Income Goal. Negative amounts indicate a shortfall; positive amounts indicate surplus income above the goal.');
     }
     addPdfFooter(doc,pageNum);
   }
