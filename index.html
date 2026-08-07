@@ -2068,10 +2068,11 @@ function buildScenario(useStrategy){
 
   let roth=0;
   let rothBuckets=[];
-  let totalTaxes=0,totalTaxableIncome=0,totalTaxFreeIncome=0,totalGuaranteedTaxFreeIncome=0,totalGuaranteedTaxableIncome=0,totalRMDs=0,totalIRMAA=0,totalBrokerageTaxes=0,firstConv=0;
+  let totalTaxes=0,totalTaxableIncome=0,totalTaxFreeIncome=0,totalGuaranteedTaxFreeIncome=0,totalGuaranteedTaxableIncome=0,totalRMDs=0,totalIRMAA=0,firstConv=0;
   let year1MarginalTaxRate=0;
-  // Taxable brokerage side account: excess RMD income above the income goal is assumed
-  // to be reinvested here. Annual interest/dividend growth is taxed as ordinary income.
+  // Brokerage side account: excess income above the income goal is assumed to be
+  // reinvested here. Modeled growth is unrealized appreciation, so it compounds
+  // inside the account without being counted as current income or creating tax.
   let taxableBrokerage=0;
   let irmaaMagiHistory=[];
   let milestones=[], details=[];
@@ -2129,7 +2130,7 @@ function buildScenario(useStrategy){
       wSS = Math.max(wSS, ownReduced + reducedExcess);
     }
     const ssIncome = hSS + wSS;
-    const brokerageOrdinaryIncome = taxableBrokerage * Math.max(0, growth);
+    const brokerageUnrealizedAppreciation = taxableBrokerage * Math.max(0, growth);
 
     const plannedIraWithdrawal = scheduledIraWithdrawalByAge(primaryAge, ira, plannedIraWithdrawalBase, plannedIraEndAge);
     const plannedNqWithdrawal = (primaryAge >= plannedNqStartAge && primaryAge <= plannedNqEndAge) ? plannedNqWithdrawalBase : 0;
@@ -2244,7 +2245,7 @@ function buildScenario(useStrategy){
     // We first calculate the no-conversion taxable SS amount for the base tax, then
     // recalculate it after the conversion is selected so the report and taxes reflect
     // the conversion-driven Social Security taxability correctly.
-    const taxableNonSSBeforeConversion = currentTaxableIncome + taxableRentalIncome + taxablePension + existingAnnuityTaxableIncome + guaranteedTaxableIncome + nqTaxableWithdrawal + iraWithdrawal + brokerageOrdinaryIncome - alimonyDeduction;
+    const taxableNonSSBeforeConversion = currentTaxableIncome + taxableRentalIncome + taxablePension + existingAnnuityTaxableIncome + guaranteedTaxableIncome + nqTaxableWithdrawal + iraWithdrawal - alimonyDeduction;
     const taxableSSBeforeConversion = taxableSS(ssIncome, taxableNonSSBeforeConversion, currentStatus);
     let taxableSSIncome = taxableSSBeforeConversion;
 
@@ -2319,14 +2320,6 @@ function buildScenario(useStrategy){
     const activeMarginalTaxRate = marginalTaxRate(activeTaxableIncome, activeTaxCfg);
     if(year===1) year1MarginalTaxRate=activeMarginalTaxRate;
 
-    // Estimate the tax specifically attributable to reinvested brokerage interest/dividends.
-    // This is ordinary-income tax drag caused by reinvesting excess RMDs rather than needing them for lifestyle.
-    const nonSSWithoutBrokerage = Math.max(0, taxableNonSSBeforeConversion - brokerageOrdinaryIncome);
-    const taxableSSWithoutBrokerage = taxableSS(ssIncome, nonSSWithoutBrokerage + (useStrategy ? conversion : 0), currentStatus);
-    const taxableBaseWithoutBrokerage = Math.max(0, nonSSWithoutBrokerage + (useStrategy ? conversion : 0) + taxableSSWithoutBrokerage);
-    const taxCfgWithoutBrokerage = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseWithoutBrokerage);
-    const taxWithoutBrokerage = ordinaryTax(taxableBaseWithoutBrokerage, taxCfgWithoutBrokerage);
-    const brokerageTaxDrag = Math.max(0, detailTax - taxWithoutBrokerage);
     const currentYearMAGIForIRMAA = taxableBaseAfterConversion;
     let lookbackMAGI;
     let lookbackYearForIRMAA;
@@ -2436,16 +2429,15 @@ function buildScenario(useStrategy){
     totalTaxableIncome += activeTaxableIncome;
     totalIRMAA += irmaa;
     totalRMDs += rmd;
-    totalBrokerageTaxes += brokerageTaxDrag;
 
     const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
-    const displayedIncome = spendableIncomeBeforeBrokerage + brokerageOrdinaryIncome;
+    const displayedIncome = spendableIncomeBeforeBrokerage;
     // Apply the same reinvestment convention to both scenarios. Any modeled cash
     // income above the stated income goal is deposited into the taxable brokerage
-    // account; brokerage earnings are also retained and compounded.
+    // account. Brokerage appreciation remains invested and is not spendable income.
     const surplusIncomeReinvested = desiredIncome > 0 ? Math.max(0, displayedIncome - desiredIncome) : 0;
     const excessRmdReinvested = surplusIncomeReinvested;
-    taxableBrokerage = Math.max(0, taxableBrokerage + surplusIncomeReinvested);
+    taxableBrokerage = Math.max(0, taxableBrokerage + brokerageUnrealizedAppreciation + surplusIncomeReinvested);
 
     if(useStrategy && ira<=0.005 && conversionFinishedYear===null) conversionFinishedYear = year;
 
@@ -2511,8 +2503,7 @@ function buildScenario(useStrategy){
       irmaaMAGI: lookbackMAGI,
       irmaaLookbackYear: lookbackYearForIRMAA,
       totalIrmaa: irmaa,
-      brokerageOrdinaryIncome,
-      brokerageTaxDrag,
+      brokerageUnrealizedAppreciation,
       excessRmdReinvested,
       surplusIncomeReinvested,
       taxableBrokerage,
@@ -2600,7 +2591,7 @@ function buildScenario(useStrategy){
     yearsToComplete: conversionYears,
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
-    totalTaxes, totalTaxableIncome, lifetimeEffectiveTaxRate: totalTaxableIncome > 0 ? totalTaxes/totalTaxableIncome : 0, year1MarginalTaxRate, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA, totalBrokerageTaxes,
+    totalTaxes, totalTaxableIncome, lifetimeEffectiveTaxRate: totalTaxableIncome > 0 ? totalTaxes/totalTaxableIncome : 0, year1MarginalTaxRate, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA,
     taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
@@ -2617,7 +2608,6 @@ function fillMetricTable(id,scenario){
     [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxFreeIncome)],
     [`Total Guaranteed Tax-Free Income by Age ${planningHorizonAge()}`,fmt2(scenario.totalGuaranteedTaxFreeIncome || 0)],
     [`Total RMDs by Age ${planningHorizonAge()}`,fmt2(scenario.totalRMDs)],
-    [`Tax on Reinvested Brokerage Interest/Dividends`,fmt2(scenario.totalBrokerageTaxes || 0)],
     [`Total IRMAA by Age ${planningHorizonAge()}`,fmt2(scenario.totalIRMAA)],
     [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxableEstate)],
     [`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`,fmt2(scenario.afterTaxLegacyEstate||0)],
@@ -3082,11 +3072,11 @@ function tableConfigFromDetails(details, mode='before'){
     if(showNqWithdrawal){ cols.push('NQ\nWithdrawal','TAX-FREE\nNQ BASIS','TAXABLE\nNQ AMOUNT'); }
     if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
     const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
-    const showExcessRmd = reportColumnHasMoney(rowsData, ['excessRmdReinvested','taxableBrokerage','brokerageTaxDrag']);
+    const showExcessRmd = reportColumnHasMoney(rowsData, ['excessRmdReinvested','taxableBrokerage','brokerageUnrealizedAppreciation']);
     cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
     if(showIRMAA) cols.push('IRMAA');
     cols.push('IRA');
-    if(showExcessRmd) cols.push('EXCESS RMD\nREINVESTED','BROKERAGE\nVALUE','BROKERAGE\nTAX DRAG');
+    if(showExcessRmd) cols.push('EXCESS RMD\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
     if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
     if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
 
@@ -3105,7 +3095,7 @@ function tableConfigFromDetails(details, mode='before'){
       row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
       if(showIRMAA) row.push(fmt2(r.irmaa));
       row.push(fmt2(r.ira));
-      if(showExcessRmd) row.push(fmt2(r.excessRmdReinvested||0), fmt2(r.taxableBrokerage||0), fmt2(r.brokerageTaxDrag||0));
+      if(showExcessRmd) row.push(fmt2(r.excessRmdReinvested||0), fmt2(r.brokerageUnrealizedAppreciation||0), fmt2(r.taxableBrokerage||0));
       if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
       if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
       return row;
@@ -3117,7 +3107,7 @@ function tableConfigFromDetails(details, mode='before'){
   const showConversion = reportColumnHasMoney(rowsData, ['conversion','conversionTax']);
   const showTaxFreeEstate = reportColumnHasMoney(rowsData, ['roth']);
   const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
-  const showSurplusReinvestment = reportColumnHasMoney(rowsData, ['surplusIncomeReinvested','taxableBrokerage','brokerageTaxDrag']);
+  const showSurplusReinvestment = reportColumnHasMoney(rowsData, ['surplusIncomeReinvested','taxableBrokerage','brokerageUnrealizedAppreciation']);
   const showExistingAnnuityIncome = rowsData.some(r => Math.abs(Number(r.existingAnnuityIncome || 0)) > 0.004);
   const cols = ['Year','Age'];
   if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment Income`);
@@ -3135,7 +3125,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
   cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes','GROSS\nINCOME');
   if(showIRMAA) cols.push('IRMAA');
-  if(showSurplusReinvestment) cols.push('SURPLUS INCOME\nREINVESTED','BROKERAGE\nVALUE','BROKERAGE\nTAX DRAG');
+  if(showSurplusReinvestment) cols.push('SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
   if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
   if(showTaxFreeEstate) cols.push('TAX-FREE\nESTATE');
@@ -3157,7 +3147,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.grossIncome || 0));
     if(showIRMAA) row.push(fmt2(r.irmaa));
-    if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.taxableBrokerage||0),fmt2(r.brokerageTaxDrag||0));
+    if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.brokerageUnrealizedAppreciation||0),fmt2(r.taxableBrokerage||0));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
     if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
     if(showTaxFreeEstate) row.push(fmt2(r.roth));
@@ -4046,7 +4036,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When RMDs force income above the entered retirement income goal, the Before page now models the excess as reinvested into a taxable brokerage account; annual interest/dividend growth is taxed as ordinary income and shown as a separate brokerage tax drag. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use the entered pre-projection MAGI for Years 1 and 2, then use the proper projected MAGI from two calendar years earlier beginning in Year 3. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page separates Roth assets under Tax-Free Estate and municipal bonds under Tax-Exempt Municipal Bond Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When income exceeds the entered retirement income goal, the excess is reinvested into a brokerage account. Brokerage growth is modeled as unrealized appreciation: it remains invested, compounds the account value, and is excluded from gross income, taxable income, taxes, and IRMAA. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use the entered pre-projection MAGI for Years 1 and 2, then use the proper projected MAGI from two calendar years earlier beginning in Year 3. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page separates Roth assets under Tax-Free Estate and municipal bonds under Tax-Exempt Municipal Bond Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
   }
@@ -4077,7 +4067,7 @@ function generatePDF(){
       didParseCell: function(data){
         applyFinalReportColumnStyling(data);
         const colHeader = tableCfg && tableCfg.cols && tableCfg.cols[0] ? String(tableCfg.cols[0][data.column.index] || '') : '';
-        const isExcessRmdProblemCol = ['EXCESS RMD\nREINVESTED','SURPLUS INCOME\nREINVESTED','BROKERAGE\nVALUE','BROKERAGE\nTAX DRAG'].includes(colHeader);
+        const isExcessRmdProblemCol = ['EXCESS RMD\nREINVESTED','SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE'].includes(colHeader);
         const isIncomeGapCol = colHeader === 'Gap /\nSurplus';
         if(isIncomeGapCol && data.section === 'head'){
           data.cell.styles.fillColor=[11,58,111];
@@ -4172,7 +4162,7 @@ function generatePDF(){
       doc.setFontSize(8);
       doc.setTextColor(146,64,14);
       doc.setFont(undefined,'bold');
-      doc.text(doc.splitTextToSize('Excess RMD Problem: required IRA distributions above the retirement income goal are shown as reinvested into a taxable brokerage account, where interest/dividend growth creates additional ordinary-income tax drag.', 720), 28, noteY);
+      doc.text(doc.splitTextToSize('Excess RMD Reinvestment: required IRA distributions above the retirement income goal are reinvested into a brokerage account. Modeled account growth is shown as unrealized appreciation and does not create current-year taxable income.', 720), 28, noteY);
       doc.setFont(undefined,'normal');
       doc.setTextColor(90,90,90);
     }
@@ -4181,7 +4171,7 @@ function generatePDF(){
       doc.setFontSize(8);
       doc.setTextColor(146,64,14);
       doc.setFont(undefined,'bold');
-      doc.text(doc.splitTextToSize('Surplus Income Reinvestment: modeled income above the annual income goal is deposited into a taxable brokerage account, where retained earnings compound and create ordinary-income tax drag.', 720), 28, noteY);
+      doc.text(doc.splitTextToSize('Surplus Income Reinvestment: modeled income above the annual income goal is deposited into a brokerage account. Modeled account growth is shown as unrealized appreciation and remains invested without creating current-year taxable income.', 720), 28, noteY);
       doc.setFont(undefined,'normal');
       doc.setTextColor(90,90,90);
     }
