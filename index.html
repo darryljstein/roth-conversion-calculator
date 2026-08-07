@@ -3684,7 +3684,7 @@ function generatePDF(){
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
   const comparisonImpactSigns = comparisonRows.map(r => Number(r[3] || 0));
   comparisonBody.splice(1,0,
-    ['Lifetime Effective Federal Tax Rate on Taxable Income',fmtPct(before.lifetimeEffectiveTaxRate),fmtPct(after.lifetimeEffectiveTaxRate),`${((before.lifetimeEffectiveTaxRate-after.lifetimeEffectiveTaxRate)*100).toFixed(2)} pts`],
+    ['Lifetime Effective Federal Tax Rate on Taxable Income*',fmtPct(before.lifetimeEffectiveTaxRate),fmtPct(after.lifetimeEffectiveTaxRate),`${((before.lifetimeEffectiveTaxRate-after.lifetimeEffectiveTaxRate)*100).toFixed(2)} pts`],
     ['Year 1 Marginal Federal Tax Rate',fmtPct(before.year1MarginalTaxRate),fmtPct(after.year1MarginalTaxRate),`${((before.year1MarginalTaxRate-after.year1MarginalTaxRate)*100).toFixed(2)} pts`]
   );
   comparisonImpactSigns.splice(1,0,
@@ -3741,6 +3741,12 @@ function generatePDF(){
   doc.setFont(undefined,'normal');
   doc.setFontSize(9);
   doc.text(doc.splitTextToSize('Includes estimated federal tax savings, IRMAA savings, increased tax-free income, and increased tax-free estate.', 680), 46, finalY + 52);
+  const effectiveRateFootnoteY = doc.internal.pageSize.getHeight() - 84;
+  doc.setDrawColor(203,213,225);
+  doc.line(40, effectiveRateFootnoteY - 9, doc.internal.pageSize.getWidth() - 40, effectiveRateFootnoteY - 9);
+  doc.setFontSize(7.5);
+  doc.setTextColor(75,85,99);
+  doc.text(doc.splitTextToSize('*The effective tax rate is total projected federal tax divided by modeled pre-deduction taxable income; it is not a tax-bracket rate. A higher effective rate after conversion can occur because qualified tax-free Roth income is excluded from the denominator even when total lifetime federal tax dollars are lower. Compare Total Federal Taxes and the dollar tax savings when evaluating the strategy.', 700), 46, effectiveRateFootnoteY);
   } else {
     doc.setTextColor(90,90,90); doc.setFont(undefined,'normal'); doc.setFontSize(9);
     doc.text(doc.splitTextToSize('Lifetime income and remaining legacy are shown separately. They are not added into a single net-benefit figure because income received and assets remaining at death are different economic outcomes.', 680), 46, finalY + 24);
