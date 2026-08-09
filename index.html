@@ -3130,7 +3130,8 @@ function tableConfigFromDetails(details, mode='before'){
   if(showIRMAA) cols.push('IRMAA');
   if(showSurplusReinvestment) cols.push('SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
-  if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
+  // Non-qualified/cash assets remain fully modeled and appear in the legacy
+  // analysis, but are omitted from this crowded After Conversion detail table.
   if(showTaxFreeEstate) cols.push('TAX-FREE\nESTATE');
 
   const rows = rowsData.map(r => {
@@ -3152,7 +3153,6 @@ function tableConfigFromDetails(details, mode='before'){
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.brokerageUnrealizedAppreciation||0),fmt2(r.taxableBrokerage||0));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
-    if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
     if(showTaxFreeEstate) row.push(fmt2(r.roth));
     return row;
   });
@@ -4047,7 +4047,10 @@ function generatePDF(){
   // Page 7 onwards - detail tables
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
-    doc.addPage('letter','l');
+    // The strategy table can contain substantially more populated columns than
+    // the current-situation table. Give it a legal-landscape canvas so complete
+    // currency values (including cents) stay on one line at a readable size.
+    doc.addPage(mode === 'after' ? 'legal' : 'letter','l');
     addTitle(doc,title, mode==='before' ? 'Before page shows taxable income and any applicable withdrawals through the selected planning horizon. IRMAA uses inflated thresholds and a two-year MAGI lookback.' : 'After page shows conversion taxes, Roth income, tax-free estate, and any applicable withdrawals through the selected planning horizon. IRMAA uses inflated thresholds and a two-year MAGI lookback.');
     addPdfLogo(doc);
     let tableCfg = tableConfigFromDetails(details, mode);
