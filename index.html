@@ -3111,18 +3111,21 @@ function tableConfigFromDetails(details, mode='before'){
   const showSurplusReinvestment = reportColumnHasMoney(rowsData, ['surplusIncomeReinvested','taxableBrokerage','brokerageUnrealizedAppreciation']);
   const showExistingAnnuityIncome = rowsData.some(r => Math.abs(Number(r.existingAnnuityIncome || 0)) > 0.004);
   const cols = ['Year','Age'];
-  if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment Income`);
-  if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment Income`);
+  // Force the employment header to the same compact three-line treatment used
+  // on the Before table. Legal landscape would otherwise keep "Employment
+  // Income" on one line and allocate this column unnecessary width.
+  if(showClient1EmploymentIncome) cols.push(`${displayClient1Name()}\nEmployment\nIncome`);
+  if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment\nIncome`);
   if(showRentalIncome) cols.push(rentalColumnTitle);
   if(showSeparateTaxableRental) cols.push('Taxable\nRental Income');
   cols.push('SS','Taxable\nSS','Pension');
   if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
   if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
   if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
-  // The After Conversion table is significantly wider than the Before table.
-  // Omit the unused taxable-NQ detail here so currency values retain both cents
-  // on one line; the taxable amount remains included in the tax calculations.
-  if(showNqWithdrawal){ cols.push('NQ\nWithdrawal','TAX-FREE\nNQ BASIS'); }
+  // Show only the tax-free NQ basis portion on the After table. The total NQ
+  // withdrawal and any taxable portion remain tracked internally and included
+  // in cash-flow and tax calculations.
+  if(showNqWithdrawal) cols.push('TAX-FREE\nNQ BASIS');
   if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
   if(showConversion) cols.push('Conversion','Conversion\nTaxes');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
@@ -3147,7 +3150,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
     if(showRmd) row.push(fmt2(r.rmd||0));
     if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
-    if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0), fmt2(r.nqTaxFreeWithdrawal||0));
+    if(showNqWithdrawal) row.push(fmt2(r.nqTaxFreeWithdrawal||0));
     if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
     if(showConversion) row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
