@@ -549,6 +549,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>NQ Withdrawal Stops At Age</label><input id="plannedNqEndAge" type="number" value="70" min="40" max="95" step="1" /></div>
           <div class="field"><label>NQ / Brokerage Account Value</label><input id="nqAccountValue" type="number" value="0" step="1000" /></div>
           <div class="field"><label>NQ / Brokerage Cost Basis</label><input id="nqCostBasis" type="number" value="0" step="1000" /></div>
+          <div class="field"><label>NQ Account Growth Rate %</label><input id="nqGrowthRate" type="number" value="0.00" min="0" step="0.1" /><div class="mode-help">Applies only to the dedicated NQ bridge account above. Use 0.00% when the entered amount is cash reserved for scheduled withdrawals.</div></div>
           <div class="field"><label>NQ Withdrawal Tax Treatment</label>
             <select id="nqTaxTreatment">
               <option value="taxfree" selected>Tax-Free Return of Basis</option>
@@ -604,7 +605,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 <div class="field"><label>Legacy Target Bracket</label><select id="targetBracket"><option value="12">12%</option><option value="22" selected>22%</option><option value="24">24%</option><option value="32">32%</option></select></div>
           <div class="field"><label>Tax Bracket Inflation %</label><input id="taxInflation" type="number" value="2.6" step="0.1" /></div>
           <div class="field"><label>Other Advisor-Entered Deduction (Per 65+ Person)</label><input id="seniorDeduction" type="number" value="0" step="100" /><div class="mode-help">The regular age-65 standard deduction and temporary enhanced senior deduction are now calculated automatically. Use this only for an additional planning assumption.</div></div>
-          <div class="field"><label>Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /></div>
+          <div class="field"><label>Roth / Reinvested Brokerage Growth Rate %</label><input id="growth" type="number" value="6.0" step="0.1" /><div class="mode-help">Applies to the converted Roth and modeled reinvested brokerage balances, not the dedicated NQ bridge account.</div></div>
           <div class="field"><label>Brokerage / Outside Assets</label><input id="outsideAssets" type="number" value="1000000" step="1000" /></div>
           <div class="account-panel">
             <div class="account-panel-header">
@@ -1515,7 +1516,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -2398,7 +2399,7 @@ function buildScenario(useStrategy){
         additionalNqAccounts.forEach(a=>{ a.balance = a.balance * (1 + a.growthPct/100); });
         nqBalance = additionalNqAccounts.reduce((sum,a)=>sum+a.balance,0);
       } else {
-        nqBalance = nqBalance * (1 + Math.max(0, percent('growth')));
+        nqBalance = nqBalance * (1 + Math.max(0, percent('nqGrowthRate')));
       }
       nqBasis = Math.min(nqBalance, nqBasis);
     }
@@ -3126,7 +3127,9 @@ function tableConfigFromDetails(details, mode='before'){
   if(showConversion) cols.push('Conversion','Conversion\nTaxes');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
-  cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes','GROSS\nINCOME');
+  // Gap / Surplus remains calculated and is reflected in the applicable
+  // carryover/reinvestment values, but is omitted from this crowded table.
+  cols.push('Income\nGoal','Taxable\nIncome','Taxes','GROSS\nINCOME');
   if(showIRMAA) cols.push('IRMAA');
   if(showSurplusReinvestment) cols.push('SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
@@ -3149,7 +3152,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showConversion) row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
-    row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.grossIncome || 0));
+    row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.grossIncome || 0));
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.brokerageUnrealizedAppreciation||0),fmt2(r.taxableBrokerage||0));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
