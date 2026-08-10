@@ -679,6 +679,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Logo Preview</label><div id="logoPreview" style="height:64px;border:1px dashed #cbd5e1;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;color:#64748b;font-size:12px;">No logo uploaded</div></div>
         </div>
         <div class="checkbox-row"><input id="includeTaxFundingComparison" type="checkbox" /><label for="includeTaxFundingComparison">Pay taxes from outside assets</label></div>
+        <div class="checkbox-row"><input id="includeTaxRatesOnComparison" type="checkbox" /><label for="includeTaxRatesOnComparison">Include effective and marginal tax rates on Comparison page</label></div>
         <div class="small" style="margin-top:10px;">Bonus is a one-time amount added to the premium up front and compounds inside the strategy. Conversion period is fully editable so you can plan around temporary income years.</div>
         <div class="btn-row"><button class="primary" onclick="calculate()">Run Analysis</button><button class="gold" onclick="generatePDF()">Generate PDF Report</button></div>
         <div class="client-save-panel">
@@ -1516,7 +1517,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeTaxRatesOnComparison','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -2603,9 +2604,15 @@ function buildScenario(useStrategy){
 
 function fillMetricTable(id,scenario){
   const rows=[
-    [`Total Federal Taxes by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxes)],
-    [`Lifetime Effective Federal Tax Rate on Taxable Income`,fmtPct(scenario.lifetimeEffectiveTaxRate)],
-    [`Year 1 Marginal Federal Tax Rate`,fmtPct(scenario.year1MarginalTaxRate)],
+    [`Total Federal Taxes by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxes)]
+  ];
+  if(document.getElementById('includeTaxRatesOnComparison')?.checked){
+    rows.push(
+      [`Lifetime Effective Federal Tax Rate on Taxable Income`,fmtPct(scenario.lifetimeEffectiveTaxRate)],
+      [`Year 1 Marginal Federal Tax Rate`,fmtPct(scenario.year1MarginalTaxRate)]
+    );
+  }
+  rows.push(
     [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`,fmt2(scenario.totalTaxFreeIncome)],
     [`Total Guaranteed Tax-Free Income by Age ${planningHorizonAge()}`,fmt2(scenario.totalGuaranteedTaxFreeIncome || 0)],
     [`Total RMDs by Age ${planningHorizonAge()}`,fmt2(scenario.totalRMDs)],
@@ -2615,7 +2622,7 @@ function fillMetricTable(id,scenario){
     [`Gross Legacy Estate by Age ${planningHorizonAge()}`,fmt2(scenario.grossLegacyEstate||0)],
     [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`,fmt2(scenario.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`,fmt2(scenario.taxFreeEstate)]
-  ];
+  );
   document.getElementById(id).innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 }
 function taxFreeCoverageAge(details){
@@ -3692,14 +3699,16 @@ function generatePDF(){
   ];
   const comparisonBody = comparisonRows.map(r => [r[0], fmt2(r[1]), fmt2(r[2]), fmt2(r[3])]);
   const comparisonImpactSigns = comparisonRows.map(r => Number(r[3] || 0));
-  comparisonBody.splice(1,0,
-    ['Lifetime Effective Federal Tax Rate on Taxable Income',fmtPct(before.lifetimeEffectiveTaxRate),fmtPct(after.lifetimeEffectiveTaxRate),`${((before.lifetimeEffectiveTaxRate-after.lifetimeEffectiveTaxRate)*100).toFixed(2)} pts`],
-    ['Year 1 Marginal Federal Tax Rate',fmtPct(before.year1MarginalTaxRate),fmtPct(after.year1MarginalTaxRate),`${((before.year1MarginalTaxRate-after.year1MarginalTaxRate)*100).toFixed(2)} pts`]
-  );
-  comparisonImpactSigns.splice(1,0,
-    Number(before.lifetimeEffectiveTaxRate || 0) - Number(after.lifetimeEffectiveTaxRate || 0),
-    Number(before.year1MarginalTaxRate || 0) - Number(after.year1MarginalTaxRate || 0)
-  );
+  if(document.getElementById('includeTaxRatesOnComparison')?.checked){
+    comparisonBody.splice(1,0,
+      ['Lifetime Effective Federal Tax Rate on Taxable Income',fmtPct(before.lifetimeEffectiveTaxRate),fmtPct(after.lifetimeEffectiveTaxRate),`${((before.lifetimeEffectiveTaxRate-after.lifetimeEffectiveTaxRate)*100).toFixed(2)} pts`],
+      ['Year 1 Marginal Federal Tax Rate',fmtPct(before.year1MarginalTaxRate),fmtPct(after.year1MarginalTaxRate),`${((before.year1MarginalTaxRate-after.year1MarginalTaxRate)*100).toFixed(2)} pts`]
+    );
+    comparisonImpactSigns.splice(1,0,
+      Number(before.lifetimeEffectiveTaxRate || 0) - Number(after.lifetimeEffectiveTaxRate || 0),
+      Number(before.year1MarginalTaxRate || 0) - Number(after.year1MarginalTaxRate || 0)
+    );
+  }
   doc.autoTable({
     startY:78,
     head:[[
