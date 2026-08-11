@@ -2142,12 +2142,18 @@ function buildScenario(useStrategy){
     // withdrawal from IRA/NQ assets is itself the income goal. This prevents the
     // Year-by-Year pages from showing $0 income goal while the client is actually
     // taking planned IRA income during the conversion window.
-    const unreducedRetirementIncomeGoal = (primaryAge >= incomeStartAge)
-      ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, primaryAge - incomeStartAge))
+    // Keep the retirement-income goal on the original household projection
+    // timeline. After a death event, primaryAge changes to the younger survivor's
+    // age; using that age here could incorrectly turn an already-active goal off
+    // and restart it years later. Death should change only the survivor need
+    // factor, not the calendar/ COLA progression of the established goal.
+    const incomeGoalTimelineAge = startingPrimaryAge + year - 1;
+    const unreducedRetirementIncomeGoal = (incomeGoalTimelineAge >= incomeStartAge)
+      ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, incomeGoalTimelineAge - incomeStartAge))
       : 0;
     const survivorIncomeNeedFactor = deathApplied ? (1 - survivorIncomeNeedReductionPct()/100) : 1;
     const retirementIncomeGoal = unreducedRetirementIncomeGoal * survivorIncomeNeedFactor;
-    const bridgeIncomeGoal = (primaryAge < incomeStartAge) ? Math.max(0, plannedIraWithdrawal + plannedNqWithdrawal) : 0;
+    const bridgeIncomeGoal = (incomeGoalTimelineAge < incomeStartAge) ? Math.max(0, plannedIraWithdrawal + plannedNqWithdrawal) : 0;
     const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal * survivorIncomeNeedFactor);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
