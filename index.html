@@ -647,6 +647,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 </div>
                 <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
                 <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
+                <div class="field"><label>Include in Roth Conversion? (Traditional IRA Only)</label><select class="additionalAccountIncludeConversion"><option value="yes" selected>Yes - Include in Conversion Pool</option><option value="no">No - Keep Liquid / Unconverted</option></select></div>
                 <div class="field"><label>Beneficiary Income-Tax Treatment</label><select class="additionalAccountLegacyTreatment"><option value="aftertax" selected>After-Tax Asset - Received Without Income Tax</option><option value="taxable">Tax-Deferred Asset - Taxable to Beneficiary</option></select></div>
                 <div class="field"><label>Available to Fund Income Gaps? (Non-Qualified Only)</label><select class="additionalAccountGapAvailable"><option value="no" selected>No - Preserve for Emergency / Legacy</option><option value="yes">Yes - Use After IRA Is Exhausted</option></select></div>
                 <div class="field"><label>Minimum Balance to Preserve ($)</label><input class="additionalAccountMinimumReserve" type="number" value="0" min="0" step="1000" /></div>
@@ -819,6 +820,10 @@ function additionalAccountRowHtml(index, values={}){
     </select></div>
     <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="${bonus}" step="0.1" /></div>
     <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="${growth}" step="0.1" /></div>
+    <div class="field"><label>Include in Roth Conversion? (Traditional IRA Only)</label><select class="additionalAccountIncludeConversion">
+      <option value="yes" ${(values.includeConversion||'yes')==='yes'?'selected':''}>Yes - Include in Conversion Pool</option>
+      <option value="no" ${(values.includeConversion||'yes')==='no'?'selected':''}>No - Keep Liquid / Unconverted</option>
+    </select></div>
     <div class="field"><label>Beneficiary Income-Tax Treatment</label><select class="additionalAccountLegacyTreatment">
       <option value="aftertax" ${legacyTreatment==='aftertax'?'selected':''}>After-Tax Asset - Received Without Income Tax</option>
       <option value="taxable" ${legacyTreatment==='taxable'?'selected':''}>Tax-Deferred Asset - Taxable to Beneficiary</option>
@@ -856,7 +861,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V29';
+const ENGINE_VERSION = 'V30';
 const TAX = {
   MFJ:{ded:32200,irmaa1:218000,qd0:98900,qd20:613700,brackets:{10:24800,12:100800,22:211400,24:403550,32:512450,35:768700}},
   Single:{ded:16100,irmaa1:109000,qd0:49450,qd20:545500,brackets:{10:12400,12:50400,22:105700,24:201775,32:256225,35:640600}},
@@ -1772,6 +1777,7 @@ function getAdditionalAccounts(){
     const legacyTreatmentEl = row.querySelector('.additionalAccountLegacyTreatment');
     const gapAvailableEl = row.querySelector('.additionalAccountGapAvailable');
     const minimumReserveEl = row.querySelector('.additionalAccountMinimumReserve');
+    const includeConversionEl = row.querySelector('.additionalAccountIncludeConversion');
     return {
       title: titleEl && titleEl.value.trim() ? titleEl.value.trim() : `Additional Account ${idx+1}`,
       funds,
@@ -1779,6 +1785,7 @@ function getAdditionalAccounts(){
       typeLabel: typeEl && typeEl.selectedOptions && typeEl.selectedOptions[0] ? typeEl.selectedOptions[0].text : 'Roth',
       bonusPct,
       growthPct,
+      includeConversion: includeConversionEl ? includeConversionEl.value !== 'no' : true,
       legacyTreatment: legacyTreatmentEl ? legacyTreatmentEl.value : 'aftertax',
       availableForGap: gapAvailableEl ? gapAvailableEl.value : 'no',
       minimumReserve: Math.max(0, parseFloat(minimumReserveEl && minimumReserveEl.value ? minimumReserveEl.value : '0') || 0)
@@ -2035,7 +2042,12 @@ function buildScenario(useStrategy){
       funds:a.funds
     }));
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
-  let additionalTraditional = additionalTotals.traditional;
+  const conversionEligibleTraditional = additionalAccounts
+    .filter(a=>a.type==='traditional' && a.includeConversion)
+    .reduce((s,a)=>s+a.funds,0);
+  let liquidTraditionalAccounts = additionalAccounts
+    .filter(a=>a.type==='traditional' && !a.includeConversion)
+    .map(a=>({title:a.title,balance:Math.max(0,a.funds),growthPct:Math.max(0,Number(a.growthPct||0)),funds:a.funds}));
   let additionalNq = additionalTotals.nonqualified;
   let additionalNqAccounts = additionalAccounts
     .filter(a=>a.type==='nonqualified')
@@ -2060,7 +2072,7 @@ function buildScenario(useStrategy){
   let nqBasis = Math.min(nqBalance, Math.max(0, num('nqCostBasis') || nqBalance));
   const nqTaxTreatment = document.getElementById('nqTaxTreatment')?.value || 'taxfree';
   const nqCustomTaxablePct = Math.max(0, Math.min(1, num('nqCustomTaxablePct') / 100));
-  ira += additionalTraditional;
+  ira += conversionEligibleTraditional;
   outside += municipalEstate;
   // Strict mode isolation: Roth Conversion Only always uses the entered IRA
   // balances and ignores any FIA funding values retained in a saved client case.
@@ -2071,7 +2083,7 @@ function buildScenario(useStrategy){
   if(lifetimeIncomeIraFunding > 0){
     ira = Math.max(0, ira - lifetimeIncomeIraFunding);
   }
-  const initialIra = ira;
+  const initialIra = ira + liquidTraditionalAccounts.reduce((s,a)=>s+a.balance,0);
   const plannedIraWithdrawalBase=num('plannedIraWithdrawal');
   const plannedIraEndAge=Math.floor(num('plannedIraEndAge') || 70);
   const plannedNqWithdrawalBase=num('plannedNqWithdrawal');
@@ -2211,11 +2223,14 @@ function buildScenario(useStrategy){
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
     const rmdAge=fixedRmdStartAge;
-    let rmd=0;
-    if(primaryAge>=rmdAge && ira>0){
+    let conversionPoolRmd=0;
+    let liquidTraditionalRmd=0;
+    if(primaryAge>=rmdAge && (ira>0 || liquidTraditionalAccounts.length)){
       const divisor=Math.max(2,27.4-Math.max(0,primaryAge-rmdAge));
-      rmd=ira/divisor;
+      conversionPoolRmd=ira/divisor;
+      liquidTraditionalRmd=liquidTraditionalAccounts.reduce((s,a)=>s+a.balance/divisor,0);
     }
+    const rmd=conversionPoolRmd+liquidTraditionalRmd;
 
     let rothWithdrawal = 0;
     let extraIraGapWithdrawal = 0;
@@ -2279,8 +2294,9 @@ function buildScenario(useStrategy){
       remainingNeed -= extraIraGapWithdrawal;
     }
 
-    let iraWithdrawal = Math.max(rmd, iraUsedForIncome + extraIraGapWithdrawal);
-    iraWithdrawal = Math.min(ira, Math.max(0, iraWithdrawal));
+    let conversionPoolIraWithdrawal = Math.max(conversionPoolRmd, iraUsedForIncome + extraIraGapWithdrawal);
+    conversionPoolIraWithdrawal = Math.min(ira, Math.max(0, conversionPoolIraWithdrawal));
+    const iraWithdrawal = conversionPoolIraWithdrawal + liquidTraditionalRmd;
 
     // Optional account-level gap funding begins only after all available IRA
     // dollars have been used. Eligible accounts are used in the order entered,
@@ -2330,7 +2346,7 @@ function buildScenario(useStrategy){
           ? conversionEndYear
           : Math.min(conversionEndYear, Math.max(startYear, rmdStartYr - 1)));
       const yearsRemainingInWindow = Math.max(1, effectiveConversionEndYear - year + 1);
-      const convertibleBalance = Math.max(0, ira - iraWithdrawal);
+      const convertibleBalance = Math.max(0, ira - conversionPoolIraWithdrawal);
       const scheduledConversion = convertibleBalance / yearsRemainingInWindow;
       const bracketIncomeCap = (taxCfg.brackets[bracketTarget] || taxCfg.brackets[24]) + taxCfg.ded;
       const bracketRoom = Math.max(0, bracketIncomeCap - taxableBaseBeforeConversion) * scenarioConversionFactor();
@@ -2471,7 +2487,7 @@ function buildScenario(useStrategy){
         rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: creditedRothDeposit * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
       }
       roth = rothBuckets.reduce((s,b)=>s+b.balance,0) + additionalRoth;
-      ira = Math.max(0, (ira - iraWithdrawal - conversion) * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)));
+      ira = Math.max(0, (ira - conversionPoolIraWithdrawal - conversion) * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)));
       if(includeTaxFundingComparison){
         outside=Math.max(0, outside-totalTax-irmaa);
       }
@@ -2497,6 +2513,15 @@ function buildScenario(useStrategy){
     // income above the stated income goal is deposited into the taxable brokerage
     // account. Brokerage appreciation remains invested and is not spendable income.
     const surplusIncomeReinvested = desiredIncome > 0 ? Math.max(0, displayedIncome - desiredIncome) : 0;
+    if(liquidTraditionalAccounts.length){
+      const divisor = primaryAge>=rmdAge ? Math.max(2,27.4-Math.max(0,primaryAge-rmdAge)) : 0;
+      liquidTraditionalAccounts.forEach(a=>{
+        const accountRmd = divisor ? a.balance/divisor : 0;
+        a.balance = Math.max(0,a.balance-accountRmd) * (1+a.growthPct/100);
+      });
+    }
+    const liquidTraditionalIra = liquidTraditionalAccounts.reduce((s,a)=>s+a.balance,0);
+    const totalIraBalance = ira + liquidTraditionalIra;
     const excessRmdReinvested = surplusIncomeReinvested;
     taxableBrokerage = Math.max(0, taxableBrokerage + brokerageUnrealizedAppreciation + surplusIncomeReinvested);
 
@@ -2513,7 +2538,9 @@ function buildScenario(useStrategy){
         age: currentAgeDisplay,
         income: displayedIncome,
         conversion,
-        ira,
+        ira: totalIraBalance,
+        conversionEligibleIra: ira,
+        liquidTraditionalIra,
         additionalRoth,
         conversionRoth: Math.max(0, roth - additionalRoth),
         taxFree: roth
@@ -2552,7 +2579,9 @@ function buildScenario(useStrategy){
       guaranteedLifetimeIncome,
       fiaInitialIncomePayment: guaranteedIncomeComponents.initialPayment,
       fiaJointLifetimeIncome: guaranteedIncomeComponents.jointLifetimeIncome,
-      ira,
+      ira: totalIraBalance,
+      conversionEligibleIra: ira,
+      liquidTraditionalIra,
       roth,
       tax: detailTax,
       totalTax,
@@ -2624,7 +2653,7 @@ function buildScenario(useStrategy){
           pension,
           ssIncome,
           rmd,
-          ira,
+          ira: totalIraBalance,
           roth
         };
         if(useStrategy) survivorSnapshotAfter = clone(snapshot); else survivorSnapshotBefore = clone(snapshot);
@@ -2647,7 +2676,9 @@ function buildScenario(useStrategy){
   // Reconcile report totals from cent-rounded components so visible line items
   // always add exactly to the visible Gross Legacy Estate amount.
   const afterTaxLegacyEstate = roundMoney(Math.max(0, outside - municipalEstate) + finalAfterTaxNonQualified);
-  const taxableEstate = roundMoney(Math.max(0, ira + taxableBrokerage + finalTaxableNonQualified));
+  const finalLiquidTraditionalIra = liquidTraditionalAccounts.reduce((s,a)=>s+a.balance,0);
+  const finalTotalIra = ira + finalLiquidTraditionalIra;
+  const taxableEstate = roundMoney(Math.max(0, finalTotalIra + taxableBrokerage + finalTaxableNonQualified));
   const grossLegacyEstate = roundMoney(
     taxableEstate + afterTaxLegacyEstate + roundMoney(municipalEstate) + roundMoney(roth)
   );
@@ -2657,7 +2688,7 @@ function buildScenario(useStrategy){
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxableIncome, lifetimeEffectiveTaxRate: totalTaxableIncome > 0 ? totalTaxes/totalTaxableIncome : 0, year1MarginalTaxRate, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA,
-    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: ira, finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
+    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: finalTotalIra, finalConversionEligibleIra: ira, finalLiquidTraditionalIra, liquidTraditionalAccounts: liquidTraditionalAccounts.map(a=>({...a})), finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
@@ -2822,6 +2853,7 @@ function additionalAccountPdfRows(after=null){
     return [
       a.title,
       a.typeLabel || a.type,
+      a.type==='traditional' ? (a.includeConversion ? 'Convert' : 'Keep Liquid') : '—',
       fmt2(a.funds),
       `${Number(a.bonusPct||0).toFixed(1)}%`,
       `${Number(a.growthPct||0).toFixed(1)}%`,
@@ -3676,9 +3708,18 @@ function generatePDF(){
     const treatmentLabel = treatment==='taxable' ? 'taxable to beneficiary' : 'after-tax legacy';
     return [`${title} (${Number(growthLabel).toFixed(2)}% growth; ${treatmentLabel})`, fmt2(beforeValue), fmt2(afterValue), fmt2(afterValue-beforeValue)];
   });
+  const liquidIraTitles = Array.from(new Set([...(before.liquidTraditionalAccounts||[]), ...(after.liquidTraditionalAccounts||[])].map(a=>a.title)));
+  const liquidIraLegacyRows = liquidIraTitles.map(title=>{
+    const beforeAccount=(before.liquidTraditionalAccounts||[]).find(a=>a.title===title);
+    const afterAccount=(after.liquidTraditionalAccounts||[]).find(a=>a.title===title);
+    const beforeValue=beforeAccount?.balance||0;
+    const afterValue=afterAccount?.balance||0;
+    return [`${title} — Liquid Traditional IRA`,fmt2(beforeValue),fmt2(afterValue),fmt2(afterValue-beforeValue)];
+  });
   const includeBrokerageDetails = !!document.getElementById('includeBrokerageDetailColumns')?.checked;
   const legacyComparisonRows = [
     ['Remaining Liquid IRA', fmt2(before.finalIra||0), fmt2(after.finalIra||0), fmt2((after.finalIra||0)-(before.finalIra||0))],
+    ...liquidIraLegacyRows,
     ...nqLegacyRows,
     ['Total Nonqualified / Cash Accounts', fmt2(before.finalNonQualified||0), fmt2(after.finalNonQualified||0), fmt2((after.finalNonQualified||0)-(before.finalNonQualified||0))]
   ];
@@ -3736,8 +3777,10 @@ function generatePDF(){
     ['Scenario Mode', after.scenario || scenarioLabel()],
     ['Premium', fmt2(after.premium)],
     ['Additional Accounts Modeled', `${(after.additionalAccounts||[]).length}`],
-    ...((after.additionalAccounts||[]).map(a => [a.title, `${fmt2(a.funds)} / ${a.typeLabel} / Bonus ${Number(a.bonusPct||0).toFixed(1)}% / Growth ${Number(a.growthPct||0).toFixed(1)}%`])),
+    ...((after.additionalAccounts||[]).map(a => [a.title, `${fmt2(a.funds)} / ${a.typeLabel}${a.type==='traditional' ? (a.includeConversion ? ' / Included in Roth Conversion' : ' / Kept Liquid and Unconverted') : ''} / Bonus ${Number(a.bonusPct||0).toFixed(1)}% / Growth ${Number(a.growthPct||0).toFixed(1)}%`])),
     ['Additional Account Funds', fmt2(after.additionalAccountFunds || 0)],
+    ['Dedicated NQ / Brokerage Account Value', fmt2(num('nqAccountValue'))],
+    ['Dedicated NQ / Brokerage Cost Basis', fmt2(num('nqCostBasis'))],
     [`Premium Finance Roth Conversion Bonus (${Number(after.bonusPct || 0).toFixed(1)}%)`, fmt2(after.bonus)],
     ['Beginning Value', fmt2(after.beginning)],
     ['Additional Roth Value w/ Bonus', fmt2((after.additionalAccounts||[]).filter(a=>a.type==='roth').reduce((s,a)=>s + a.funds*(1+a.bonusPct/100),0))],
@@ -4443,6 +4486,7 @@ function collectAdditionalAccountsForSave(){
     type: row.querySelector('.additionalAccountType')?.value || 'roth',
     bonus: row.querySelector('.additionalAccountBonus')?.value || '0',
     growth: row.querySelector('.additionalAccountGrowth')?.value || '6',
+    includeConversion: row.querySelector('.additionalAccountIncludeConversion')?.value || 'yes',
     legacyTreatment: row.querySelector('.additionalAccountLegacyTreatment')?.value || 'aftertax',
     availableForGap: row.querySelector('.additionalAccountGapAvailable')?.value || 'no',
     minimumReserve: row.querySelector('.additionalAccountMinimumReserve')?.value || '0'
@@ -4496,7 +4540,7 @@ function setPensionRowsFromSave(rows){
 function setAdditionalAccountsFromSave(accounts){
   const container = document.getElementById('additionalAccountsContainer');
   if(!container) return;
-  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'nonqualified', bonus:'0', growth:'0', legacyTreatment:'aftertax',availableForGap:'no',minimumReserve:'0'}];
+  const rows = Array.isArray(accounts) && accounts.length ? accounts : [{title:'Additional Account 1', funds:'0', type:'nonqualified', bonus:'0', growth:'0', includeConversion:'yes', legacyTreatment:'aftertax',availableForGap:'no',minimumReserve:'0'}];
   container.innerHTML = rows.map((a,idx)=>additionalAccountRowHtml(idx+1,a)).join('');
   if(typeof bindAdditionalAccountInputs === 'function') bindAdditionalAccountInputs(container);
 }
