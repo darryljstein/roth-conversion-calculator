@@ -495,6 +495,24 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="small" style="margin-top:10px;">This section stops the rental income after the entered last age. Property-sale proceeds, capital gain, depreciation recapture, and reinvestment of net proceeds are not included unless entered separately.</div>
         </div>
 
+        <div class="account-panel" style="margin-bottom:16px;">
+          <div class="account-panel-header">
+            <div>
+              <div class="account-panel-title">Nonqualified Investment Income</div>
+              <div class="account-panel-subtitle">Use for interest and dividends paid by taxable brokerage, bank, CD, or other nonqualified accounts. Do not enter this income as employment income.</div>
+            </div>
+          </div>
+          <div class="inputs-grid">
+            <div class="field"><label>Taxable Interest Annual</label><input id="investmentInterestIncome" type="number" value="0" min="0" step="100" /></div>
+            <div class="field"><label>Ordinary / Nonqualified Dividends Annual</label><input id="investmentOrdinaryDividends" type="number" value="0" min="0" step="100" /></div>
+            <div class="field"><label>Qualified Dividends Annual</label><input id="investmentQualifiedDividends" type="number" value="0" min="0" step="100" /></div>
+            <div class="field"><label>Income Starts at Household Age</label><input id="investmentIncomeStartAge" type="number" value="0" min="0" max="100" step="1" /><div class="mode-help">Use 0 when already being received.</div></div>
+            <div class="field"><label>Last Household Age Income Is Received</label><input id="investmentIncomeEndAge" type="number" value="95" min="40" max="100" step="1" /></div>
+            <div class="field"><label>Annual Investment Income Growth %</label><input id="investmentIncomeGrowth" type="number" value="0" step="0.1" /></div>
+          </div>
+          <div class="small" style="margin-top:10px;">Interest and ordinary dividends use ordinary federal rates. Qualified dividends use the modeled preferential capital-gain rates, while all three remain included in MAGI, Social Security taxation, and IRMAA calculations. Net investment income tax and state tax are not modeled.</div>
+        </div>
+
         <div class="shared-grid">
           <div class="field" style="grid-column:1 / -1">
             <label>Pensions</label>
@@ -838,11 +856,11 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V28';
+const ENGINE_VERSION = 'V29';
 const TAX = {
-  MFJ:{ded:32200,irmaa1:218000,brackets:{10:24800,12:100800,22:211400,24:403550,32:512450,35:768700}},
-  Single:{ded:16100,irmaa1:109000,brackets:{10:12400,12:50400,22:105700,24:201775,32:256225,35:640600}},
-  HOH:{ded:24150,irmaa1:109000,brackets:{10:17700,12:67450,22:105700,24:201750,32:256200,35:640600}}
+  MFJ:{ded:32200,irmaa1:218000,qd0:98900,qd20:613700,brackets:{10:24800,12:100800,22:211400,24:403550,32:512450,35:768700}},
+  Single:{ded:16100,irmaa1:109000,qd0:49450,qd20:545500,brackets:{10:12400,12:50400,22:105700,24:201775,32:256225,35:640600}},
+  HOH:{ded:24150,irmaa1:109000,qd0:66200,qd20:579600,brackets:{10:17700,12:67450,22:105700,24:201750,32:256200,35:640600}}
 };
 const PROJECTION_BASE_TAX_YEAR = 2026;
 function capFirst(s){return s ? s.charAt(0).toUpperCase()+s.slice(1) : '';}
@@ -1333,6 +1351,19 @@ function getRentalIncomeStream(year, primaryAge, filingStart, deathApplied, deat
   const taxable = Math.max(0, num('rentalTaxableIncome')) * factor;
   return {gross,taxable};
 }
+function getInvestmentIncomeStream(year, householdTimelineAge){
+  const startAge = Math.max(0, Math.floor(num('investmentIncomeStartAge')));
+  const endAge = Math.max(startAge || 0, Math.floor(num('investmentIncomeEndAge') || 95));
+  if((startAge > 0 && householdTimelineAge < startAge) || householdTimelineAge > endAge){
+    return {interest:0,ordinaryDividends:0,qualifiedDividends:0,total:0};
+  }
+  const elapsed = startAge > 0 ? Math.max(0, householdTimelineAge - startAge) : Math.max(0, year - 1);
+  const factor = Math.pow(1 + Math.max(-0.99, percent('investmentIncomeGrowth')), elapsed);
+  const interest = Math.max(0, num('investmentInterestIncome')) * factor;
+  const ordinaryDividends = Math.max(0, num('investmentOrdinaryDividends')) * factor;
+  const qualifiedDividends = Math.max(0, num('investmentQualifiedDividends')) * factor;
+  return {interest,ordinaryDividends,qualifiedDividends,total:interest+ordinaryDividends+qualifiedDividends};
+}
 function existingAnnuityComparisonEnabled(){
   return (document.getElementById('existingAnnuityCompareEnabled')?.value || 'no') === 'yes';
 }
@@ -1519,7 +1550,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeTaxRatesOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeTaxRatesOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1643,6 +1674,8 @@ function getTaxConfig(status, year, hAge, wAge, magi=0){
     seniorCount,
     taxYear,
     irmaa1: base.irmaa1 * factor,
+    qd0: base.qd0 * factor,
+    qd20: base.qd20 * factor,
     brackets: {
       10: base.brackets[10] * factor,
       12: base.brackets[12] * factor,
@@ -1658,6 +1691,20 @@ function ordinaryTax(income, cfg){
   let tax=0, prev=0; const levels=[[10,b[10]],[12,b[12]],[22,b[22]],[24,b[24]],[32,b[32]],[35,b[35]]];
   for(const [rate,top] of levels){ const amt=Math.max(0,Math.min(taxable,top)-prev); tax+=amt*(rate/100); prev=top; if(taxable<=top) return tax; }
   tax+=Math.max(0,taxable-b[35])*0.37; return tax;
+}
+function federalTaxWithQualifiedDividends(income, qualifiedDividends, cfg){
+  const taxableTotal = Math.max(0, Number(income || 0) - cfg.ded);
+  const qualifiedTaxable = Math.min(Math.max(0, Number(qualifiedDividends || 0)), taxableTotal);
+  if(qualifiedTaxable <= 0) return ordinaryTax(income, cfg);
+  const ordinaryTaxable = Math.max(0, taxableTotal - qualifiedTaxable);
+  const ordinaryComponent = ordinaryTax(ordinaryTaxable, {...cfg,ded:0});
+  const zeroRateAmount = Math.min(qualifiedTaxable, Math.max(0, cfg.qd0 - ordinaryTaxable));
+  const remainingAfterZero = Math.max(0, qualifiedTaxable - zeroRateAmount);
+  const stackedAfterZero = ordinaryTaxable + zeroRateAmount;
+  const fifteenRateAmount = Math.min(remainingAfterZero, Math.max(0, cfg.qd20 - stackedAfterZero));
+  const twentyRateAmount = Math.max(0, remainingAfterZero - fifteenRateAmount);
+  const preferentialTax = ordinaryComponent + (fifteenRateAmount * 0.15) + (twentyRateAmount * 0.20);
+  return Math.min(ordinaryTax(income, cfg), preferentialTax);
 }
 function marginalTaxRate(income, cfg){
   const taxable = Math.max(0, Number(income || 0) - cfg.ded);
@@ -2091,6 +2138,7 @@ function buildScenario(useStrategy){
   for(let year=1; year<=40; year++){
     const currentStatus=status;
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
+    const householdTimelineAge = startingPrimaryAge + year - 1;
     let {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
     const guaranteedIncomeComponents = getGuaranteedLifetimeIncomeComponents(year, useStrategy, filingStart, deathApplied, deathWho);
     const guaranteedLifetimeIncome = guaranteedIncomeComponents.total;
@@ -2120,6 +2168,9 @@ function buildScenario(useStrategy){
     const rentalIncomeStream = getRentalIncomeStream(year, primaryAge, filingStart, deathApplied, deathWho);
     const rentalIncome = rentalIncomeStream.gross;
     const taxableRentalIncome = rentalIncomeStream.taxable;
+    const investmentIncomeStream = getInvestmentIncomeStream(year, householdTimelineAge);
+    const investmentIncome = investmentIncomeStream.total;
+    const qualifiedDividends = investmentIncomeStream.qualifiedDividends;
 
     const hSS = (currentStatus==='Single' && deathApplied)
       ? carriedHigherSS*Math.pow(1+cola,Math.max(0,year-survivorSSBaseYear))
@@ -2149,7 +2200,7 @@ function buildScenario(useStrategy){
     // age; using that age here could incorrectly turn an already-active goal off
     // and restart it years later. Death should change only the survivor need
     // factor, not the calendar/ COLA progression of the established goal.
-    const incomeGoalTimelineAge = startingPrimaryAge + year - 1;
+    const incomeGoalTimelineAge = householdTimelineAge;
     const unreducedRetirementIncomeGoal = (incomeGoalTimelineAge >= incomeStartAge)
       ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, incomeGoalTimelineAge - incomeStartAge))
       : 0;
@@ -2172,7 +2223,7 @@ function buildScenario(useStrategy){
     // then IRA, then Roth, then any extra IRA gap-fill if Roth is unavailable.
     // NQ withdrawals are intentionally schedule-driven, not just gap-fill driven,
     // so a planned $20,000 from age 67-72 appears every eligible year.
-    const baseIncome = currentGrossIncome + rentalIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome;
+    const baseIncome = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome;
     const hasTrackedNqAccount = nqBalance > 0 || enteredNqAccountValue > 0 || additionalNq > 0;
     const nqAvailableForYear = hasTrackedNqAccount ? Math.min(plannedNqWithdrawal, nqBalance) : plannedNqWithdrawal;
     let nqUsed = Math.max(0, nqAvailableForYear);
@@ -2255,7 +2306,7 @@ function buildScenario(useStrategy){
     // We first calculate the no-conversion taxable SS amount for the base tax, then
     // recalculate it after the conversion is selected so the report and taxes reflect
     // the conversion-driven Social Security taxability correctly.
-    const taxableNonSSBeforeConversion = currentTaxableIncome + taxableRentalIncome + taxablePension + existingAnnuityTaxableIncome + guaranteedTaxableIncome + nqTaxableWithdrawal + iraWithdrawal - alimonyDeduction;
+    const taxableNonSSBeforeConversion = currentTaxableIncome + taxableRentalIncome + investmentIncome + taxablePension + existingAnnuityTaxableIncome + guaranteedTaxableIncome + nqTaxableWithdrawal + iraWithdrawal - alimonyDeduction;
     const taxableSSBeforeConversion = taxableSS(ssIncome, taxableNonSSBeforeConversion, currentStatus);
     let taxableSSIncome = taxableSSBeforeConversion;
 
@@ -2320,8 +2371,8 @@ function buildScenario(useStrategy){
     const taxableBaseAfterConversion = Math.max(0, taxableNonSSBeforeConversion + conversion + taxableSSAfterConversion);
     const taxCfgBefore = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseBeforeConversion);
     const taxCfgAfter = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseAfterConversion);
-    const baseTax = ordinaryTax(taxableBaseBeforeConversion, taxCfgBefore);
-    const totalTaxWithConversion = ordinaryTax(taxableBaseAfterConversion, taxCfgAfter);
+    const baseTax = federalTaxWithQualifiedDividends(taxableBaseBeforeConversion, qualifiedDividends, taxCfgBefore);
+    const totalTaxWithConversion = federalTaxWithQualifiedDividends(taxableBaseAfterConversion, qualifiedDividends, taxCfgAfter);
     conversionTax = Math.max(0, totalTaxWithConversion - baseTax);
     detailTax = useStrategy ? totalTaxWithConversion : baseTax;
     totalTax = detailTax;
@@ -2440,7 +2491,7 @@ function buildScenario(useStrategy){
     totalIRMAA += irmaa;
     totalRMDs += rmd;
 
-    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
+    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
     const displayedIncome = spendableIncomeBeforeBrokerage;
     // Apply the same reinvestment convention to both scenarios. Any modeled cash
     // income above the stated income goal is deposited into the taxable brokerage
@@ -2533,6 +2584,10 @@ function buildScenario(useStrategy){
       rentalIncome,
       taxableRentalIncome,
       rentalIncomeTitle: (document.getElementById('rentalIncomeTitle')?.value || 'Rental Property Income').trim() || 'Rental Property Income',
+      investmentIncome,
+      investmentInterestIncome: investmentIncomeStream.interest,
+      investmentOrdinaryDividends: investmentIncomeStream.ordinaryDividends,
+      investmentQualifiedDividends: qualifiedDividends,
       currentTaxableIncome,
       alimonyDeduction,
       additionalRoth,
@@ -3069,6 +3124,7 @@ function tableConfigFromDetails(details, mode='before'){
   const showClient2EmploymentIncome = rowsData.some(r => Math.abs(Number(r.client2EmploymentIncome || 0)) > 0.004);
   const showRentalIncome = rowsData.some(r => Math.abs(Number(r.rentalIncome || 0)) > 0.004);
   const showSeparateTaxableRental = showRentalIncome && rowsData.some(r => Math.abs(Number(r.rentalIncome || 0) - Number(r.taxableRentalIncome || 0)) > 0.004);
+  const showInvestmentIncome = rowsData.some(r => Math.abs(Number(r.investmentIncome || 0)) > 0.004);
   const rentalColumnTitle = `${String((rowsData.find(r=>r.rentalIncomeTitle)?.rentalIncomeTitle) || 'Rental Income')}\nCash Flow`;
   const showRmd = rowsData.some(r => Math.abs(Number(r.rmd || 0)) > 0.004);
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.nonRmdIraWithdrawal || 0)) > 0.004);
@@ -3085,6 +3141,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment Income`);
     if(showRentalIncome) cols.push(rentalColumnTitle);
     if(showSeparateTaxableRental) cols.push('Taxable\nRental Income');
+    if(showInvestmentIncome) cols.push('INVESTMENT\nINCOME');
     cols.push('SS','Taxable\nSS','Pension');
     if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
     if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
@@ -3107,6 +3164,7 @@ function tableConfigFromDetails(details, mode='before'){
       if(showClient2EmploymentIncome) row.push(fmt2(r.client2EmploymentIncome||0));
       if(showRentalIncome) row.push(fmt2(r.rentalIncome||0));
       if(showSeparateTaxableRental) row.push(fmt2(r.taxableRentalIncome||0));
+      if(showInvestmentIncome) row.push(fmt2(r.investmentIncome||0));
       row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
       if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
       if(showRmd) row.push(fmt2(r.rmd||0));
@@ -3139,6 +3197,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showClient2EmploymentIncome) cols.push(`${displayClient2Name()}\nEmployment\nIncome`);
   if(showRentalIncome) cols.push(rentalColumnTitle);
   if(showSeparateTaxableRental) cols.push('Taxable\nRental Income');
+  if(showInvestmentIncome) cols.push('INVESTMENT\nINCOME');
   cols.push('SS','Taxable\nSS','Pension');
   if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
   if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
@@ -3167,6 +3226,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showClient2EmploymentIncome) row.push(fmt2(r.client2EmploymentIncome||0));
     if(showRentalIncome) row.push(fmt2(r.rentalIncome||0));
     if(showSeparateTaxableRental) row.push(fmt2(r.taxableRentalIncome||0));
+    if(showInvestmentIncome) row.push(fmt2(r.investmentIncome||0));
     row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
     if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
     if(showRmd) row.push(fmt2(r.rmd||0));
@@ -4230,6 +4290,9 @@ function generatePDF(){
     }
     if(document.getElementById('includeBrokerageDetailColumns')?.checked && mode==='after' && details.some(r => Number(r.surplusIncomeReinvested || 0) > 0)){
       writeDetailNote('Surplus Income Reinvestment: modeled income above the annual income goal is deposited into a brokerage account. Modeled account growth is shown as unrealized appreciation and remains invested without creating current-year taxable income.', [146,64,14], true);
+    }
+    if(details.some(r => Number(r.investmentIncome || 0) > 0)){
+      writeDetailNote('Investment Income includes taxable interest, ordinary dividends, and qualified dividends entered in the Nonqualified Investment Income section. Qualified dividends receive modeled preferential federal rates; all investment income remains included in MAGI, Social Security taxation, and IRMAA.', [11,58,111], true);
     }
     const zeroTaxSsAndRothYears = mode==='after' ? details.filter(r => {
       const onlySsAndRothCashFlow = Number(r.ssIncome || 0) > 0.004
