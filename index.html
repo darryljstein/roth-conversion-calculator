@@ -697,7 +697,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Logo for PDF Output</label><input id="logoUpload" type="file" accept="image/*" /></div>
           <div class="field"><label>Logo Preview</label><div id="logoPreview" style="height:64px;border:1px dashed #cbd5e1;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;color:#64748b;font-size:12px;">No logo uploaded</div></div>
         </div>
-        <div class="checkbox-row"><input id="includeTaxFundingComparison" type="checkbox" /><label for="includeTaxFundingComparison">Pay taxes from outside assets</label></div>
+        <div class="field" style="margin-top:12px;"><label>Conversion Tax Funding Method</label><select id="taxFundingMethod"><option value="conversion" selected>Deduct Conversion Taxes from Roth Conversion</option><option value="rmdFirst">Use RMD First; Deduct Any Shortfall from Conversion</option><option value="outside">Pay Taxes from Outside Assets</option></select><div class="mode-help">An RMD cannot be converted to Roth. Under RMD First, the RMD cash pays conversion taxes first; only any remaining conversion-tax shortfall reduces the amount credited to Roth.</div></div>
         <div class="checkbox-row"><input id="includeTaxRatesOnComparison" type="checkbox" /><label for="includeTaxRatesOnComparison">Include effective and marginal tax rates on Comparison page</label></div>
         <div class="checkbox-row"><input id="includeBrokerageDetailColumns" type="checkbox" /><label for="includeBrokerageDetailColumns">Include surplus/excess reinvested, unrealized appreciation, and brokerage value columns</label></div>
         <div class="small" style="margin-top:10px;">Bonus is a one-time amount added to the premium up front and compounds inside the strategy. Conversion period is fully editable so you can plan around temporary income years.</div>
@@ -861,7 +861,17 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V31';
+const ENGINE_VERSION = 'V32';
+
+function taxFundingMethod(){
+  return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
+}
+function taxFundingMethodLabel(){
+  const method=taxFundingMethod();
+  if(method==='rmdFirst') return 'RMD First; Conversion Pays Any Shortfall';
+  if(method==='outside') return 'Outside Assets';
+  return 'From Conversion Side';
+}
 const TAX = {
   MFJ:{ded:32200,irmaa1:218000,qd0:98900,qd20:613700,brackets:{10:24800,12:100800,22:211400,24:403550,32:512450,35:768700}},
   Single:{ded:16100,irmaa1:109000,qd0:49450,qd20:545500,brackets:{10:12400,12:50400,22:105700,24:201775,32:256225,35:640600}},
@@ -2112,7 +2122,8 @@ function buildScenario(useStrategy){
   const spousalFactor=percent('spousalFactor');
   const deathWho=effectiveDeathWho();
   const deathAge=Math.floor(num('deathAge'));
-  const includeTaxFundingComparison=(document.getElementById('includeTaxFundingComparison')?.checked || false);
+  const selectedTaxFundingMethod=taxFundingMethod();
+  const includeTaxFundingComparison=selectedTaxFundingMethod==='outside';
   const startYear=Math.max(1,Math.floor(num('startYear')||1));
   const enteredConversionYears=Math.max(1,Math.floor(num('conversionYears')||6));
   const irmaaOptimizationMode=(document.getElementById('irmaaOptimizationMode')?.value || 'off');
@@ -2390,6 +2401,16 @@ function buildScenario(useStrategy){
     const baseTax = federalTaxWithQualifiedDividends(taxableBaseBeforeConversion, qualifiedDividends, taxCfgBefore);
     const totalTaxWithConversion = federalTaxWithQualifiedDividends(taxableBaseAfterConversion, qualifiedDividends, taxCfgAfter);
     conversionTax = Math.max(0, totalTaxWithConversion - baseTax);
+    // RMD-first funding uses distributed RMD cash to pay conversion taxes. The
+    // RMD remains fully taxable and is never converted. Only an uncovered tax
+    // shortfall reduces the dollars credited to the Roth account.
+    const rmdAppliedToConversionTax = (useStrategy && selectedTaxFundingMethod==='rmdFirst')
+      ? Math.min(Math.max(0,rmd),conversionTax)
+      : 0;
+    const conversionTaxDeductedFromConversion = useStrategy
+      ? (selectedTaxFundingMethod==='outside' ? 0 : Math.max(0,conversionTax-rmdAppliedToConversionTax))
+      : 0;
+    const remainingRmdCash = Math.max(0,rmd-rmdAppliedToConversionTax);
     detailTax = useStrategy ? totalTaxWithConversion : baseTax;
     totalTax = detailTax;
     const activeTaxCfg = useStrategy ? taxCfgAfter : taxCfgBefore;
@@ -2481,7 +2502,7 @@ function buildScenario(useStrategy){
     }
 
     if(useStrategy){
-      const netToRoth = includeTaxFundingComparison ? conversion : Math.max(0, conversion - conversionTax);
+      const netToRoth = Math.max(0, conversion - conversionTaxDeductedFromConversion);
       if(netToRoth > 0){
         const creditedRothDeposit = netToRoth * (1 + premiumBonusRate);
         rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: creditedRothDeposit * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
@@ -2507,7 +2528,7 @@ function buildScenario(useStrategy){
     totalIRMAA += irmaa;
     totalRMDs += rmd;
 
-    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal;
+    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal - rmdAppliedToConversionTax;
     const displayedIncome = spendableIncomeBeforeBrokerage;
     // Apply the same reinvestment convention to both scenarios. Any modeled cash
     // income above the stated income goal is deposited into the taxable brokerage
@@ -2572,6 +2593,9 @@ function buildScenario(useStrategy){
       rmd,
       conversion,
       conversionTax,
+      rmdAppliedToConversionTax,
+      conversionTaxDeductedFromConversion,
+      remainingRmdCash,
       conversionEffectiveTaxRate: conversion > 0 ? (conversionTax / conversion) : 0,
       taxFreeIncome: rothWithdrawal,
       guaranteedTaxFreeIncome,
@@ -2765,7 +2789,7 @@ function calculate(){
   document.getElementById('pfConversion').textContent=fmt2(after.firstConv);
   document.getElementById('pfIraSpend').textContent=fmt2(after.details[0]?after.details[0].iraWithdrawal:0);
   document.getElementById('pfTaxes').textContent=fmt2(after.details[0]?after.details[0].tax:0);
-  document.getElementById('pfTaxSource').textContent=(document.getElementById('includeTaxFundingComparison')?.checked || false)?'Outside Assets':'From Conversion Side';
+  document.getElementById('pfTaxSource').textContent=taxFundingMethodLabel();
   document.getElementById('pfPensionContinuation').textContent=`Multiple pensions modeled individually`;
   document.getElementById('pfFeeDisplay').textContent=feeLabel();
   const pensionOwnerLabel = 'Each pension carries its own owner and survivor election';
@@ -3222,6 +3246,7 @@ function tableConfigFromDetails(details, mode='before'){
 
   const showTaxFreeRothIncome = reportColumnHasMoney(rowsData, ['taxFreeIncome']);
   const showConversion = reportColumnHasMoney(rowsData, ['conversion','conversionTax']);
+  const showRmdTaxFunding = reportColumnHasMoney(rowsData, ['rmdAppliedToConversionTax','conversionTaxDeductedFromConversion']);
   const showTaxFreeEstate = reportColumnHasMoney(rowsData, ['roth']);
   const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
   const showSurplusReinvestment = !!document.getElementById('includeBrokerageDetailColumns')?.checked
@@ -3246,6 +3271,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showNqWithdrawal) cols.push('TAX-FREE\nNQ BASIS');
   if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
   if(showConversion) cols.push('Conversion','Conversion\nTaxes');
+  if(showRmdTaxFunding) cols.push('RMD USED FOR\nCONVERSION TAX','TAX DEDUCTED\nFROM CONVERSION');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
   // Gap / Surplus remains calculated and is reflected in the applicable
@@ -3273,6 +3299,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showNqWithdrawal) row.push(fmt2(r.nqTaxFreeWithdrawal||0));
     if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
     if(showConversion) row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
+    if(showRmdTaxFunding) row.push(fmt2(r.rmdAppliedToConversionTax||0),fmt2(r.conversionTaxDeductedFromConversion||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.grossIncome || 0));
@@ -3805,7 +3832,9 @@ function generatePDF(){
     ['Scheduled Conversion Completion Year', `Year ${after.conversionEndYear}`],
     ['IRA at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).ira || 0)],
     ['Tax-Free Assets at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).roth || 0)],
-    ['Tax Funding Method', document.getElementById('includeTaxFundingComparison')?.checked?'Outside Assets Comparison Included':'From Conversion Side'],
+    ['Tax Funding Method', taxFundingMethodLabel()],
+    ['Year 1 RMD Applied to Conversion Tax', fmt2((after.details[0]||{}).rmdAppliedToConversionTax||0)],
+    ['Year 1 Tax Deducted from Conversion', fmt2((after.details[0]||{}).conversionTaxDeductedFromConversion||0)],
     ['Pension Continuation at First Death', 'Each pension uses its own survivor continuation'],
     ['Displayed Annual Fee', feeLabel()],
     ['Desired Annual Income', fmt2(num('desiredIncome'))],
@@ -4096,14 +4125,15 @@ function generatePDF(){
     addPdfFooter(doc, doc.getNumberOfPages());
   }
 
-  if(document.getElementById('includeTaxFundingComparison')?.checked){
+  if(taxFundingMethod()==='outside'){
   // Page 5 - Tax Funding Comparison (auto-run both)
-    const originalPayTaxesOutside = (document.getElementById('includeTaxFundingComparison')?.checked || false);
-    document.getElementById('includeTaxFundingComparison').checked = false;
+    const taxFundingSelect=document.getElementById('taxFundingMethod');
+    const originalTaxFundingMethod=taxFundingSelect.value;
+    taxFundingSelect.value='conversion';
     const conversionTaxScenario = buildScenario(true);
-    document.getElementById('includeTaxFundingComparison').checked = true;
+    taxFundingSelect.value='outside';
     const outsideTaxScenario = buildScenario(true);
-    document.getElementById('includeTaxFundingComparison').checked = originalPayTaxesOutside;
+    taxFundingSelect.value=originalTaxFundingMethod;
   
     doc.addPage();
     addTitle(doc,'Tax Funding Comparison','Optional comparison: taxes funded from conversion side versus outside assets.');
