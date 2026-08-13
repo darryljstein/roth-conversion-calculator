@@ -861,7 +861,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V30';
+const ENGINE_VERSION = 'V31';
 const TAX = {
   MFJ:{ded:32200,irmaa1:218000,qd0:98900,qd20:613700,brackets:{10:24800,12:100800,22:211400,24:403550,32:512450,35:768700}},
   Single:{ded:16100,irmaa1:109000,qd0:49450,qd20:545500,brackets:{10:12400,12:50400,22:105700,24:201775,32:256225,35:640600}},
@@ -3163,7 +3163,9 @@ function tableConfigFromDetails(details, mode='before'){
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
   const showNqGapWithdrawal = rowsData.some(r => Math.abs(Number(r.nqGapWithdrawal || 0)) > 0.004);
   const showAdditionalAssets = rowsData.some(r => Math.abs(Number(r.additionalRoth || 0)) > 0.004);
+  const showLiquidTraditionalIra = rowsData.some(r => Math.abs(Number(r.liquidTraditionalIra || 0)) > 0.004);
   const showNonQualifiedAssets = rowsData.some(r => Math.abs(Number(r.nqBalance || 0)) > 0.004);
+  const showMunicipalAssets = rowsData.some(r => Math.abs(Number(r.municipalEstate || 0)) > 0.004);
   const showGuaranteedLifetimeIncome = rowsData.some(r => Math.abs(Number(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0)) > 0.004);
 
   if(mode === 'before'){
@@ -3185,10 +3187,12 @@ function tableConfigFromDetails(details, mode='before'){
       && reportColumnHasMoney(rowsData, ['excessRmdReinvested','taxableBrokerage','brokerageUnrealizedAppreciation']);
     cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
     if(showIRMAA) cols.push('IRMAA');
-    cols.push('IRA');
+    cols.push(showLiquidTraditionalIra ? 'CONVERSION-ELIGIBLE\nIRA' : 'IRA');
+    if(showLiquidTraditionalIra) cols.push('LIQUID IRA\nRESERVE');
     if(showExcessRmd) cols.push('EXCESS RMD\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
     if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
     if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
+    if(showMunicipalAssets) cols.push('TAX-EXEMPT\nMUNICIPAL ASSETS');
 
     const rows = rowsData.map(r => {
       const row = [`Year ${r.year}`, r.age];
@@ -3205,10 +3209,12 @@ function tableConfigFromDetails(details, mode='before'){
       if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
       row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
       if(showIRMAA) row.push(fmt2(r.irmaa));
-      row.push(fmt2(r.ira));
+      row.push(fmt2(showLiquidTraditionalIra ? (r.conversionEligibleIra||0) : r.ira));
+      if(showLiquidTraditionalIra) row.push(fmt2(r.liquidTraditionalIra||0));
       if(showExcessRmd) row.push(fmt2(r.excessRmdReinvested||0), fmt2(r.brokerageUnrealizedAppreciation||0), fmt2(r.taxableBrokerage||0));
       if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
       if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
+      if(showMunicipalAssets) row.push(fmt2(r.municipalEstate||0));
       return row;
     });
     return {cols:[cols], rows};
@@ -3248,8 +3254,9 @@ function tableConfigFromDetails(details, mode='before'){
   if(showIRMAA) cols.push('IRMAA');
   if(showSurplusReinvestment) cols.push('SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
-  // Non-qualified/cash assets remain fully modeled and appear in the legacy
-  // analysis, but are omitted from this crowded After Conversion detail table.
+  if(showLiquidTraditionalIra) cols.push('LIQUID IRA\nRESERVE');
+  if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
+  if(showMunicipalAssets) cols.push('TAX-EXEMPT\nMUNICIPAL ASSETS');
   if(showTaxFreeEstate) cols.push('TAX-FREE\nESTATE');
 
   const rows = rowsData.map(r => {
@@ -3272,6 +3279,9 @@ function tableConfigFromDetails(details, mode='before'){
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.brokerageUnrealizedAppreciation||0),fmt2(r.taxableBrokerage||0));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
+    if(showLiquidTraditionalIra) row.push(fmt2(r.liquidTraditionalIra||0));
+    if(showNonQualifiedAssets) row.push(fmt2(r.nqBalance||0));
+    if(showMunicipalAssets) row.push(fmt2(r.municipalEstate||0));
     if(showTaxFreeEstate) row.push(fmt2(r.roth));
     return row;
   });
