@@ -862,7 +862,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V35';
+const ENGINE_VERSION = 'V36';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -2162,7 +2162,6 @@ function buildScenario(useStrategy){
   for(let year=1; year<=40; year++){
     const currentStatus=status;
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
-    const householdTimelineAge = startingPrimaryAge + year - 1;
     let {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
     const guaranteedIncomeComponents = getGuaranteedLifetimeIncomeComponents(year, useStrategy, filingStart, deathApplied, deathWho);
     const guaranteedLifetimeIncome = guaranteedIncomeComponents.total;
@@ -2227,7 +2226,12 @@ function buildScenario(useStrategy){
     // age; using that age here could incorrectly turn an already-active goal off
     // and restart it years later. Death should change only the survivor need
     // factor, not the calendar/ COLA progression of the established goal.
-    const incomeGoalTimelineAge = householdTimelineAge;
+    // The entered Income Start Age is anchored to Client 1's age, not the
+    // older spouse's age. This makes an age-72 goal of $166,000 equal exactly
+    // $166,000 in Year 1 when Client 1 is 72; COLA begins in Year 2.
+    // Keep advancing this calendar timeline after a death event so survivor
+    // modeling changes the need percentage without restarting the income goal.
+    const incomeGoalTimelineAge = projectionStartHAge + year - 1;
     const unreducedRetirementIncomeGoal = (incomeGoalTimelineAge >= incomeStartAge)
       ? desiredIncomeBase * Math.pow(1 + incomeCola, Math.max(0, incomeGoalTimelineAge - incomeStartAge))
       : 0;
