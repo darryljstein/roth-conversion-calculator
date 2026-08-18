@@ -645,6 +645,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <option value="municipal">Tax-Exempt Municipal Bond</option>
                   </select>
                 </div>
+                <div class="field"><label>Account Owner</label><select class="additionalAccountOwner"><option value="joint" selected>Joint / Household</option><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
                 <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="0" step="0.1" /></div>
                 <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="6" step="0.1" /></div>
                 <div class="field"><label>Include in Roth Conversion? (Traditional IRA Only)</label><select class="additionalAccountIncludeConversion"><option value="yes" selected>Yes - Include in Conversion Pool</option><option value="no">No - Keep Liquid / Unconverted</option></select></div>
@@ -805,6 +806,7 @@ function additionalAccountRowHtml(index, values={}){
   const title = escapeHtmlAttr(values.title || `Additional Account ${index}`);
   const funds = escapeHtmlAttr(values.funds ?? '0');
   const type = values.type || 'nonqualified';
+  const owner = values.owner || 'joint';
   const bonus = escapeHtmlAttr(values.bonus ?? '0');
   const growth = escapeHtmlAttr(values.growth ?? '0');
   const legacyTreatment = values.legacyTreatment || 'aftertax';
@@ -818,6 +820,11 @@ function additionalAccountRowHtml(index, values={}){
       <option value="traditional" ${type==='traditional'?'selected':''}>Traditional IRA / Qualified Account</option>
       <option value="nonqualified" ${type==='nonqualified'?'selected':''}>Non-Qualified</option>
       <option value="municipal" ${type==='municipal'?'selected':''}>Tax-Exempt Municipal Bond</option>
+    </select></div>
+    <div class="field"><label>Account Owner</label><select class="additionalAccountOwner">
+      <option value="joint" ${owner==='joint'?'selected':''}>Joint / Household</option>
+      <option value="husband" ${owner==='husband'?'selected':''}>Client 1</option>
+      <option value="wife" ${owner==='wife'?'selected':''}>Client 2</option>
     </select></div>
     <div class="field"><label>Bonus %</label><input class="additionalAccountBonus" type="number" value="${bonus}" step="0.1" /></div>
     <div class="field"><label>Growth %</label><input class="additionalAccountGrowth" type="number" value="${growth}" step="0.1" /></div>
@@ -862,7 +869,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V36';
+const ENGINE_VERSION = 'V37';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -1780,6 +1787,7 @@ function getAdditionalAccounts(){
     const titleEl = row.querySelector('.additionalAccountTitle');
     const fundsEl = row.querySelector('.additionalAccountFunds');
     const typeEl = row.querySelector('.additionalAccountType');
+    const ownerEl = row.querySelector('.additionalAccountOwner');
     const bonusEl = row.querySelector('.additionalAccountBonus');
     const funds = parseFloat(fundsEl && fundsEl.value ? fundsEl.value : '0') || 0;
     const bonusPct = parseFloat(bonusEl && bonusEl.value ? bonusEl.value : '0') || 0;
@@ -1794,6 +1802,7 @@ function getAdditionalAccounts(){
       funds,
       type: typeEl ? typeEl.value : 'roth',
       typeLabel: typeEl && typeEl.selectedOptions && typeEl.selectedOptions[0] ? typeEl.selectedOptions[0].text : 'Roth',
+      owner: ownerEl ? ownerEl.value : 'joint',
       bonusPct,
       growthPct,
       includeConversion: includeConversionEl ? includeConversionEl.value !== 'no' : true,
@@ -3635,6 +3644,99 @@ function generatePDF(){
 
   addPdfFooter(doc,1);
 
+  // Income and Asset Summary - always appears immediately after the cover.
+  doc.addPage();
+  addTitle(doc,'Income and Asset Summary','Current household assets, guaranteed income sources, and modeled Year 1 federal tax position.');
+  addPdfLogo(doc);
+  const ownerDisplay = owner => owner === 'husband' ? displayClient1Name() : (owner === 'wife' ? displayClient2Name() : 'Joint / Household');
+  const assetRows = [];
+  const addAssetRow = (category, title, owner, value) => {
+    const amount = Math.max(0, Number(value || 0));
+    if(amount > 0.004) assetRows.push([category, title, ownerDisplay(owner), fmt2(amount)]);
+  };
+  addAssetRow('Traditional IRA', `${displayClient1Name()} IRA`, 'husband', num('hIra'));
+  if((document.getElementById('filingStatus')?.value || 'MFJ') === 'MFJ') addAssetRow('Traditional IRA', `${displayClient2Name()} IRA`, 'wife', num('wIra'));
+  const summaryAdditionalAccounts = getAdditionalAccounts();
+  summaryAdditionalAccounts.forEach(a => {
+    const inherited = a.type === 'inherited' || /inherited\s+(ira|retirement)/i.test(a.title || '');
+    const category = inherited ? 'Inherited IRA' : (a.type === 'traditional' ? 'Traditional IRA / Qualified' : (a.type === 'nonqualified' ? 'Nonqualified / Brokerage' : (a.type === 'municipal' ? 'Tax-Exempt Municipal Bonds' : 'Roth Account')));
+    addAssetRow(category, a.title, a.owner || 'joint', a.funds);
+  });
+  addAssetRow('Nonqualified / Brokerage', 'Primary NQ Account', 'joint', num('nqAccountValue'));
+  addAssetRow('Brokerage / Outside Assets', 'Brokerage / Outside Assets', 'joint', num('outsideAssets'));
+  if(typeof getInheritedIraAccounts === 'function'){
+    (getInheritedIraAccounts() || []).forEach(a => addAssetRow('Inherited IRA', a.title || 'Inherited IRA', a.owner || 'joint', a.balance || a.funds || 0));
+  }
+  let nextSummaryY = 76;
+  if(assetRows.length){
+    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text('Assets',44,nextSummaryY);
+    doc.autoTable({
+      startY:nextSummaryY+10,
+      head:[['Asset Type','Account','Owner','Current Value']],
+      body:assetRows,
+      styles:{fontSize:9,cellPadding:3.5,overflow:'linebreak'},
+      headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[245,247,250]},
+      columnStyles:{0:{cellWidth:155,fontStyle:'bold'},1:{cellWidth:260},2:{cellWidth:150},3:{cellWidth:125,halign:'right'}},
+      margin:{left:44,right:44}
+    });
+    nextSummaryY = doc.lastAutoTable.finalY + 20;
+  }
+  const guaranteedIncomeRows = [];
+  const addIncomeRow = (source, owner, starts, annual, treatment) => {
+    const amount = Math.max(0, Number(annual || 0));
+    if(amount > 0.004) guaranteedIncomeRows.push([source, ownerDisplay(owner), starts, fmt2(amount), treatment]);
+  };
+  addIncomeRow('Social Security', 'husband', `Age ${num('hSSAge')}`, num('hSS'), 'Taxable portion calculated under Social Security rules');
+  if((document.getElementById('filingStatus')?.value || 'MFJ') === 'MFJ') addIncomeRow('Social Security', 'wife', `Age ${num('wSSAge')}`, num('wSS'), 'Taxable portion calculated under Social Security rules');
+  for(let i=1;i<=pensionRowCount();i++){
+    const taxable = Math.max(0,getPensionValue(i,'Taxable'));
+    const taxFree = Math.max(0,getPensionValue(i,'TaxFree'));
+    const startAge = getPensionStartAge(i);
+    const treatment = taxable > 0.004 && taxFree > 0.004 ? `${fmt2(taxable)} taxable / ${fmt2(taxFree)} tax-free` : (taxable > 0.004 ? 'Taxable' : 'Tax-free');
+    addIncomeRow(getPensionTitle(i), getPensionOwnerValue(i), startAge > 0 ? `Age ${startAge}` : 'Already receiving', taxable + taxFree, treatment);
+  }
+  if((document.getElementById('rentalIncomeEnabled')?.value || 'no') === 'yes'){
+    const recurringGross = num('rentalGrossIncome');
+    const recurringTaxable = num('rentalTaxableIncome');
+    const recurringStart = num('rentalStartAge');
+    const recurringTreatment = recurringTaxable <= 0.004 ? 'Tax-free' : (Math.abs(recurringGross-recurringTaxable) <= 0.004 ? 'Taxable' : `${fmt2(recurringTaxable)} taxable / ${fmt2(Math.max(0,recurringGross-recurringTaxable))} tax-free`);
+    addIncomeRow(document.getElementById('rentalIncomeTitle')?.value || 'Other Recurring Income', document.getElementById('rentalIncomeOwner')?.value || 'joint', recurringStart > 0 ? `Age ${recurringStart}` : 'Already receiving', recurringGross, recurringTreatment);
+  }
+  if(guaranteedIncomeRows.length){
+    doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text('Guaranteed Income',44,nextSummaryY);
+    doc.autoTable({
+      startY:nextSummaryY+10,
+      head:[['Income Source','Owner','Begins','Annual Amount','Federal Tax Treatment']],
+      body:guaranteedIncomeRows,
+      styles:{fontSize:8.5,cellPadding:3.25,overflow:'linebreak'},
+      headStyles:{fillColor:[200,154,61],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[250,248,242]},
+      columnStyles:{0:{cellWidth:175,fontStyle:'bold'},1:{cellWidth:125},2:{cellWidth:80},3:{cellWidth:105,halign:'right'},4:{cellWidth:205}},
+      margin:{left:44,right:44}
+    });
+    nextSummaryY = doc.lastAutoTable.finalY + 20;
+  }
+  const beforeYear1 = before.details[0] || {};
+  const afterYear1 = after.details[0] || {};
+  doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text('Modeled Year 1 Federal Tax Position',44,nextSummaryY);
+  doc.autoTable({
+    startY:nextSummaryY+10,
+    head:[['Scenario','Gross Income','Taxable Income','Marginal Federal Bracket']],
+    body:[
+      ['Current Situation',fmt2(beforeYear1.grossIncome||beforeYear1.income||0),fmt2(beforeYear1.taxableIncome||0),fmtPct(beforeYear1.marginalTaxRate||before.year1MarginalTaxRate||0)],
+      ['Proposed Strategy',fmt2(afterYear1.grossIncome||afterYear1.income||0),fmt2(afterYear1.taxableIncome||0),fmtPct(afterYear1.marginalTaxRate||after.year1MarginalTaxRate||0)]
+    ],
+    styles:{fontSize:9,cellPadding:3.5},
+    headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[245,247,250]},
+    columnStyles:{0:{cellWidth:200,fontStyle:'bold'},1:{cellWidth:160,halign:'right'},2:{cellWidth:160,halign:'right'},3:{cellWidth:170,halign:'center'}},
+    margin:{left:44,right:44}
+  });
+  doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
+  doc.text(doc.splitTextToSize('Tax brackets reflect all Year 1 modeled taxable income, deductions, Social Security taxation, RMDs, and Roth conversions—not guaranteed income alone. State income tax is not modeled.',680),44,doc.lastAutoTable.finalY+14);
+  addPdfFooter(doc,doc.getNumberOfPages());
+
   // Client Summary page
   doc.addPage();
   addTitle(doc,'Client Summary','Plain-English summary of the planning result.');
@@ -4541,6 +4643,7 @@ function collectAdditionalAccountsForSave(){
     title: row.querySelector('.additionalAccountTitle')?.value || `Additional Account ${idx+1}`,
     funds: row.querySelector('.additionalAccountFunds')?.value || '0',
     type: row.querySelector('.additionalAccountType')?.value || 'roth',
+    owner: row.querySelector('.additionalAccountOwner')?.value || 'joint',
     bonus: row.querySelector('.additionalAccountBonus')?.value || '0',
     growth: row.querySelector('.additionalAccountGrowth')?.value || '6',
     includeConversion: row.querySelector('.additionalAccountIncludeConversion')?.value || 'yes',
