@@ -953,7 +953,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V38';
+const ENGINE_VERSION = 'V39';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -3763,7 +3763,7 @@ function generatePDF(){
 
   // Income and Asset Summary - always appears immediately after the cover.
   doc.addPage();
-  addTitle(doc,'Income and Asset Summary','Current household assets, guaranteed income sources, and modeled Year 1 federal tax position.');
+  addTitle(doc,'Income and Asset Summary','Current household assets, guaranteed income sources, and modeled federal tax position at the primary client\'s RMD age.');
   addPdfLogo(doc);
   const ownerDisplay = owner => owner === 'husband' ? displayClient1Name() : (owner === 'wife' ? displayClient2Name() : 'Joint / Household');
   const assetRows = [];
@@ -3834,24 +3834,29 @@ function generatePDF(){
     });
     nextSummaryY = doc.lastAutoTable.finalY + 20;
   }
-  const beforeYear1 = before.details[0] || {};
-  const afterYear1 = after.details[0] || {};
-  doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text('Modeled Year 1 Federal Tax Position',44,nextSummaryY);
+  const rmdComparisonAge = 75;
+  const rowAtAge = details => (details || []).find(r => Number(r.age) === rmdComparisonAge)
+    || (details || []).find(r => Number(r.age) > rmdComparisonAge)
+    || (details || []).slice(-1)[0]
+    || {};
+  const beforeRmdAge = rowAtAge(before.details);
+  const afterRmdAge = rowAtAge(after.details);
+  doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text(`Modeled Federal Tax Position at Age ${rmdComparisonAge}`,44,nextSummaryY);
   doc.autoTable({
     startY:nextSummaryY+10,
     head:[['Scenario','Gross Income','Taxable Income','Marginal Federal Bracket']],
     body:[
-      ['Current Situation',fmt2(beforeYear1.grossIncome||beforeYear1.income||0),fmt2(beforeYear1.taxableIncome||0),fmtPct(beforeYear1.marginalTaxRate||before.year1MarginalTaxRate||0)],
-      ['Proposed Strategy',fmt2(afterYear1.grossIncome||afterYear1.income||0),fmt2(afterYear1.taxableIncome||0),fmtPct(afterYear1.marginalTaxRate||after.year1MarginalTaxRate||0)]
+      ['Current Situation',fmt2(beforeRmdAge.grossIncome||beforeRmdAge.income||0),fmt2(beforeRmdAge.taxableIncome||0),fmtPct(beforeRmdAge.marginalTaxRate||0)],
+      ['Proposed Strategy',fmt2(afterRmdAge.grossIncome||afterRmdAge.income||0),fmt2(afterRmdAge.taxableIncome||0),fmtPct(afterRmdAge.marginalTaxRate||0)]
     ],
     styles:{fontSize:9,cellPadding:3.5},
     headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[245,247,250]},
-    columnStyles:{0:{cellWidth:200,fontStyle:'bold'},1:{cellWidth:160,halign:'right'},2:{cellWidth:160,halign:'right'},3:{cellWidth:170,halign:'center'}},
+    columnStyles:{0:{cellWidth:200,fontStyle:'bold'},1:{cellWidth:160,halign:'center'},2:{cellWidth:160,halign:'center'},3:{cellWidth:170,halign:'center'}},
     margin:{left:44,right:44}
   });
   doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
-  doc.text(doc.splitTextToSize('Tax brackets reflect all Year 1 modeled taxable income, deductions, Social Security taxation, RMDs, and Roth conversions—not guaranteed income alone. State income tax is not modeled.',680),44,doc.lastAutoTable.finalY+14);
+  doc.text(doc.splitTextToSize(`Tax brackets reflect all modeled taxable income at age ${rmdComparisonAge}, including deductions, Social Security taxation, RMDs, and Roth conversions—not guaranteed income alone. State income tax is not modeled.`,680),44,doc.lastAutoTable.finalY+14);
   addPdfFooter(doc,doc.getNumberOfPages());
 
   // Client Summary page
