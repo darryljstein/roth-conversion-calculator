@@ -955,7 +955,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V42';
+const ENGINE_VERSION = 'V43';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -3354,7 +3354,7 @@ function tableConfigFromDetails(details, mode='before'){
     const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
     const showExcessRmd = !!document.getElementById('includeBrokerageDetailColumns')?.checked
       && reportColumnHasMoney(rowsData, ['excessRmdReinvested','taxableBrokerage','brokerageUnrealizedAppreciation']);
-    cols.push('Income\nGoal','Gap /\nSurplus','Taxable\nIncome','Taxes');
+    cols.push('Income\nGoal','Gap /\nSurplus','GROSS TAXABLE\nINCOME','FEDERAL TAXABLE\nAFTER DEDUCTIONS','Taxes');
     if(showIRMAA) cols.push('IRMAA');
     cols.push(showLiquidTraditionalIra ? 'CONVERSION-ELIGIBLE\nIRA' : 'IRA');
     if(showLiquidTraditionalIra) cols.push('LIQUID IRA\nRESERVE');
@@ -3376,7 +3376,7 @@ function tableConfigFromDetails(details, mode='before'){
       if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
       if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0), fmt2(r.nqTaxFreeWithdrawal||0), fmt2(r.nqTaxableWithdrawal||0));
       if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
-      row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.tax));
+      row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.incomeGap || 0), fmt2(r.taxableIncome), fmt2(r.taxableIncomeAfterDeductions||0), fmt2(r.tax));
       if(showIRMAA) row.push(fmt2(r.irmaa));
       row.push(fmt2(showLiquidTraditionalIra ? (r.conversionEligibleIra||0) : r.ira));
       if(showLiquidTraditionalIra) row.push(fmt2(r.liquidTraditionalIra||0));
@@ -3421,7 +3421,7 @@ function tableConfigFromDetails(details, mode='before'){
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
   // Gap / Surplus remains calculated and is reflected in the applicable
   // carryover/reinvestment values, but is omitted from this crowded table.
-  cols.push('Income\nGoal','Taxable\nIncome','Taxes','GROSS\nINCOME');
+  cols.push('Income\nGoal','GROSS TAXABLE\nINCOME','FEDERAL TAXABLE\nAFTER DEDUCTIONS','Taxes','GROSS\nINCOME');
   if(showIRMAA) cols.push('IRMAA');
   if(showSurplusReinvestment) cols.push('SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
   if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
@@ -3447,7 +3447,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showRmdTaxFunding) row.push(fmt2(r.rmdAppliedToConversionTax||0),fmt2(r.conversionTaxDeductedFromConversion||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
-    row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.tax), fmt2(r.grossIncome || 0));
+    row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.taxableIncomeAfterDeductions||0), fmt2(r.tax), fmt2(r.grossIncome || 0));
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.brokerageUnrealizedAppreciation||0),fmt2(r.taxableBrokerage||0));
     if(showAdditionalAssets) row.push(fmt2(r.additionalRoth||0));
@@ -4506,13 +4506,14 @@ function generatePDF(){
   // Page 7 onwards - detail tables
   function detailPages(title, details, mode){
     let pageNum = doc.getNumberOfPages()+1;
+    let tableCfg = tableConfigFromDetails(details, mode);
+    const initialColCount = (tableCfg.cols && tableCfg.cols[0]) ? tableCfg.cols[0].length : 12;
     // The strategy table can contain substantially more populated columns than
-    // the current-situation table. Give it a legal-landscape canvas so complete
-    // currency values (including cents) stay on one line at a readable size.
-    doc.addPage(mode === 'after' ? 'legal' : 'letter','l');
+    // the current-situation table. Use a legal-landscape canvas whenever the
+    // populated table is wide enough to risk wrapping complete currency values.
+    doc.addPage((mode === 'after' || initialColCount >= 16) ? 'legal' : 'letter','l');
     addTitle(doc,title, mode==='before' ? 'Before page shows taxable income and any applicable withdrawals through the selected planning horizon. IRMAA begins at each client\'s entered Medicare IRMAA coverage start age and uses a two-year MAGI lookback.' : 'After page shows conversion taxes, Roth income, tax-free estate, and any applicable withdrawals through the selected planning horizon. IRMAA begins at each client\'s entered Medicare IRMAA coverage start age and uses a two-year MAGI lookback.');
     addPdfLogo(doc);
-    let tableCfg = tableConfigFromDetails(details, mode);
     const greenIncomeIndex = tableCfg.cols[0].indexOf('TAX-FREE\nROTH INCOME');
     const guaranteedLifetimeIndex = tableCfg.cols[0].indexOf(fiaIncomeLabel());
     const grossIncomeIndex = tableCfg.cols[0].indexOf('GROSS\nINCOME');
@@ -4632,6 +4633,7 @@ function generatePDF(){
       detailNoteY += (lines.length * (fontSize + 1.2)) + 3;
       doc.setFont(undefined,'normal');
     };
+    writeDetailNote('Gross Taxable Income shows taxable income sources before deductions. Federal Taxable After Deductions subtracts the modeled standard, age-65+, and other entered deductions and is the amount used to identify the marginal federal bracket.', [11,58,111], true);
     if(document.getElementById('includeBrokerageDetailColumns')?.checked && mode==='before' && details.some(r => Number(r.excessRmdReinvested || 0) > 0)){
       writeDetailNote('Excess RMD Reinvestment: required IRA distributions above the retirement income goal are reinvested into a brokerage account. Modeled account growth is shown as unrealized appreciation and does not create current-year taxable income.', [146,64,14], true);
     }
