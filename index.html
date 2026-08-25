@@ -687,6 +687,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Desired Income COLA %</label><input id="incomeCola" type="number" value="3.0" step="0.1" /></div>
           <div class="field"><label>Income Start Age</label><input id="incomeStartAge" type="number" value="65" min="40" max="95" step="1" /></div>
           <div class="field"><label>Planning Horizon / Life Expectancy Age</label><input id="planningHorizonAge" type="number" value="95" min="70" max="100" step="1" /></div>
+          <div class="field"><label>Income &amp; Asset Summary — Modeled Federal Tax Position at Age</label><input id="incomeAssetSummaryTaxAge" type="number" value="75" min="40" max="100" step="1" /><div class="mode-help">Select the client age used for the Current Situation versus Proposed Strategy tax comparison. Choose an age after the Roth conversion is completed to illustrate the post-conversion tax benefit.</div></div>
           <div class="field"><label>Scenario Mode</label><select id="scenarioMode"><option value="base" selected>Base</option><option value="optimized">Optimized</option><option value="conservative">Conservative</option></select></div>
           <div class="field"><label>Conversion Period (Years)</label><input id="conversionYears" type="number" value="6" min="1" step="1" /></div>
           <div class="field"><label>Conversion Completion Mode</label><select id="conversionCompletionMode"><option value="optimized" selected>Tax Bracket Optimized</option><option value="force">Force Completion by Target Year</option></select></div>
@@ -955,7 +956,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V44';
+const ENGINE_VERSION = 'V45';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -1658,6 +1659,7 @@ function safeCalculate(){
 }
 
 const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+allIds.splice(allIds.indexOf('scenarioMode'), 0, 'incomeAssetSummaryTaxAge');
 allIds.splice(allIds.indexOf('hIra'), 0, 'hMedicarePartBStartAge', 'wMedicarePartBStartAge');
 allIds.forEach(id => {
   const node = document.getElementById(id);
@@ -3776,7 +3778,7 @@ function generatePDF(){
 
   // Income and Asset Summary - always appears immediately after the cover.
   doc.addPage();
-  addTitle(doc,'Income and Asset Summary','Current household assets, guaranteed income sources, and modeled federal tax position in the first projected RMD-age year.');
+  addTitle(doc,'Income and Asset Summary','Current household assets, guaranteed income sources, and modeled federal tax position at the advisor-selected client age.');
   addPdfLogo(doc);
   const ownerDisplay = owner => owner === 'husband' ? displayClient1Name() : (owner === 'wife' ? displayClient2Name() : 'Joint / Household');
   const assetRows = [];
@@ -3847,20 +3849,20 @@ function generatePDF(){
     });
     nextSummaryY = doc.lastAutoTable.finalY + 20;
   }
-  const rmdComparisonAge = 75;
+  const selectedTaxComparisonAge = Math.max(40, Math.min(100, Math.floor(num('incomeAssetSummaryTaxAge') || 75)));
   const primaryAgeInRow = row => {
     const primaryAge = Number.parseFloat(String(row?.age ?? '').split('/')[0]);
     return Number.isFinite(primaryAge) ? primaryAge : Number.NaN;
   };
-  const rowAtAge = details => (details || []).find(r => primaryAgeInRow(r) === rmdComparisonAge)
-    || (details || []).find(r => primaryAgeInRow(r) > rmdComparisonAge)
+  const rowAtAge = details => (details || []).find(r => primaryAgeInRow(r) === selectedTaxComparisonAge)
+    || (details || []).find(r => primaryAgeInRow(r) > selectedTaxComparisonAge)
     || (details || []).slice(-1)[0]
     || {};
   const beforeRmdAge = rowAtAge(before.details);
   const comparisonProjectionYear = Number(beforeRmdAge.year || 0);
   const afterRmdAge = (after.details || []).find(r => Number(r.year) === comparisonProjectionYear) || rowAtAge(after.details);
   const displayedComparisonAge = primaryAgeInRow(beforeRmdAge);
-  const comparisonAgeLabel = Number.isFinite(displayedComparisonAge) ? displayedComparisonAge : rmdComparisonAge;
+  const comparisonAgeLabel = Number.isFinite(displayedComparisonAge) ? displayedComparisonAge : selectedTaxComparisonAge;
   doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text(`Modeled Federal Tax Position at Age ${comparisonAgeLabel}`,44,nextSummaryY);
   doc.autoTable({
     startY:nextSummaryY+10,
