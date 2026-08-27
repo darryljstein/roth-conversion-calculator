@@ -956,7 +956,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V45';
+const ENGINE_VERSION = 'V46';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -3863,22 +3863,27 @@ function generatePDF(){
   const afterRmdAge = (after.details || []).find(r => Number(r.year) === comparisonProjectionYear) || rowAtAge(after.details);
   const displayedComparisonAge = primaryAgeInRow(beforeRmdAge);
   const comparisonAgeLabel = Number.isFinite(displayedComparisonAge) ? displayedComparisonAge : selectedTaxComparisonAge;
+  const effectiveTaxRateForRow = row => {
+    const federalTaxableIncome = Math.max(0, Number(row?.taxableIncomeAfterDeductions || 0));
+    const federalTax = Math.max(0, Number(row?.taxes || 0));
+    return federalTaxableIncome > 0 ? federalTax / federalTaxableIncome : 0;
+  };
   doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text(`Modeled Federal Tax Position at Age ${comparisonAgeLabel}`,44,nextSummaryY);
   doc.autoTable({
     startY:nextSummaryY+10,
-    head:[['Scenario','Gross Income','Federal Taxable Income After Deductions','Marginal Federal Bracket']],
+    head:[['Scenario','Gross Income','Federal Taxable Income After Deductions','Marginal Federal Bracket','Effective Federal Tax Rate']],
     body:[
-      ['Current Situation',fmt2(beforeRmdAge.grossIncome||beforeRmdAge.income||0),fmt2(beforeRmdAge.taxableIncomeAfterDeductions||0),fmtPct(beforeRmdAge.marginalTaxRate||0)],
-      ['Proposed Strategy',fmt2(afterRmdAge.grossIncome||afterRmdAge.income||0),fmt2(afterRmdAge.taxableIncomeAfterDeductions||0),fmtPct(afterRmdAge.marginalTaxRate||0)]
+      ['Current Situation',fmt2(beforeRmdAge.grossIncome||beforeRmdAge.income||0),fmt2(beforeRmdAge.taxableIncomeAfterDeductions||0),fmtPct(beforeRmdAge.marginalTaxRate||0),fmtPct(effectiveTaxRateForRow(beforeRmdAge))],
+      ['Proposed Strategy',fmt2(afterRmdAge.grossIncome||afterRmdAge.income||0),fmt2(afterRmdAge.taxableIncomeAfterDeductions||0),fmtPct(afterRmdAge.marginalTaxRate||0),fmtPct(effectiveTaxRateForRow(afterRmdAge))]
     ],
-    styles:{fontSize:9,cellPadding:3.5},
+    styles:{fontSize:8.3,cellPadding:3.25,overflow:'linebreak'},
     headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[245,247,250]},
-    columnStyles:{0:{cellWidth:200,fontStyle:'bold'},1:{cellWidth:160,halign:'center'},2:{cellWidth:160,halign:'center'},3:{cellWidth:170,halign:'center'}},
+    columnStyles:{0:{cellWidth:145,fontStyle:'bold'},1:{cellWidth:120,halign:'center'},2:{cellWidth:165,halign:'center'},3:{cellWidth:130,halign:'center'},4:{cellWidth:130,halign:'center'}},
     margin:{left:44,right:44}
   });
   doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
-  doc.text(doc.splitTextToSize(`Federal taxable income is shown after the modeled standard, age-65+, and other entered deductions at age ${comparisonAgeLabel}. The marginal bracket also reflects Social Security taxation, RMDs, and Roth conversions. State income tax is not modeled.`,680),44,doc.lastAutoTable.finalY+14);
+  doc.text(doc.splitTextToSize(`Federal taxable income is shown after the modeled standard, age-65+, and other entered deductions at age ${comparisonAgeLabel}. The marginal bracket is the rate applied to the last dollars of taxable income. The effective rate is estimated federal tax divided by federal taxable income after deductions. Both reflect Social Security taxation, RMDs, and Roth conversions. State income tax is not modeled.`,680),44,doc.lastAutoTable.finalY+14);
   addPdfFooter(doc,doc.getNumberOfPages());
 
   // Client Summary page
