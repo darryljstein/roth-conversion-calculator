@@ -956,7 +956,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V46';
+const ENGINE_VERSION = 'V47';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -3865,7 +3865,7 @@ function generatePDF(){
   const comparisonAgeLabel = Number.isFinite(displayedComparisonAge) ? displayedComparisonAge : selectedTaxComparisonAge;
   const effectiveTaxRateForRow = row => {
     const federalTaxableIncome = Math.max(0, Number(row?.taxableIncomeAfterDeductions || 0));
-    const federalTax = Math.max(0, Number(row?.taxes || 0));
+    const federalTax = Math.max(0, Number(row?.tax || 0));
     return federalTaxableIncome > 0 ? federalTax / federalTaxableIncome : 0;
   };
   doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text(`Modeled Federal Tax Position at Age ${comparisonAgeLabel}`,44,nextSummaryY);
