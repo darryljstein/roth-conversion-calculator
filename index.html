@@ -397,6 +397,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="field"><label>Client 1 Age</label><input id="hAge" type="number" value="65" min="40" max="95" /></div>
               <div class="field"><label>Client 1 Medicare IRMAA Coverage Start Age</label><input id="hMedicarePartBStartAge" type="number" value="65" min="0" max="100" step="1" /><div class="mode-help">Use the age Part B or Part D begins. Enter 0 if neither is expected during the projection.</div></div>
               <div class="field"><label>Client 1 IRA</label><input id="hIra" type="number" value="2000000" step="1000" /></div>
+              <div class="field"><label>Client 1 IRA Bonus %</label><input id="hIraBonusPct" type="number" value="" min="0" max="100" step="0.1" placeholder="Uses default if blank" /><div class="mode-help">Enter this owner's annuity bonus. When either owner-specific bonus is entered, the engine calculates the household bonus as a dollar-weighted rate.</div></div>
               <div class="field"><label>Taxable Pension Annual</label><input id="pension" type="number" value="0" step="1000" /></div>
               <div class="field"><label>Client 1 SS Start Age</label><input id="hSSAge" type="number" value="66" min="62" max="75" step="0.1" /></div>
               <div class="field"><label>Client 1 Current Annual SS Benefit</label><input id="hSS" type="number" value="25000" /><div class="mode-help">If already receiving Social Security, enter the current annual amount. If benefits begin later, enter the expected annual amount at the future start age.</div></div>
@@ -415,6 +416,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="field spouse-field"><label>Client 2 Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
               <div class="field spouse-field"><label>Client 2 Medicare IRMAA Coverage Start Age</label><input id="wMedicarePartBStartAge" type="number" value="65" min="0" max="100" step="1" /><div class="mode-help">Use the age Part B or Part D begins. Part A alone does not activate IRMAA.</div></div>
               <div class="field spouse-field"><label>Client 2 IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
+              <div class="field spouse-field"><label>Client 2 IRA Bonus %</label><input id="wIraBonusPct" type="number" value="" min="0" max="100" step="0.1" placeholder="Uses default if blank" /><div class="mode-help">Enter this owner's annuity bonus. Leave both owner-specific bonus fields blank to use the default single-product bonus below.</div></div>
               <div class="field spouse-field"><label>Client 2 SS Start Age</label><input id="wSSAge" type="number" value="64" min="62" max="75" step="0.1" /></div>
               <div class="field spouse-field"><label>Client 2 Current Annual SS Benefit</label><input id="wSS" type="number" value="25000" /><div class="mode-help">If already receiving Social Security, enter the current annual amount. If benefits begin later, enter the expected annual amount at the future start age.</div></div>
               <div class="field spouse-field"><label>Client 2 SS Payment Timing</label><select id="wSSTiming"><option value="current" selected>Already Receiving - Full Year</option><option value="year1">Starts During Projection Year 1</option><option value="age">Starts at Entered Start Age</option></select></div>
@@ -720,7 +722,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Premium</label><input id="premium" type="number" value="0" step="1000" /></div>
           <div class="field"><label>Client 1 IRA Assets Used to Fund Lifetime Income Annuity</label><input id="client1LifetimeIncomeIraFunding" type="number" value="0" min="0" step="1000" /><div class="mode-help">Removed from Client 1's liquid IRA under the strategy; not treated as a Roth conversion and not included in future RMDs.</div></div>
           <div class="field spouse-field"><label>Client 2 IRA Assets Used to Fund Lifetime Income Annuity</label><input id="client2LifetimeIncomeIraFunding" type="number" value="0" min="0" step="1000" /><div class="mode-help">Removed from Client 2's liquid IRA under the strategy; not treated as a Roth conversion and not included in future RMDs.</div></div>
-          <div class="field"><label>Premium Finance Roth Conversion Bonus %</label><input id="bonusPct" type="number" value="0" step="0.1" /></div>
+          <div class="field"><label>Default / Single-Product Bonus %</label><input id="bonusPct" type="number" value="0" step="0.1" /><div class="mode-help">Used when both owner-specific IRA bonus fields are blank. Owner-specific bonuses override this field in Roth Conversion Only mode.</div></div>
           <div class="field"><label>Annual Fee %</label><input id="feePct" type="number" value="0.95" min="0" max="3" step="0.01" /></div>
           <div class="field"><label>Annual Fee Product Type</label><select id="feeType"><option value="annual" selected>Annual Fee Product</option><option value="nofee">No Fee Product</option></select></div>
           <div class="field"><label>Logo for PDF Output</label><input id="logoUpload" type="file" accept="image/*" /></div>
@@ -767,7 +769,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <h3>Strategy Summary</h3>
             <table><tbody>
               <tr><td>Premium</td><td id="pfPremium">$0</td></tr>
-              <tr><td>Premium Finance Roth Conversion Bonus</td><td id="pfBonus">$0</td></tr>
+              <tr><td id="pfBonusLabel">Premium Finance Roth Conversion Bonus</td><td id="pfBonus">$0</td></tr>
               <tr><td>Beginning Value</td><td id="pfBeginning">$0</td></tr>
               <tr><td>Year 1 Planned Conversion</td><td id="pfConversion">$0</td></tr>
               <tr><td>Year 1 IRA Withdrawal</td><td id="pfIraSpend">$0</td></tr>
@@ -956,7 +958,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V47';
+const ENGINE_VERSION = 'V48';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -1330,6 +1332,8 @@ function loadWidowPlannerScenario(){
   setFieldValue('hAge',64);
   setFieldValue('hIra',1000000);
   setFieldValue('wIra',0);
+  setFieldValue('hIraBonusPct','');
+  setFieldValue('wIraBonusPct','');
   setFieldValue('premium',1000000);
   setFieldValue('bonusPct',0);
   setFieldValue('hCurrentIncome',180000);
@@ -1661,6 +1665,7 @@ function safeCalculate(){
 const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.splice(allIds.indexOf('scenarioMode'), 0, 'incomeAssetSummaryTaxAge');
 allIds.splice(allIds.indexOf('hIra'), 0, 'hMedicarePartBStartAge', 'wMedicarePartBStartAge');
+allIds.splice(allIds.indexOf('hIra') + 1, 0, 'hIraBonusPct', 'wIraBonusPct');
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -2108,7 +2113,33 @@ function nextReportFileName(){
 }
 
 
+function ownerSpecificIraBonusActive(){
+  const hEl=document.getElementById('hIraBonusPct');
+  const wEl=document.getElementById('wIraBonusPct');
+  const hEntered=!!(hEl && String(hEl.value).trim()!=='');
+  const wEntered=!!(wEl && String(wEl.value).trim()!=='');
+  return (getStrategyMasterMode ? getStrategyMasterMode() : 'rothOnly')==='rothOnly' && (hEntered || wEntered);
+}
+function premiumBonusBreakdown(){
+  const status=document.getElementById('filingStatus')?.value || 'MFJ';
+  const hAmount=Math.max(0,num('hIra'));
+  const wAmount=status==='MFJ' ? Math.max(0,num('wIra')) : 0;
+  if(ownerSpecificIraBonusActive()){
+    const hPct=Math.max(0,Math.min(100,num('hIraBonusPct')));
+    const wPct=Math.max(0,Math.min(100,num('wIraBonusPct')));
+    const items=[{owner:displayClient1Name(),amount:hAmount,pct:hPct,bonus:hAmount*hPct/100,beginning:hAmount*(1+hPct/100)}];
+    if(status==='MFJ') items.push({owner:displayClient2Name(),amount:wAmount,pct:wPct,bonus:wAmount*wPct/100,beginning:wAmount*(1+wPct/100)});
+    const premium=items.reduce((s,x)=>s+x.amount,0);
+    const bonus=items.reduce((s,x)=>s+x.bonus,0);
+    return {individual:true,items,premium,bonus,rate:premium>0?bonus/premium:0};
+  }
+  const rate=Math.max(0,Math.min(1,percent('bonusPct')));
+  const premium=(getStrategyMasterMode ? getStrategyMasterMode() : 'rothOnly')==='rothOnly' ? hAmount+wAmount : Math.max(0,num('premium'));
+  return {individual:false,items:[],premium,bonus:premium*rate,rate};
+}
 function effectivePremiumBonusRate(){
+  const ownerBreakdown=premiumBonusBreakdown();
+  if(ownerBreakdown.individual) return ownerBreakdown.rate;
   const explicit = Math.max(0, Math.min(1, percent('bonusPct')));
   if(explicit > 0) return explicit;
   const mode = getStrategyMasterMode ? getStrategyMasterMode() : 'rothOnly';
@@ -2143,6 +2174,7 @@ function buildScenario(useStrategy){
   const premium = (useStrategy && masterMode === 'rothOnly') ? enteredIraTotal : premiumInputValue;
   const premiumBonusRate = useStrategy ? effectivePremiumBonusRate() : 0;
   const bonus = premium * premiumBonusRate;
+  const bonusBreakdown = useStrategy ? premiumBonusBreakdown() : {individual:false,items:[],premium,bonus:0,rate:0};
   let ira = enteredIraTotal;
   let outside=num('outsideAssets');
   const additionalTotals = additionalAccountTotals();
@@ -2852,7 +2884,7 @@ function buildScenario(useStrategy){
     taxableEstate + afterTaxLegacyEstate + roundMoney(municipalEstate) + roundMoney(roth)
   );
   return {
-    premium, bonus, bonusPct: premiumBonusRate * 100, beginning: premium+bonus, firstConv,
+    premium, bonus, bonusPct: premiumBonusRate * 100, bonusBreakdown, beginning: premium+bonus, firstConv,
     yearsToComplete: conversionYears,
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
@@ -2930,6 +2962,10 @@ function calculate(){
   document.getElementById('taxFreeCoverageAge').textContent=String(taxFreeCoverageAge(after.details)).replace('/', ' / ');
   document.getElementById('pfPremium').textContent=fmt2(after.premium);
   document.getElementById('pfBonus').textContent=fmt2(after.bonus);
+  const pfBonusLabel=document.getElementById('pfBonusLabel');
+  if(pfBonusLabel) pfBonusLabel.textContent=(after.bonusBreakdown&&after.bonusBreakdown.individual)
+    ? `Premium Finance Roth Conversion Bonus (${Number(after.bonusPct||0).toFixed(3)}% blended)`
+    : `Premium Finance Roth Conversion Bonus (${Number(after.bonusPct||0).toFixed(1)}%)`;
   document.getElementById('pfBeginning').textContent=fmt2(after.beginning);
   document.getElementById('pfConversion').textContent=fmt2(after.firstConv);
   document.getElementById('pfIraSpend').textContent=fmt2(after.details[0]?after.details[0].iraWithdrawal:0);
@@ -3677,6 +3713,10 @@ function validateReportInputs(){
   const totalFunding=c1Funding+c2Funding;
   const bonusPct=Math.max(0,num('bonusPct'));
   if(bonusPct>100) errors.push(`Premium Finance bonus is ${bonusPct.toLocaleString()}%. Enter a percentage, not an account dollar amount.`);
+  const hIraBonusPct=Math.max(0,num('hIraBonusPct'));
+  const wIraBonusPct=Math.max(0,num('wIraBonusPct'));
+  if(hIraBonusPct>100) errors.push(`Client 1 IRA bonus is ${hIraBonusPct.toLocaleString()}%. Enter a percentage between 0 and 100.`);
+  if(wIraBonusPct>100) errors.push(`Client 2 IRA bonus is ${wIraBonusPct.toLocaleString()}%. Enter a percentage between 0 and 100.`);
   if(c1Funding>c1Ira+0.01) errors.push('Client 1 annuity funding exceeds Client 1 IRA assets.');
   if(c2Funding>c2Ira+0.01) errors.push('Client 2 annuity funding exceeds Client 2 IRA assets.');
   // FIA funding fields are intentionally ignored in Roth Conversion Only mode,
@@ -4088,7 +4128,10 @@ function generatePDF(){
       ...conversionIncludedAdditionalAccounts.map(a => [a.title, `${fmt2(a.funds)} / Included in Roth Conversion / Growth ${Number(a.growthPct||0).toFixed(1)}%`]),
       ['Additional IRA Funds Included in Conversion', fmt2(conversionIncludedAdditionalFunds)]
     ] : []),
-    [`Premium Finance Roth Conversion Bonus (${Number(after.bonusPct || 0).toFixed(1)}%)`, fmt2(after.bonus)],
+    ...((after.bonusBreakdown&&after.bonusBreakdown.individual) ? [
+      ...after.bonusBreakdown.items.map(x=>[`${x.owner} IRA Bonus (${Number(x.pct||0).toFixed(1)}%)`, `${fmt2(x.amount)} premium + ${fmt2(x.bonus)} bonus = ${fmt2(x.beginning)}`]),
+      [`Combined Weighted Bonus (${Number(after.bonusPct || 0).toFixed(3)}%)`, fmt2(after.bonus)]
+    ] : [[`Premium Finance Roth Conversion Bonus (${Number(after.bonusPct || 0).toFixed(1)}%)`, fmt2(after.bonus)]]),
     ['Beginning Value', fmt2(after.beginning)],
     ['Year 1 Planned Conversion', fmt2(after.firstConv)],
     ['Year 1 IRA Withdrawal', fmt2((after.details[0]||{}).iraWithdrawal || 0)],
@@ -4833,6 +4876,10 @@ function collectPlannerClientCase(name){
   };
 }
 function setBasicFieldValues(values){
+  // Older saved V47 cases do not contain owner-specific bonus fields. Clear
+  // them first so those cases continue using their saved household bonus.
+  const hBonus=document.getElementById('hIraBonusPct'); if(hBonus) hBonus.value='';
+  const wBonus=document.getElementById('wIraBonusPct'); if(wBonus) wBonus.value='';
   Object.entries(values || {}).forEach(([id,value]) => {
     const el = document.getElementById(id);
     if(!el || el.type === 'file') return;
