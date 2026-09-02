@@ -394,6 +394,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <h3 class="client-box-title" id="client1BoxTitle">Client 1</h3>
             <div class="inputs-grid">
               <div class="field"><label>Client 1 Name</label><input id="client1Name" type="text" placeholder="Client 1 Name" /></div>
+              <div class="field"><label>Client 1 Date of Birth</label><input id="hDob" type="date" /><div class="mode-help">Used to determine current age and the statutory RMD starting-age cohort. Current Age remains available as a fallback for older saved cases.</div></div>
               <div class="field"><label>Client 1 Age</label><input id="hAge" type="number" value="65" min="40" max="95" /></div>
               <div class="field"><label>Client 1 Medicare IRMAA Coverage Start Age</label><input id="hMedicarePartBStartAge" type="number" value="65" min="0" max="100" step="1" /><div class="mode-help">Use the age Part B or Part D begins. Enter 0 if neither is expected during the projection.</div></div>
               <div class="field"><label>Client 1 IRA</label><input id="hIra" type="number" value="2000000" step="1000" /></div>
@@ -413,6 +414,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <h3 class="client-box-title" id="client2BoxTitle">Client 2</h3>
             <div class="inputs-grid">
               <div class="field spouse-field"><label>Client 2 Name</label><input id="client2Name" type="text" placeholder="Client 2 Name" /></div>
+              <div class="field spouse-field"><label>Client 2 Date of Birth</label><input id="wDob" type="date" /><div class="mode-help">Used independently for Client 2's age and RMD cohort.</div></div>
               <div class="field spouse-field"><label>Client 2 Age</label><input id="wAge" type="number" value="62" min="40" max="95" /></div>
               <div class="field spouse-field"><label>Client 2 Medicare IRMAA Coverage Start Age</label><input id="wMedicarePartBStartAge" type="number" value="65" min="0" max="100" step="1" /><div class="mode-help">Use the age Part B or Part D begins. Part A alone does not activate IRMAA.</div></div>
               <div class="field spouse-field"><label>Client 2 IRA</label><input id="wIra" type="number" value="2000000" step="1000" /></div>
@@ -958,7 +960,7 @@ const num = id => {
 };
 const percent = id => num(id)/100;
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V48';
+const ENGINE_VERSION = 'V49';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -1666,6 +1668,7 @@ const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAg
 allIds.splice(allIds.indexOf('scenarioMode'), 0, 'incomeAssetSummaryTaxAge');
 allIds.splice(allIds.indexOf('hIra'), 0, 'hMedicarePartBStartAge', 'wMedicarePartBStartAge');
 allIds.splice(allIds.indexOf('hIra') + 1, 0, 'hIraBonusPct', 'wIraBonusPct');
+allIds.splice(allIds.indexOf('hAge'), 0, 'hDob', 'wDob');
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -1683,13 +1686,47 @@ function planningHorizonAge(){
 }
 
 function rmdStartAgeFromBirthYear(birthYear){
-  return birthYear >= 1960 ? 75 : 73;
+  if(birthYear >= 1960) return 75;
+  if(birthYear >= 1951) return 73;
+  return 72;
 }
 function estimatedBirthYearFromStartingAge(startAge){
   return 2026 - Math.floor(startAge || 0);
 }
 function rmdStartAge(currentAge){
   return rmdStartAgeFromBirthYear(estimatedBirthYearFromStartingAge(currentAge));
+}
+function birthDateValue(id){
+  const raw=document.getElementById(id)?.value || '';
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
+}
+function birthYearFromDateValue(raw){
+  return raw ? Number(raw.slice(0,4)) : 0;
+}
+function ageOnDateFromBirthDate(raw,onDate=new Date()){
+  if(!raw) return null;
+  const [year,month,day]=raw.split('-').map(Number);
+  let age=onDate.getUTCFullYear()-year;
+  const beforeBirthday=(onDate.getUTCMonth()+1<month)||((onDate.getUTCMonth()+1===month)&&onDate.getUTCDate()<day);
+  if(beforeBirthday) age--;
+  return Math.max(0,age);
+}
+function syncAgesFromBirthDates(){
+  [['hDob','hAge'],['wDob','wAge']].forEach(([dobId,ageId])=>{
+    const raw=birthDateValue(dobId);
+    const age=ageOnDateFromBirthDate(raw);
+    const ageEl=document.getElementById(ageId);
+    if(raw && age!==null && ageEl) ageEl.value=String(age);
+  });
+}
+function selectedOwnerRmdStartAge(dobFieldId,currentAge){
+  const birthYear=birthYearFromDateValue(birthDateValue(dobFieldId));
+  return birthYear ? rmdStartAgeFromBirthYear(birthYear) : rmdStartAge(currentAge);
+}
+function uniformLifetimeDivisor(age){
+  const table={72:27.4,73:26.5,74:25.5,75:24.6,76:23.7,77:22.9,78:22.0,79:21.1,80:20.2,81:19.4,82:18.5,83:17.7,84:16.8,85:16.0,86:15.2,87:14.4,88:13.7,89:12.9,90:12.2,91:11.5,92:10.8,93:10.1,94:9.5,95:8.9,96:8.4,97:7.8,98:7.3,99:6.8,100:6.4,101:6.0,102:5.6,103:5.2,104:4.9,105:4.6,106:4.3,107:4.1,108:3.9,109:3.7,110:3.5,111:3.4,112:3.3,113:3.1,114:3.0,115:2.9,116:2.8,117:2.7,118:2.5,119:2.3,120:2.0};
+  const whole=Math.max(72,Math.min(120,Math.floor(Number(age)||72)));
+  return table[whole];
 }
 function medicarePartBEnrolleeCount(status,hAge,wAge,hPartBStartAge,wPartBStartAge){
   const hStart = Number(hPartBStartAge || 0);
@@ -2163,9 +2200,8 @@ function buildScenario(useStrategy){
   let hPartBStartAge=Math.max(0,num('hMedicarePartBStartAge'));
   let wPartBStartAge=Math.max(0,num('wMedicarePartBStartAge'));
   const projectionStartHAge=hAge, projectionStartWAge=wAge;
-  const startingPrimaryAge = filingStart==='MFJ' ? Math.max(hAge,wAge) : hAge;
-  const primaryBirthYear = estimatedBirthYearFromStartingAge(startingPrimaryAge);
-  const fixedRmdStartAge = rmdStartAgeFromBirthYear(primaryBirthYear);
+  const hRmdStartAge = selectedOwnerRmdStartAge('hDob',hAge);
+  const wRmdStartAge = selectedOwnerRmdStartAge('wDob',wAge);
   const enteredHusbandIra=num('hIra'), enteredWifeIra=(filingStart==='MFJ'?num('wIra'):0);
   const enteredIraTotal = enteredHusbandIra + enteredWifeIra;
   const masterMode = getStrategyMasterMode ? getStrategyMasterMode() : 'rothOnly';
@@ -2195,7 +2231,7 @@ function buildScenario(useStrategy){
     .reduce((s,a)=>s+a.funds,0);
   let liquidTraditionalAccounts = additionalAccounts
     .filter(a=>a.type==='traditional' && !a.includeConversion)
-    .map(a=>({title:a.title,balance:Math.max(0,a.funds),growthPct:Math.max(0,Number(a.growthPct||0)),funds:a.funds}));
+    .map(a=>({title:a.title,balance:Math.max(0,a.funds),growthPct:Math.max(0,Number(a.growthPct||0)),funds:a.funds,owner:a.owner||'husband'}));
   let inheritedIraAccounts = getInheritedIraAccounts().map(a=>({...a,balance:Math.max(0,a.balance)}));
   let additionalNq = additionalTotals.nonqualified;
   let additionalNqAccounts = additionalAccounts
@@ -2232,6 +2268,12 @@ function buildScenario(useStrategy){
   if(lifetimeIncomeIraFunding > 0){
     ira = Math.max(0, ira - lifetimeIncomeIraFunding);
   }
+  let conversionIraAccounts=[
+    {title:`${displayClient1Name()} IRA`,owner:'husband',balance:Math.max(0,enteredHusbandIra-client1LifetimeIncomeIraFunding)},
+    ...(filingStart==='MFJ'?[{title:`${displayClient2Name()} IRA`,owner:'wife',balance:Math.max(0,enteredWifeIra-client2LifetimeIncomeIraFunding)}]:[]),
+    ...additionalAccounts.filter(a=>a.type==='traditional'&&a.includeConversion).map(a=>({title:a.title,owner:a.owner==='wife'?'wife':'husband',balance:Math.max(0,a.funds)}))
+  ].filter(a=>a.balance>0);
+  ira=conversionIraAccounts.reduce((s,a)=>s+a.balance,0);
   const initialIra = ira + liquidTraditionalAccounts.reduce((s,a)=>s+a.balance,0);
   const plannedIraWithdrawalBase=num('plannedIraWithdrawal');
   const plannedIraEndAge=Math.floor(num('plannedIraEndAge') || 70);
@@ -2379,14 +2421,21 @@ function buildScenario(useStrategy){
     const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal * survivorIncomeNeedFactor);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
-    const rmdAge=fixedRmdStartAge;
-    let conversionPoolRmd=0;
-    let liquidTraditionalRmd=0;
-    if(primaryAge>=rmdAge && (ira>0 || liquidTraditionalAccounts.length)){
-      const divisor=Math.max(2,27.4-Math.max(0,primaryAge-rmdAge));
-      conversionPoolRmd=ira/divisor;
-      liquidTraditionalRmd=liquidTraditionalAccounts.reduce((s,a)=>s+a.balance/divisor,0);
-    }
+    const survivorRmdStartAge=deathWho==='husband'?wRmdStartAge:hRmdStartAge;
+    const ownerRmdInfo=owner=>{
+      if(currentStatus==='Single') return {age:hAge,startAge:survivorRmdStartAge};
+      return owner==='wife'?{age:wAge,startAge:wRmdStartAge}:{age:hAge,startAge:hRmdStartAge};
+    };
+    const conversionPoolRmdByAccount=conversionIraAccounts.map(a=>{
+      const info=ownerRmdInfo(a.owner);
+      return info.age>=info.startAge ? Math.min(a.balance,a.balance/uniformLifetimeDivisor(info.age)) : 0;
+    });
+    const conversionPoolRmd=conversionPoolRmdByAccount.reduce((s,x)=>s+x,0);
+    const liquidTraditionalRmdByAccount=liquidTraditionalAccounts.map(a=>{
+      const info=ownerRmdInfo(a.owner);
+      return info.age>=info.startAge ? Math.min(a.balance,a.balance/uniformLifetimeDivisor(info.age)) : 0;
+    });
+    const liquidTraditionalRmd=liquidTraditionalRmdByAccount.reduce((s,x)=>s+x,0);
     const calendarYear = PROJECTION_BASE_TAX_YEAR + year - 1;
     let inheritedIraRmd = 0;
     const inheritedIraRmdByAccount = inheritedIraAccounts.map(a=>{
@@ -2512,7 +2561,11 @@ function buildScenario(useStrategy){
       // Standard mode tries to complete before RMDs when practical.
       // IRMAA-aware mode is allowed to stretch longer so conversion years do not unnecessarily
       // create Medicare surcharge exposure or exceed the selected conversion bracket.
-      const rmdStartYr = Math.max(1, rmdAge - primaryAge + year);
+      const activeOwnerRmdYears=conversionIraAccounts.filter(a=>a.balance>0).map(a=>{
+        const info=ownerRmdInfo(a.owner);
+        return year+Math.max(0,info.startAge-info.age);
+      });
+      const rmdStartYr = activeOwnerRmdYears.length ? Math.min(...activeOwnerRmdYears) : conversionEndYear+1;
       const effectiveConversionEndYear = forceConversionCompletion
         ? conversionEndYear
         : (irmaaOptimizationActive
@@ -2671,6 +2724,20 @@ function buildScenario(useStrategy){
       }
     });
 
+    // Apply each owner's mandatory distribution to that owner's IRA first.
+    conversionIraAccounts.forEach((a,index)=>{
+      a.balance=Math.max(0,a.balance-Math.max(0,conversionPoolRmdByAccount[index]||0));
+    });
+    const voluntaryPoolWithdrawal=Math.max(0,conversionPoolIraWithdrawal-conversionPoolRmd);
+    const poolReduction=voluntaryPoolWithdrawal+(useStrategy?Math.max(0,conversion):0);
+    const poolBeforeReduction=conversionIraAccounts.reduce((s,a)=>s+a.balance,0);
+    if(poolReduction>0&&poolBeforeReduction>0){
+      conversionIraAccounts.forEach(a=>{
+        const share=a.balance/poolBeforeReduction;
+        a.balance=Math.max(0,a.balance-Math.min(a.balance,poolReduction*share));
+      });
+    }
+
     if(useStrategy){
       const netToRoth = Math.max(0, conversion - conversionTaxDeductedFromConversion);
       if(netToRoth > 0){
@@ -2678,7 +2745,8 @@ function buildScenario(useStrategy){
         rothBuckets.push({yearCreated: year, availableYear: year + 5, balance: creditedRothDeposit * Math.max(0, (1 + growth) * (1 - effectiveFeeRate))});
       }
       roth = rothBuckets.reduce((s,b)=>s+b.balance,0) + additionalRoth;
-      ira = Math.max(0, (ira - conversionPoolIraWithdrawal - conversion) * Math.max(0, (1 + growth) * (1 - effectiveFeeRate)));
+      conversionIraAccounts.forEach(a=>{a.balance*=Math.max(0,(1+growth)*(1-effectiveFeeRate));});
+      ira=conversionIraAccounts.reduce((s,a)=>s+a.balance,0);
       if(includeTaxFundingComparison){
         outside=Math.max(0, outside-totalTax-irmaa);
       }
@@ -2687,7 +2755,8 @@ function buildScenario(useStrategy){
       if(!fiaIncomeIsTaxFree()) totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
     } else {
       roth = additionalRoth;
-      ira = Math.max(0, (ira - conversionPoolIraWithdrawal) * (1+growth));
+      conversionIraAccounts.forEach(a=>{a.balance*=Math.max(0,1+growth);});
+      ira=conversionIraAccounts.reduce((s,a)=>s+a.balance,0);
       outside=Math.max(0, outside-totalTax-irmaa);
       totalGuaranteedTaxFreeIncome += guaranteedTaxFreeIncome;
       if(!fiaIncomeIsTaxFree()) totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
@@ -2705,9 +2774,8 @@ function buildScenario(useStrategy){
     // account. Brokerage appreciation remains invested and is not spendable income.
     const surplusIncomeReinvested = desiredIncome > 0 ? Math.max(0, displayedIncome - desiredIncome) : 0;
     if(liquidTraditionalAccounts.length){
-      const divisor = primaryAge>=rmdAge ? Math.max(2,27.4-Math.max(0,primaryAge-rmdAge)) : 0;
-      liquidTraditionalAccounts.forEach(a=>{
-        const accountRmd = divisor ? a.balance/divisor : 0;
+      liquidTraditionalAccounts.forEach((a,index)=>{
+        const accountRmd=Math.max(0,liquidTraditionalRmdByAccount[index]||0);
         a.balance = Math.max(0,a.balance-accountRmd) * (1+a.growthPct/100);
       });
     }
@@ -2720,7 +2788,7 @@ function buildScenario(useStrategy){
 
     const currentAgeDisplay=currentStatus==='MFJ' ? `${hAge}/${wAge}` : `${hAge}`;
     const ssYear=(Math.floor(hAge*10)===Math.floor(hSSStart*10)) || (currentStatus==='MFJ'&&Math.floor(wAge*10)===Math.floor(wSSStart*10)) || (currentStatus==='MFJ'&&applySpousal&&Math.floor(hAge*10)===Math.floor(Math.max(hSSStart,hFRAAge)*10));
-    const rmdYear=primaryAge===rmdAge;
+    const rmdYear=rmd>0&&!details.some(d=>Number(d.rmd||0)>0);
     const completionYear = useStrategy && conversionFinishedYear===year;
     const horizonReached=hAge>=horizonAge || (currentStatus==='MFJ' && wAge>=horizonAge);
     if(year===1||year===5||year%5===0||ssYear||rmdYear||completionYear||horizonReached){
@@ -2893,7 +2961,7 @@ function buildScenario(useStrategy){
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
-    currentTaxableIncome, plannedIraWithdrawalBase, plannedIraEndAge, alimonyDeductionBase, alimonyEndAge, additionalAccountFunds, additionalAccounts, additionalRoth, client1LifetimeIncomeIraFunding, client2LifetimeIncomeIraFunding, lifetimeIncomeIraFunding, horizonAge, masterMode
+    currentTaxableIncome, plannedIraWithdrawalBase, plannedIraEndAge, alimonyDeductionBase, alimonyEndAge, additionalAccountFunds, additionalAccounts, additionalRoth, client1LifetimeIncomeIraFunding, client2LifetimeIncomeIraFunding, lifetimeIncomeIraFunding, horizonAge, masterMode, hRmdStartAge, wRmdStartAge
   };
 }
 
@@ -2950,6 +3018,7 @@ function renderDetailPreview(after){
 
 let latest=null;
 function calculate(){
+  syncAgesFromBirthDates();
   setupSpouseVisibility();
   refreshClientDisplay();
   renderLogoPreview();
@@ -4123,6 +4192,7 @@ function generatePDF(){
   doc.autoTable({startY:78, head:[['Line Item','Value']], body:[
     ['Scenario Mode', after.scenario || scenarioLabel()],
     ['Premium', fmt2(after.premium)],
+    ['RMD Starting Ages', `${displayClient1Name()}: ${after.hRmdStartAge}${(document.getElementById('filingStatus')?.value||'MFJ')==='MFJ' ? ` / ${displayClient2Name()}: ${after.wRmdStartAge}` : ''}`],
     ...(conversionIncludedAdditionalAccounts.length ? [
       ['Additional IRAs Included in Conversion', `${conversionIncludedAdditionalAccounts.length}`],
       ...conversionIncludedAdditionalAccounts.map(a => [a.title, `${fmt2(a.funds)} / Included in Roth Conversion / Growth ${Number(a.growthPct||0).toFixed(1)}%`]),
@@ -4547,7 +4617,11 @@ function generatePDF(){
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
   const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. Desired annual income starts at age ${Math.floor(num('incomeStartAge')||65)} at ${fmt2(num('desiredIncome'))}. If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75. When income exceeds the entered retirement income goal, the excess is reinvested into a brokerage account. Brokerage growth is modeled as unrealized appreciation: it remains invested, compounds the account value, and is excluded from gross income, taxable income, taxes, and IRMAA. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use the entered pre-projection MAGI for Years 1 and 2, then use the proper projected MAGI from two calendar years earlier beginning in Year 3. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page separates Roth assets under Tax-Free Estate and municipal bonds under Tax-Exempt Municipal Bond Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
-  doc.setFontSize(11); doc.text(transparencyText,40,84);
+  const correctedTransparencyText=doc.splitTextToSize(transparencyText.join(' ').replace(
+    'RMD age is based on the client’s starting birth-year cohort estimate, so clients born in 1960 or later use age 75.',
+    `RMDs are calculated separately for each IRA owner using the entered date of birth and the applicable IRS Uniform Lifetime Table divisor. ${displayClient1Name()} begins at age ${after.hRmdStartAge}${(document.getElementById('filingStatus')?.value||'MFJ')==='MFJ'?` and ${displayClient2Name()} begins at age ${after.wRmdStartAge}`:''}.`
+  ),520);
+  doc.setFontSize(11); doc.text(correctedTransparencyText,40,84);
   addPdfFooter(doc,6);
   }
 
@@ -4880,6 +4954,8 @@ function setBasicFieldValues(values){
   // them first so those cases continue using their saved household bonus.
   const hBonus=document.getElementById('hIraBonusPct'); if(hBonus) hBonus.value='';
   const wBonus=document.getElementById('wIraBonusPct'); if(wBonus) wBonus.value='';
+  const hDob=document.getElementById('hDob'); if(hDob) hDob.value='';
+  const wDob=document.getElementById('wDob'); if(wDob) wDob.value='';
   Object.entries(values || {}).forEach(([id,value]) => {
     const el = document.getElementById(id);
     if(!el || el.type === 'file') return;
@@ -4940,6 +5016,7 @@ function applyPlannerClientCase(clientCase){
   setInheritedIraAccountsFromSave(clientCase.inheritedIraAccounts);
   setPensionRowsFromSave(clientCase.pensions);
   setBasicFieldValues(clientCase.values);
+  syncAgesFromBirthDates();
   // Brokerage-detail visibility is a report-only choice. Never restore it from
   // a saved/imported client case; require an intentional selection for each report.
   const brokerageDetailOption = document.getElementById('includeBrokerageDetailColumns');
