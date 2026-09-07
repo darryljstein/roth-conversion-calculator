@@ -1036,7 +1036,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V48';
+const ENGINE_VERSION = 'V49';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -4172,7 +4172,11 @@ function generatePDF(){
     .filter(a=>a.type==='traditional' && a.includeConversion);
   const conversionIncludedAdditionalFunds=conversionIncludedAdditionalAccounts
     .reduce((sum,a)=>sum+Math.max(0,Number(a.funds||0)),0);
-  doc.autoTable({startY:78, head:[['Line Item','Value']], body:[
+  const year1Detail = after.details[0] || {};
+  const fiaEnabledForReport = (document.getElementById('fiaEnabled')?.value || 'no') === 'yes';
+  const existingRiderEnabledForReport = existingAnnuityComparisonEnabled();
+  const deathEventEnabledForReport = !!effectiveDeathWho() && Math.floor(num('deathAge')) > 0;
+  const premiumFinanceRows = [
     ['Scenario Mode', after.scenario || scenarioLabel()],
     ['Premium', fmt2(after.premium)],
     ...(conversionIncludedAdditionalAccounts.length ? [
@@ -4183,24 +4187,27 @@ function generatePDF(){
     [`Premium Finance Roth Conversion Bonus (${Number(after.bonusPct || 0).toFixed(1)}%)`, fmt2(after.bonus)],
     ['Beginning Value', fmt2(after.beginning)],
     ['Year 1 Planned Conversion', fmt2(after.firstConv)],
-    ['Year 1 IRA Withdrawal', fmt2((after.details[0]||{}).iraWithdrawal || 0)],
-    ['IRMAA Optimization', irmaaOptimizationLabel()],
-    [fiaIncomeIsTaxFree() ? 'Guaranteed Tax-Free Income' : 'Guaranteed Taxable Income', `${(document.getElementById('fiaEnabled')?.value || 'no') === 'yes' ? fmt2(num('fiaAnnualIncome')) + ' starting Year ' + Math.max(1,Math.floor(num('fiaStartYear')||6)) : 'Not enabled'}`],
-    ['Existing Rider Comparison', existingAnnuityComparisonEnabled() ? 'Enabled' : 'Not enabled'],
-    ['Existing Rider Account Value', fmt2(sumExistingAnnuityValue())],
-    ['Existing Rider Annual Taxable Income', fmt2(sumExistingAnnuityIncome())],
+    ['Year 1 Tax Deducted from Conversion', fmt2(year1Detail.conversionTaxDeductedFromConversion||0)],
+    ...(Number(year1Detail.rmdAppliedToConversionTax||0) > 0.004 ? [['Year 1 RMD Applied to Conversion Tax', fmt2(year1Detail.rmdAppliedToConversionTax)]] : []),
+    ...(Number(year1Detail.iraWithdrawal||0) > 0.004 ? [['Year 1 IRA Withdrawal', fmt2(year1Detail.iraWithdrawal)]] : []),
+    ...((document.getElementById('irmaaOptimizationMode')?.value || 'off') !== 'off' ? [['IRMAA Optimization', irmaaOptimizationLabel()]] : []),
+    ...(fiaEnabledForReport ? [[fiaIncomeIsTaxFree() ? 'Guaranteed Tax-Free Income' : 'Guaranteed Taxable Income', `${fmt2(num('fiaAnnualIncome'))} starting Year ${Math.max(1,Math.floor(num('fiaStartYear')||6))}`]] : []),
+    ...(existingRiderEnabledForReport ? [
+      ['Existing Rider Comparison', 'Enabled'],
+      ['Existing Rider Account Value', fmt2(sumExistingAnnuityValue())],
+      ['Existing Rider Annual Taxable Income', fmt2(sumExistingAnnuityIncome())]
+    ] : []),
     ['Tax-Free Income Through Age', String(taxFreeCoverageAge(after.details))],
     ['Scheduled Conversion Completion Year', `Year ${after.conversionEndYear}`],
     ['Conversion-Eligible IRA at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).conversionEligibleIra || 0)],
     ['Tax-Free Assets at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).roth || 0)],
     ['Tax Funding Method', taxFundingMethodLabel()],
-    ['Year 1 RMD Applied to Conversion Tax', fmt2((after.details[0]||{}).rmdAppliedToConversionTax||0)],
-    ['Year 1 Tax Deducted from Conversion', fmt2((after.details[0]||{}).conversionTaxDeductedFromConversion||0)],
-    ['Pension Continuation at First Death', 'Each pension uses its own survivor continuation'],
+    ...(deathEventEnabledForReport ? [['Pension Continuation at First Death', 'Each pension uses its own survivor continuation']] : []),
     ['Displayed Annual Fee', feeLabel()],
     ['Retirement Income Goal', incomeGoalSummaryText()],
     ['Bracket Inflation Assumption', num('taxInflation').toFixed(1)+'%']
-  ], styles:{fontSize:10}, headStyles:{fillColor:[200,154,61]}, margin:{bottom:85}});
+  ];
+  doc.autoTable({startY:78, head:[['Line Item','Value']], body:premiumFinanceRows, styles:{fontSize:10}, headStyles:{fillColor:[200,154,61]}, margin:{bottom:85}});
   addPdfFooter(doc,2);
   }
 
