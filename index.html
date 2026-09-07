@@ -1036,7 +1036,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V49';
+const ENGINE_VERSION = 'V50';
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -3614,7 +3614,6 @@ function buildMilestoneRowsFromDetails(details){
   }
 
   addRow('Year 1', r => r.year === 1);
-  addRow('Year 5', r => r.year === 5);
 
   // Social Security milestone years: first year where SS jumps materially versus prior year.
   rows.forEach((r, idx)=>{
@@ -3629,6 +3628,11 @@ function buildMilestoneRowsFromDetails(details){
     const lastConv = convRows[convRows.length - 1];
     addRow('Conversion Complete', r => r.year === lastConv.year);
   }
+
+  // Add the generic Year 5 milestone after the conversion-completion row so a
+  // conversion ending in Year 5 is clearly labeled instead of being hidden by
+  // duplicate-row suppression.
+  addRow('Year 5', r => r.year === 5);
 
   // RMD year: first year with an actual required minimum distribution.
   addRow('RMD Year', r => Math.abs(Number(r.rmd || 0)) > 0.004);
@@ -4747,6 +4751,9 @@ function generatePDF(){
     if(details.some(r => Number(r.investmentIncome || 0) > 0)){
       writeDetailNote('Investment Income includes taxable interest, ordinary dividends, and qualified dividends entered in the Nonqualified Investment Income section. Qualified dividends receive modeled preferential federal rates; all investment income remains included in MAGI, Social Security taxation, and IRMAA.', [11,58,111], true);
     }
+    if(mode==='after' && details.some(r => Number(r.ssIncome || 0) > 0.004)){
+      writeDetailNote('Social Security Provisional-Income Rule (IRC Section 86 / IRS Publication 915): provisional income generally equals adjusted gross income excluding Social Security, plus tax-exempt interest, plus one-half of Social Security benefits. For a Single filer, the base and upper thresholds are $25,000 and $34,000; for Married Filing Jointly, they are $32,000 and $44,000. Above the first threshold, up to 50% of benefits may be included in taxable income; above the upper threshold, up to 85% may be included. Qualified Roth withdrawals generally are not included in adjusted gross income and therefore do not increase provisional income. The Taxable SS column shows the portion of benefits included in income; ordinary deductions are then applied to determine federal taxable income and estimated tax. These statutory Social Security thresholds are not indexed for inflation.', [11,58,111], true, 6.8);
+    }
     const zeroTaxSsAndRothYears = mode==='after' ? details.filter(r => {
       const onlySsAndRothCashFlow = Number(r.ssIncome || 0) > 0.004
         && Number(r.taxFreeIncome || 0) > 0.004
@@ -4767,7 +4774,7 @@ function generatePDF(){
       const firstAge = zeroTaxSsAndRothYears[0].age;
       const lastAge = zeroTaxSsAndRothYears[zeroTaxSsAndRothYears.length-1].age;
       const ageRange = firstAge === lastAge ? `age ${firstAge}` : `ages ${firstAge} through ${lastAge}`;
-      writeDetailNote(`Why Federal Tax Is $0 in Certain Years (${ageRange}): the modeled cash flow consists only of Social Security and qualified tax-free Roth withdrawals. Provisional income equals other taxable income plus one-half of Social Security; qualified Roth withdrawals are excluded. Only the resulting taxable portion of Social Security enters taxable income. After the standard deduction and applicable age-65 deductions, taxable income after deductions is $0, so modeled federal income tax is $0.`, [11,58,111], true, 7.1);
+      writeDetailNote(`Why Federal Tax Is $0 in Certain Years (${ageRange}): the modeled cash flow consists only of Social Security and qualified tax-free Roth withdrawals. Under the rule above, little or none of the Social Security benefit is included in taxable income. After the standard deduction and applicable age-65 deductions, federal taxable income is $0, so the modeled federal income tax is $0.`, [11,58,111], true, 7.1);
     }
     const gapColPresent = tableCfg && tableCfg.cols && tableCfg.cols[0] && tableCfg.cols[0].includes('Gap /\nSurplus');
     if(gapColPresent){
