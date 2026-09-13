@@ -166,6 +166,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 });
 
 </script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.10.0/mammoth.browser.min.js"></script>
   <style>
     :root { --blue:#0b3a6f; --gold:#c89a3d; --light:#f6f8fb; --border:#d7deea; --text:#1f2937; --muted:#6b7280; }
     *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:#eef2f7}
@@ -430,11 +431,11 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="account-panel-header">
             <div>
               <div class="account-panel-title">Client Goals &amp; Meeting Transcript</div>
-              <div class="account-panel-subtitle">Upload the meeting transcript as a private reference, then manually enter and approve the goals that should appear in the client report.</div>
+              <div class="account-panel-subtitle">Upload the meeting transcript and the engine will propose the primary goals. Review and approve each goal before it appears in the client report.</div>
             </div>
           </div>
           <div class="inputs-grid" style="grid-template-columns:minmax(220px,.8fr) minmax(320px,2fr);">
-            <div class="field"><label>Upload Transcript (.txt or .md)</label><input id="clientTranscriptUpload" type="file" accept=".txt,.md,text/plain,text/markdown" onchange="handleClientTranscriptUpload(event)" /><button type="button" class="mini-btn ghost" style="margin-top:8px;" onclick="clearClientTranscript()">Clear Transcript</button><div class="mode-help" id="clientTranscriptStatus">No transcript loaded.</div></div>
+            <div class="field"><label>Upload Transcript (.docx, .txt, or .md)</label><input id="clientTranscriptUpload" type="file" accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" onchange="handleClientTranscriptUpload(event)" /><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button type="button" class="mini-btn primary" onclick="analyzeClientTranscript()">Analyze &amp; Propose Goals</button><button type="button" class="mini-btn ghost" onclick="clearClientTranscript()">Clear Transcript</button></div><div class="mode-help" id="clientTranscriptStatus">No transcript loaded.</div></div>
             <div class="field"><label>Private Transcript Reference</label><textarea id="clientTranscriptText" rows="8" placeholder="The uploaded transcript appears here for advisor reference."></textarea><div class="mode-help">The transcript is saved with the client case but is never printed in the PDF. Only goals marked “Include” appear in the report.</div></div>
           </div>
           <div style="overflow-x:auto; margin-top:14px;">
@@ -449,7 +450,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               </tbody>
             </table>
           </div>
-          <div class="small" style="margin-top:10px;">Review every goal with the client before selecting Include. Blank or unapproved goals are automatically omitted from the report.</div>
+          <div class="small" style="margin-top:10px;"><b>Advisor review required:</b> Proposed goals are working drafts based on language found in the transcript. Correct the wording and modeled response, then select Include. Blank or unapproved goals are automatically omitted from the report.</div>
         </div>
 
         <div class="account-panel" style="margin-bottom:16px;">
@@ -1062,27 +1063,94 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V51';
+const ENGINE_VERSION = 'V52';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
   if(!file) return;
   const status = document.getElementById('clientTranscriptStatus');
-  const allowed = /\.(txt|md)$/i.test(file.name) || ['text/plain','text/markdown'].includes(file.type);
+  const isDocx = /\.docx$/i.test(file.name) || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const allowed = isDocx || /\.(txt|md)$/i.test(file.name) || ['text/plain','text/markdown'].includes(file.type);
   if(!allowed){
-    if(status) status.textContent = 'Please select a .txt or .md transcript.';
+    if(status) status.textContent = 'Please select a .docx, .txt, or .md transcript.';
     event.target.value = '';
     return;
   }
   const reader = new FileReader();
-  reader.onload = () => {
-    const transcript = String(reader.result || '');
+  reader.onload = async () => {
+    let transcript = '';
+    try{
+      if(isDocx){
+        if(!window.mammoth) throw new Error('The Word transcript reader did not load. Check the internet connection and try again.');
+        const result = await window.mammoth.extractRawText({arrayBuffer:reader.result});
+        transcript = String(result.value || '');
+      }else{
+        transcript = String(reader.result || '');
+      }
+    }catch(error){
+      if(status) status.textContent = error?.message || 'The transcript could not be read.';
+      return;
+    }
     const target = document.getElementById('clientTranscriptText');
     if(target) target.value = transcript;
-    if(status) status.textContent = `${file.name} loaded (${transcript.length.toLocaleString()} characters).`;
+    if(status) status.textContent = `${file.name} loaded. Analyzing for primary goals...`;
+    analyzeClientTranscript(true);
   };
   reader.onerror = () => { if(status) status.textContent = 'The transcript could not be read.'; };
-  reader.readAsText(file);
+  if(isDocx) reader.readAsArrayBuffer(file); else reader.readAsText(file);
+}
+function transcriptGoalThemes(){
+  return [
+    {title:'Protect the Surviving Spouse',pattern:/\b(wife|husband|spouse|survivor|widow|widower|when i pass|after i pass|when i die|after i die|set (him|her) up)\b/i,importance:'Protect the surviving spouse’s income, financial security, and tax position after the first death.',response:'Coordinate survivor income, Social Security, pensions, filing status, RMDs, and tax-free assets beginning in the first survivor year.',result:'Compare the survivor-year income goal, federal taxes, RMDs, and remaining tax-free assets in the Survivor Impact section.'},
+    {title:'Maintain Retirement Income and Lifestyle',pattern:/\b(retire|retirement income|income goal|monthly income|annual income|lifestyle|travel|vacation|enjoy|spending)\b/i,importance:'Maintain dependable spending power throughout retirement without unnecessarily postponing lifestyle goals.',response:'Model the entered retirement-income goal and COLA, then coordinate guaranteed income and planned withdrawals to address annual gaps.',result:'Review the Income Goal and Income Gap / Surplus columns in both year-by-year schedules.'},
+    {title:'Reduce Lifetime Taxes and RMD Exposure',pattern:/\b(tax|taxes|taxable|tax[- ]free|roth|conversion|rmd|required minimum|irmaa|medicare surcharge)\b/i,importance:'Reduce avoidable lifetime taxation, future required distributions, and survivor tax exposure.',response:'Use a multi-year Roth conversion strategy with bracket, Social Security taxation, RMD, and IRMAA controls.',result:'Compare lifetime federal taxes, RMDs, IRMAA, and the selected-age tax position on the Comparison Summary.'},
+    {title:'Preserve Emergency Liquidity',pattern:/\b(emergency|liquid|liquidity|accessible|access to (the )?money|unexpected|medical|roof|car|cash reserve|savings fund)\b/i,importance:'Keep funds available for unexpected expenses and near-term needs without disrupting the long-term strategy.',response:'Preserve entered cash, nonqualified assets, and available surplus while separately modeling retirement-income withdrawals.',result:'Review current liquid assets on the Income and Asset Summary and projected reinvested surplus in the schedules.'},
+    {title:'Create a Tax-Efficient Family Legacy',pattern:/\b(legacy|inherit|inheritance|beneficiar|children|child|son|daughter|heir|estate|next generation|family)\b/i,importance:'Transfer more usable wealth to the intended beneficiaries while reducing income-tax exposure inherited from traditional retirement accounts.',response:'Compare the projected income-tax-exposed estate with Roth and other tax-favored legacy assets at the planning horizon.',result:'Review the beneficiary-value and estate comparison on the Comparison Summary and Legacy Impact pages.'}
+  ];
+}
+function cleanTranscriptSnippet(value){
+  return String(value || '').replace(/^\s*@?\d{1,2}:\d{2}[^\n-]*[-:]?\s*/,'').replace(/^\s*[^\n:]{1,80}:\s*/,'').replace(/\s+/g,' ').trim();
+}
+function analyzeClientTranscript(autoRun=false){
+  const transcript = (document.getElementById('clientTranscriptText')?.value || '').trim();
+  const status = document.getElementById('clientTranscriptStatus');
+  if(!transcript){
+    if(status) status.textContent = 'Upload or paste a transcript before analyzing.';
+    return;
+  }
+  const segments = transcript.split(/\n+|(?<=[.!?])\s+/).map(cleanTranscriptSnippet).filter(text=>text.length>=12 && text.length<=600);
+  const intentStrength = segment => {
+    let score = 0;
+    if(/\b(primarily my goal|my primary goal|my goal is|our goal is)\b/i.test(segment)) score += 100;
+    else if(/\b(i want|we want|i need|we need|make sure|i'd rather|we'd rather)\b/i.test(segment)) score += 45;
+    else if(/\b(important|concern|worry|afraid|prefer|primarily)\b/i.test(segment)) score += 20;
+    if(/\?\s*$/.test(segment)) score -= 15;
+    return score;
+  };
+  const proposals = transcriptGoalThemes().map(theme=>{
+    const matches = segments.filter(segment=>theme.pattern.test(segment));
+    const rankedMatches = matches.map((segment,index)=>({segment,index,intent:intentStrength(segment)})).sort((a,b)=>b.intent-a.intent || a.index-b.index);
+    const evidence = rankedMatches[0]?.segment || '';
+    const keywordHits = (transcript.match(new RegExp(theme.pattern.source,'gi')) || []).length;
+    const score = Math.min(keywordHits,20) + Math.max(0,rankedMatches[0]?.intent || 0);
+    return {...theme,evidence,score};
+  }).filter(item=>item.score>0).sort((a,b)=>b.score-a.score).slice(0,5);
+  if(!proposals.length){
+    if(status) status.textContent = 'No clear financial goals were detected. Enter the goals manually or use a transcript containing the client’s stated priorities.';
+    return;
+  }
+  for(let i=1;i<=5;i++){
+    const proposal = proposals[i-1];
+    const set=(suffix,value)=>{const el=document.getElementById(`clientGoal${i}${suffix}`); if(el) el.value=value;};
+    set('Priority',i);
+    set('Title',proposal?.title || '');
+    set('Importance',proposal ? `${proposal.importance}${proposal.evidence ? ` Client statement: “${proposal.evidence.slice(0,240)}${proposal.evidence.length>240?'...':''}”` : ''}` : '');
+    set('PlanResponse',proposal?.response || '');
+    set('ModeledResult',proposal?.result || '');
+    set('Include','no');
+  }
+  if(status) status.textContent = `${proposals.length} primary goal${proposals.length===1?'':'s'} proposed. Review the wording and select Include for each approved goal.`;
+  if(!autoRun) document.getElementById('clientGoal1Title')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function clearClientTranscript(){
   const upload = document.getElementById('clientTranscriptUpload');
