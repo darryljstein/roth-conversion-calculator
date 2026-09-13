@@ -426,6 +426,32 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           </div>
         </div>
 
+        <div class="account-panel" style="margin-bottom:16px; border-color:#c89a3d;">
+          <div class="account-panel-header">
+            <div>
+              <div class="account-panel-title">Client Goals &amp; Meeting Transcript</div>
+              <div class="account-panel-subtitle">Upload the meeting transcript as a private reference, then manually enter and approve the goals that should appear in the client report.</div>
+            </div>
+          </div>
+          <div class="inputs-grid" style="grid-template-columns:minmax(220px,.8fr) minmax(320px,2fr);">
+            <div class="field"><label>Upload Transcript (.txt or .md)</label><input id="clientTranscriptUpload" type="file" accept=".txt,.md,text/plain,text/markdown" onchange="handleClientTranscriptUpload(event)" /><button type="button" class="mini-btn ghost" style="margin-top:8px;" onclick="clearClientTranscript()">Clear Transcript</button><div class="mode-help" id="clientTranscriptStatus">No transcript loaded.</div></div>
+            <div class="field"><label>Private Transcript Reference</label><textarea id="clientTranscriptText" rows="8" placeholder="The uploaded transcript appears here for advisor reference."></textarea><div class="mode-help">The transcript is saved with the client case but is never printed in the PDF. Only goals marked “Include” appear in the report.</div></div>
+          </div>
+          <div style="overflow-x:auto; margin-top:14px;">
+            <table style="min-width:1050px;">
+              <thead><tr><th style="width:70px;">Priority</th><th style="width:190px;">Client Goal</th><th>Why It Matters</th><th>How the Plan Responds</th><th>Modeled Result / Evidence</th><th style="width:90px;">Report</th></tr></thead>
+              <tbody>
+                <tr><td><input id="clientGoal1Priority" type="number" min="1" max="5" value="1" /></td><td><input id="clientGoal1Title" type="text" placeholder="Primary goal" /></td><td><textarea id="clientGoal1Importance" rows="3"></textarea></td><td><textarea id="clientGoal1PlanResponse" rows="3"></textarea></td><td><textarea id="clientGoal1ModeledResult" rows="3"></textarea></td><td><select id="clientGoal1Include"><option value="no" selected>No</option><option value="yes">Include</option></select></td></tr>
+                <tr><td><input id="clientGoal2Priority" type="number" min="1" max="5" value="2" /></td><td><input id="clientGoal2Title" type="text" placeholder="Second goal" /></td><td><textarea id="clientGoal2Importance" rows="3"></textarea></td><td><textarea id="clientGoal2PlanResponse" rows="3"></textarea></td><td><textarea id="clientGoal2ModeledResult" rows="3"></textarea></td><td><select id="clientGoal2Include"><option value="no" selected>No</option><option value="yes">Include</option></select></td></tr>
+                <tr><td><input id="clientGoal3Priority" type="number" min="1" max="5" value="3" /></td><td><input id="clientGoal3Title" type="text" placeholder="Third goal" /></td><td><textarea id="clientGoal3Importance" rows="3"></textarea></td><td><textarea id="clientGoal3PlanResponse" rows="3"></textarea></td><td><textarea id="clientGoal3ModeledResult" rows="3"></textarea></td><td><select id="clientGoal3Include"><option value="no" selected>No</option><option value="yes">Include</option></select></td></tr>
+                <tr><td><input id="clientGoal4Priority" type="number" min="1" max="5" value="4" /></td><td><input id="clientGoal4Title" type="text" placeholder="Fourth goal" /></td><td><textarea id="clientGoal4Importance" rows="3"></textarea></td><td><textarea id="clientGoal4PlanResponse" rows="3"></textarea></td><td><textarea id="clientGoal4ModeledResult" rows="3"></textarea></td><td><select id="clientGoal4Include"><option value="no" selected>No</option><option value="yes">Include</option></select></td></tr>
+                <tr><td><input id="clientGoal5Priority" type="number" min="1" max="5" value="5" /></td><td><input id="clientGoal5Title" type="text" placeholder="Fifth goal" /></td><td><textarea id="clientGoal5Importance" rows="3"></textarea></td><td><textarea id="clientGoal5PlanResponse" rows="3"></textarea></td><td><textarea id="clientGoal5ModeledResult" rows="3"></textarea></td><td><select id="clientGoal5Include"><option value="no" selected>No</option><option value="yes">Include</option></select></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="small" style="margin-top:10px;">Review every goal with the client before selecting Include. Blank or unapproved goals are automatically omitted from the report.</div>
+        </div>
+
         <div class="account-panel" style="margin-bottom:16px;">
           <div class="account-panel-header">
             <div>
@@ -1036,7 +1062,49 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V50';
+const ENGINE_VERSION = 'V51';
+
+function handleClientTranscriptUpload(event){
+  const file = event?.target?.files?.[0];
+  if(!file) return;
+  const status = document.getElementById('clientTranscriptStatus');
+  const allowed = /\.(txt|md)$/i.test(file.name) || ['text/plain','text/markdown'].includes(file.type);
+  if(!allowed){
+    if(status) status.textContent = 'Please select a .txt or .md transcript.';
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const transcript = String(reader.result || '');
+    const target = document.getElementById('clientTranscriptText');
+    if(target) target.value = transcript;
+    if(status) status.textContent = `${file.name} loaded (${transcript.length.toLocaleString()} characters).`;
+  };
+  reader.onerror = () => { if(status) status.textContent = 'The transcript could not be read.'; };
+  reader.readAsText(file);
+}
+function clearClientTranscript(){
+  const upload = document.getElementById('clientTranscriptUpload');
+  const transcript = document.getElementById('clientTranscriptText');
+  const status = document.getElementById('clientTranscriptStatus');
+  if(upload) upload.value = '';
+  if(transcript) transcript.value = '';
+  if(status) status.textContent = 'No transcript loaded.';
+}
+function collectApprovedClientGoals(){
+  return Array.from({length:5},(_,offset)=>{
+    const i = offset + 1;
+    return {
+      priority:Math.max(1,Math.min(5,Math.floor(num(`clientGoal${i}Priority`) || i))),
+      title:(document.getElementById(`clientGoal${i}Title`)?.value || '').trim(),
+      importance:(document.getElementById(`clientGoal${i}Importance`)?.value || '').trim(),
+      response:(document.getElementById(`clientGoal${i}PlanResponse`)?.value || '').trim(),
+      result:(document.getElementById(`clientGoal${i}ModeledResult`)?.value || '').trim(),
+      include:(document.getElementById(`clientGoal${i}Include`)?.value || 'no') === 'yes'
+    };
+  }).filter(goal => goal.include && goal.title).sort((a,b)=>a.priority-b.priority);
+}
 
 function taxFundingMethod(){
   return document.getElementById('taxFundingMethod')?.value || ((document.getElementById('includeTaxFundingComparison')?.checked || false) ? 'outside' : 'conversion');
@@ -1748,6 +1816,7 @@ allIds.splice(allIds.indexOf('planningHorizonAge'), 0,
 );
 allIds.splice(allIds.indexOf('scenarioMode'), 0, 'incomeAssetSummaryTaxAge');
 allIds.splice(allIds.indexOf('hIra'), 0, 'hMedicarePartBStartAge', 'wMedicarePartBStartAge');
+for(let i=1;i<=5;i++) allIds.push(`clientGoal${i}Priority`,`clientGoal${i}Title`,`clientGoal${i}Importance`,`clientGoal${i}PlanResponse`,`clientGoal${i}ModeledResult`,`clientGoal${i}Include`);
 allIds.forEach(id => {
   const node = document.getElementById(id);
   if(!node) return;
@@ -3982,6 +4051,26 @@ function generatePDF(){
   doc.text(doc.splitTextToSize(`Federal taxable income is shown after the modeled standard, age-65+, and other entered deductions at age ${comparisonAgeLabel}. The marginal bracket is the rate applied to the last dollars of taxable income. The effective rate is estimated federal tax divided by federal taxable income after deductions. Both reflect Social Security taxation, RMDs, and Roth conversions. State income tax is not modeled.`,680),44,doc.lastAutoTable.finalY+14);
   addPdfFooter(doc,doc.getNumberOfPages());
 
+  const approvedClientGoals = collectApprovedClientGoals();
+  if(approvedClientGoals.length){
+    doc.addPage();
+    addTitle(doc,'Client Goals and Plan Alignment','The priorities approved for inclusion and how the proposed income strategy addresses them.');
+    addPdfLogo(doc);
+    doc.autoTable({
+      startY:78,
+      head:[['Priority','Client Goal','Why It Matters','How the Plan Responds','Modeled Result / Evidence']],
+      body:approvedClientGoals.map(goal=>[String(goal.priority),goal.title,goal.importance || '-',goal.response || '-',goal.result || '-']),
+      styles:{fontSize:8.5,cellPadding:4,overflow:'linebreak',valign:'top'},
+      headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
+      alternateRowStyles:{fillColor:[245,247,250]},
+      columnStyles:{0:{cellWidth:55,halign:'center'},1:{cellWidth:135,fontStyle:'bold'},2:{cellWidth:165},3:{cellWidth:180},4:{cellWidth:155}},
+      margin:{left:40,right:40}
+    });
+    doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
+    doc.text(doc.splitTextToSize('Only goals manually reviewed and approved by the advisor are shown. Modeled results are hypothetical planning illustrations and should be reviewed with the client as assumptions change.',680),44,doc.lastAutoTable.finalY+16);
+    addPdfFooter(doc,doc.getNumberOfPages());
+  }
+
   // Client Summary page
   doc.addPage();
   addTitle(doc,'Client Summary','Plain-English summary of the planning result.');
@@ -4195,7 +4284,7 @@ function generatePDF(){
     ...(Number(year1Detail.rmdAppliedToConversionTax||0) > 0.004 ? [['Year 1 RMD Applied to Conversion Tax', fmt2(year1Detail.rmdAppliedToConversionTax)]] : []),
     ...(Number(year1Detail.iraWithdrawal||0) > 0.004 ? [['Year 1 IRA Withdrawal', fmt2(year1Detail.iraWithdrawal)]] : []),
     ...((document.getElementById('irmaaOptimizationMode')?.value || 'off') !== 'off' ? [['IRMAA Optimization', irmaaOptimizationLabel()]] : []),
-    ...(fiaEnabledForReport ? [[fiaIncomeIsTaxFree() ? 'Guaranteed Tax-Free Income' : 'Guaranteed Taxable Income', `${fmt2(num('fiaAnnualIncome'))} starting Year ${Math.max(1,Math.floor(num('fiaStartYear')||6))}`]] : []),
+    ...(fiaEnabledForReport ? [[fiaIncomeIsTaxFree() ? 'Guaranteed Tax-Free Income' : 'Guaranteed Taxable Income', `${fmt2(num('fiaAnnualIncome'))} starting Year ${fiaJointIncomeStartYear()}`]] : []),
     ...(existingRiderEnabledForReport ? [
       ['Existing Rider Comparison', 'Enabled'],
       ['Existing Rider Account Value', fmt2(sumExistingAnnuityValue())],
@@ -4945,6 +5034,9 @@ function setBasicFieldValues(values){
     if(el.type === 'checkbox') el.checked = !!value;
     else el.value = value;
   });
+  const transcript = document.getElementById('clientTranscriptText')?.value || '';
+  const transcriptStatus = document.getElementById('clientTranscriptStatus');
+  if(transcriptStatus) transcriptStatus.textContent = transcript ? `Saved transcript loaded (${transcript.length.toLocaleString()} characters).` : 'No transcript loaded.';
 }
 function setPensionRowsFromSave(rows){
   rows = Array.isArray(rows) && rows.length ? rows : collectPensionRowsForSave();
