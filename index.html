@@ -752,6 +752,8 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="field"><label>Income &amp; Asset Summary — Modeled Federal Tax Position at Age</label><input id="incomeAssetSummaryTaxAge" type="number" value="75" min="40" max="100" step="1" /><div class="mode-help">Select the client age used for the Current Situation versus Proposed Strategy tax comparison. Choose an age after the Roth conversion is completed to illustrate the post-conversion tax benefit.</div></div>
           <div class="field"><label>Scenario Mode</label><select id="scenarioMode"><option value="base" selected>Base</option><option value="optimized">Optimized</option><option value="conservative">Conservative</option></select></div>
           <div class="field"><label>Conversion Period (Years)</label><input id="conversionYears" type="number" value="6" min="1" step="1" /></div>
+          <div class="field"><label>Annual Conversion Method</label><select id="conversionMethod"><option value="schedule" selected>Stay on Schedule Within Selected Bracket</option><option value="fillBracket">Fill Selected Tax Bracket Each Year</option></select><div class="mode-help">Fill Selected Tax Bracket calculates the maximum annual conversion that remains within the During Conversion Target Bracket after deductions and conversion-driven Social Security taxation.</div></div>
+          <div class="field"><label>Protect IRA From Income Withdrawals During Conversion?</label><select id="protectIraDuringConversion"><option value="no" selected>No - IRA May Fund Income Gaps</option><option value="yes">Yes - Reserve IRA for Conversion</option></select><div class="mode-help">When Yes, only mandatory RMDs may leave the conversion IRA during the selected conversion window. Any unfunded income need remains visible unless covered by Roth or an approved nonqualified account.</div></div>
           <div class="field"><label>Conversion Completion Mode</label><select id="conversionCompletionMode"><option value="optimized" selected>Tax Bracket Optimized</option><option value="force">Force Completion by Target Year</option></select></div>
           <div class="field"><label>Assumed Conversion Start Year</label><input id="startYear" type="number" value="1" min="1" max="10" step="1" /></div>
           <div class="field spouse-field"><label>Who Dies First? (optional)</label><select id="deathWho"><option value="">No death event</option><option value="husband">Client 1 dies first</option><option value="wife">Client 2 dies first</option></select></div>
@@ -1063,7 +1065,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V52';
+const ENGINE_VERSION = 'V53';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -1884,6 +1886,7 @@ allIds.splice(allIds.indexOf('planningHorizonAge'), 0,
 );
 allIds.splice(allIds.indexOf('scenarioMode'), 0, 'incomeAssetSummaryTaxAge');
 allIds.splice(allIds.indexOf('hIra'), 0, 'hMedicarePartBStartAge', 'wMedicarePartBStartAge');
+allIds.push('conversionTargetBracket','postConversionTargetBracket','conversionMethod','protectIraDuringConversion');
 for(let i=1;i<=5;i++) allIds.push(`clientGoal${i}Priority`,`clientGoal${i}Title`,`clientGoal${i}Importance`,`clientGoal${i}PlanResponse`,`clientGoal${i}ModeledResult`,`clientGoal${i}Include`);
 allIds.forEach(id => {
   const node = document.getElementById(id);
@@ -1963,6 +1966,20 @@ function conversionRoomUnderIncomeCap(ssIncome, taxableNonSSBeforeConversion, cu
     const taxableSSAtMid = taxableSS(ssIncome, taxableNonSSBeforeConversion + mid, currentStatus);
     const projected = Math.max(0, taxableNonSSBeforeConversion + mid + taxableSSAtMid);
     if(projected <= cap) lo = mid; else hi = mid;
+  }
+  return Math.max(0, lo);
+}
+function conversionRoomWithinBracket(ssIncome, taxableNonSSBeforeConversion, currentStatus, year, hAge, wAge, bracketTarget, maxRoom){
+  let lo = 0;
+  let hi = Math.max(0, Number(maxRoom || 0));
+  for(let i=0;i<36;i++){
+    const mid = (lo + hi) / 2;
+    const taxableSocialSecurity = taxableSS(ssIncome, taxableNonSSBeforeConversion + mid, currentStatus);
+    const grossTaxableIncome = Math.max(0, taxableNonSSBeforeConversion + mid + taxableSocialSecurity);
+    const config = getTaxConfig(currentStatus, year, hAge, wAge, grossTaxableIncome);
+    const taxableAfterDeductions = Math.max(0, grossTaxableIncome - config.ded);
+    const bracketCeiling = config.brackets[bracketTarget] || config.brackets[24];
+    if(taxableAfterDeductions <= bracketCeiling) lo = mid; else hi = mid;
   }
   return Math.max(0, lo);
 }
@@ -2079,12 +2096,24 @@ function forceConversionCompletionActive(){
 function conversionCompletionModeLabel(){
   return forceConversionCompletionActive() ? 'Force completion by target year' : 'Tax bracket optimized';
 }
+function conversionMethod(){
+  return document.getElementById('conversionMethod')?.value || 'schedule';
+}
+function conversionMethodLabel(){
+  return conversionMethod() === 'fillBracket' ? 'Fill selected tax bracket each year' : 'Stay on schedule within selected bracket';
+}
+function protectIraDuringConversionEnabled(){
+  return (document.getElementById('protectIraDuringConversion')?.value || 'no') === 'yes';
+}
 function conversionRuleDescription(){
   const start = Math.max(1,Math.floor(num('startYear')||1));
   const years = activeConversionYearsDisplay();
   const end = start + years - 1;
   if(forceConversionCompletionActive()){
     return `Beginning in Year ${start}, Force Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by Year ${end}.`;
+  }
+  if(conversionMethod() === 'fillBracket'){
+    return `Beginning in Year ${start}, each active conversion year fills the selected tax bracket after deductions and conversion-driven Social Security taxation. Any balance that cannot be converted within the bracket remains in the IRA after Year ${end}.`;
   }
   return `Beginning in Year ${start}, each active conversion year uses the smaller of: the remaining-on-schedule conversion amount or the available room under the selected bracket after inflation-adjusted deductions.`;
 }
@@ -2646,8 +2675,9 @@ function buildScenario(useStrategy){
       }
     }
 
+    const iraProtectionActive = useStrategy && conversionEnabled && protectIraDuringConversionEnabled() && year>=startYear && year<=conversionEndYear;
     let iraGapNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed));
-    let iraUsedForIncome = Math.min(plannedIraWithdrawal, iraGapNeed, Math.max(0, ira));
+    let iraUsedForIncome = iraProtectionActive ? 0 : Math.min(plannedIraWithdrawal, iraGapNeed, Math.max(0, ira));
 
     let remainingNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed + iraUsedForIncome));
 
@@ -2657,7 +2687,7 @@ function buildScenario(useStrategy){
       remainingNeed -= rothWithdrawal;
     }
 
-    if(remainingNeed > 0){
+    if(remainingNeed > 0 && !iraProtectionActive){
       extraIraGapWithdrawal = Math.min(Math.max(0, ira - iraUsedForIncome), remainingNeed);
       remainingNeed -= extraIraGapWithdrawal;
     }
@@ -2700,7 +2730,7 @@ function buildScenario(useStrategy){
     let irmaa=0;
     let detailTax=0;
 
-    const bracketTarget = parseInt((document.getElementById('targetBracket')?.value || '24'),10);
+    const bracketTarget = selectedConversionBracket();
     const taxableBaseBeforeConversion = Math.max(0, taxableNonSSBeforeConversion + taxableSSIncome);
     const taxCfg = getTaxConfig(currentStatus, year, hAge, wAge, taxableBaseBeforeConversion);
     if(useStrategy && conversionEnabled && year>=startYear && year<=conversionEndYear && ira>0){
@@ -2717,7 +2747,10 @@ function buildScenario(useStrategy){
       const convertibleBalance = Math.max(0, ira - conversionPoolIraWithdrawal);
       const scheduledConversion = convertibleBalance / yearsRemainingInWindow;
       const bracketIncomeCap = (taxCfg.brackets[bracketTarget] || taxCfg.brackets[24]) + taxCfg.ded;
-      const bracketRoom = Math.max(0, bracketIncomeCap - taxableBaseBeforeConversion) * scenarioConversionFactor();
+      const rawBracketRoom = Math.max(0, bracketIncomeCap - taxableBaseBeforeConversion);
+      const exactBracketRoom = conversionRoomWithinBracket(ssIncome, taxableNonSSBeforeConversion, currentStatus, year, hAge, wAge, bracketTarget, rawBracketRoom);
+      const fillSelectedBracket = conversionMethod() === 'fillBracket';
+      const bracketRoom = exactBracketRoom * (fillSelectedBracket ? 1 : scenarioConversionFactor());
       let conversionRoom = bracketRoom;
 
       if(forceConversionCompletion){
@@ -2733,7 +2766,7 @@ function buildScenario(useStrategy){
           conversionRoom = Math.min(bracketRoom, irmaaRoom);
         }
 
-        conversion = Math.max(0, Math.min(convertibleBalance, scheduledConversion, conversionRoom));
+        conversion = Math.max(0, Math.min(convertibleBalance, fillSelectedBracket ? conversionRoom : scheduledConversion, conversionRoom));
         if(uhnwCapActive){
           conversion = Math.min(conversion, uhnwMaxAnnualConversion);
         }
@@ -4150,6 +4183,8 @@ function generatePDF(){
     ['Planning Horizon', `Age ${after.horizonAge || planningHorizonAge()}`],
     ['Recommended Strategy', 'Tax-efficient Roth conversion strategy with bracket-aware conversion controls'],
     ['Conversion Window', `Starts Year ${Math.max(1,Math.floor(num('startYear')||1))}; scheduled over ${activeConversionYearsDisplay()} years`],
+    ['Annual Conversion Method', conversionMethodLabel()],
+    ['IRA Protected During Conversion', protectIraDuringConversionEnabled() ? 'Yes - mandatory RMDs only' : 'No - IRA may fund income gaps'],
     ['Conversion Completion Mode', conversionCompletionModeLabel()],
     ['IRMAA Optimization', irmaaOptimizationLabel()],
     ['Medicare IRMAA Coverage Start Ages', `${displayClient1Name()}: ${num('hMedicarePartBStartAge') > 0 ? `Age ${Math.floor(num('hMedicarePartBStartAge'))}` : 'Not modeled'}${(document.getElementById('filingStatus')?.value || 'MFJ')==='MFJ' ? `; ${displayClient2Name()}: ${num('wMedicarePartBStartAge') > 0 ? `Age ${Math.floor(num('wMedicarePartBStartAge'))}` : 'Not modeled'}` : ''}`],
@@ -4348,6 +4383,8 @@ function generatePDF(){
     [`Premium Finance Roth Conversion Bonus (${Number(after.bonusPct || 0).toFixed(1)}%)`, fmt2(after.bonus)],
     ['Beginning Value', fmt2(after.beginning)],
     ['Year 1 Planned Conversion', fmt2(after.firstConv)],
+    ['Annual Conversion Method', conversionMethodLabel()],
+    ['IRA Protected During Conversion', protectIraDuringConversionEnabled() ? 'Yes - mandatory RMDs only' : 'No - IRA may fund income gaps'],
     ['Year 1 Tax Deducted from Conversion', fmt2(year1Detail.conversionTaxDeductedFromConversion||0)],
     ...(Number(year1Detail.rmdAppliedToConversionTax||0) > 0.004 ? [['Year 1 RMD Applied to Conversion Tax', fmt2(year1Detail.rmdAppliedToConversionTax)]] : []),
     ...(Number(year1Detail.iraWithdrawal||0) > 0.004 ? [['Year 1 IRA Withdrawal', fmt2(year1Detail.iraWithdrawal)]] : []),
@@ -4359,7 +4396,7 @@ function generatePDF(){
       ['Existing Rider Annual Taxable Income', fmt2(sumExistingAnnuityIncome())]
     ] : []),
     ['Tax-Free Income Through Age', String(taxFreeCoverageAge(after.details))],
-    ['Scheduled Conversion Completion Year', `Year ${after.conversionEndYear}`],
+    ['Conversion Result', after.conversionFinishedYear ? `Completed in Year ${after.conversionFinishedYear}` : `Not completed within the selected ${activeConversionYearsDisplay()}-year window`],
     ['Conversion-Eligible IRA at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).conversionEligibleIra || 0)],
     ['Tax-Free Assets at End of Conversion Year', fmt2((after.details.find(d=>d.year===after.conversionEndYear)||{}).roth || 0)],
     ['Tax Funding Method', taxFundingMethodLabel()],
