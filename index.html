@@ -810,6 +810,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <div class="field" style="margin-top:12px;"><label>Conversion Tax Funding Method</label><select id="taxFundingMethod"><option value="conversion" selected>Deduct Conversion Taxes from Roth Conversion</option><option value="rmdFirst">Use RMD First; Deduct Any Shortfall from Conversion</option><option value="outside">Pay Taxes from Outside Assets</option></select><div class="mode-help">An RMD cannot be converted to Roth. Under RMD First, the RMD cash pays conversion taxes first; only any remaining conversion-tax shortfall reduces the amount credited to Roth.</div></div>
         <div class="checkbox-row"><input id="includeLegacyValueComparison" type="checkbox" checked /><label for="includeLegacyValueComparison">Include Legacy Value Comparison page in PDF report</label></div>
         <div class="checkbox-row"><input id="includeTaxRatesOnComparison" type="checkbox" /><label for="includeTaxRatesOnComparison">Include effective and marginal tax rates on Comparison page</label></div>
+        <div class="checkbox-row"><input id="includeIRMAAOnComparison" type="checkbox" /><label for="includeIRMAAOnComparison">Show IRMAA on Comparison Summary and include it in Estimated Net Benefit</label></div>
         <div class="checkbox-row"><input id="includeBrokerageDetailColumns" type="checkbox" /><label for="includeBrokerageDetailColumns">Include surplus/excess reinvested, unrealized appreciation, and brokerage value columns</label></div>
         <div class="small" style="margin-top:10px;">Bonus is a one-time amount added to the premium up front and compounds inside the strategy. Conversion period is fully editable so you can plan around temporary income years.</div>
         <div class="btn-row"><button class="primary" onclick="calculate()">Run Analysis</button><button class="gold" onclick="generatePDF()">Generate PDF Report</button></div>
@@ -1082,7 +1083,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V55';
+const ENGINE_VERSION = 'V56';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -1894,7 +1895,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeIRMAAOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.splice(allIds.indexOf('planningHorizonAge'), 0,
   'tieredIncomeEnabled',
   'incomeTier1StartAge','incomeTier1EndAge','incomeTier1Amount','incomeTier1ColaEnabled','incomeTier1Cola',
@@ -3186,7 +3187,9 @@ function fillMetricTable(id,scenario,pairedScenario){
   addMoneyRow(`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`,scenario.totalTaxFreeIncome,pairedScenario?.totalTaxFreeIncome);
   addMoneyRow(`Total Guaranteed Tax-Free Income by Age ${planningHorizonAge()}`,scenario.totalGuaranteedTaxFreeIncome,pairedScenario?.totalGuaranteedTaxFreeIncome);
   addMoneyRow(`Total RMDs by Age ${planningHorizonAge()}`,scenario.totalRMDs,pairedScenario?.totalRMDs);
-  addMoneyRow(`Total IRMAA by Age ${planningHorizonAge()}`,scenario.totalIRMAA,pairedScenario?.totalIRMAA);
+  if(document.getElementById('includeIRMAAOnComparison')?.checked){
+    addMoneyRow(`Total IRMAA by Age ${planningHorizonAge()}`,scenario.totalIRMAA,pairedScenario?.totalIRMAA);
+  }
   if(document.getElementById('includeBrokerageDetailColumns')?.checked){
     addMoneyRow(`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`,scenario.taxableEstate,pairedScenario?.taxableEstate);
     addMoneyRow(`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`,scenario.afterTaxLegacyEstate,pairedScenario?.afterTaxLegacyEstate);
@@ -4234,6 +4237,8 @@ function generatePDF(){
   addTitle(doc,'Client Summary','Plain-English summary of the planning result.');
   addPdfLogo(doc);
   const finalAfter = finalDetail(after.details);
+  const summaryIncludesIRMAA = !!document.getElementById('includeIRMAAOnComparison')?.checked;
+  const summaryIRMAABenefit = summaryIncludesIRMAA ? (before.totalIRMAA-after.totalIRMAA) : 0;
   let summaryRows = [
     ['Scenario', after.scenario || scenarioLabel()],
     ['Scenario Meaning', scenarioSummaryText()],
@@ -4252,7 +4257,7 @@ function generatePDF(){
     ['Tax-Free Estate at Horizon', fmt2(after.taxFreeEstate || 0)],
     ['Projected Tax-Free Residual Benefit (Non-Guaranteed)', fmt2(after.projectedTaxFreeResidualBenefit || 0)],
     ['Total Potential Tax-Free Benefit at Horizon', fmt2((after.taxFreeEstate || 0) + (after.projectedTaxFreeResidualBenefit || 0))],
-    ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + (before.totalIRMAA-after.totalIRMAA) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0)-before.totalTaxFreeIncome) + ((fiaIncomeIsTaxFree() ? (after.totalGuaranteedTaxFreeIncome||0) : (after.totalGuaranteedTaxableIncome||0))-(fiaIncomeIsTaxFree() ? (before.totalGuaranteedTaxFreeIncome||0) : (before.totalGuaranteedTaxableIncome||0))) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
+    ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + summaryIRMAABenefit + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0)-before.totalTaxFreeIncome) + ((fiaIncomeIsTaxFree() ? (after.totalGuaranteedTaxFreeIncome||0) : (after.totalGuaranteedTaxableIncome||0))-(fiaIncomeIsTaxFree() ? (before.totalGuaranteedTaxFreeIncome||0) : (before.totalGuaranteedTaxableIncome||0))) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
   ];
   const totalGuaranteedIncome = (after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0);
   if(Math.abs(totalGuaranteedIncome) <= 0.004){
@@ -4491,17 +4496,21 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Before vs Fidelity Mutual Financial Strategy','');
   addPdfLogo(doc);
+  const includeIRMAAComparison = !!document.getElementById('includeIRMAAOnComparison')?.checked;
   const comparisonRows = [
     [`Total Federal Taxes by Age ${planningHorizonAge()}`, before.totalTaxes, after.totalTaxes, before.totalTaxes - after.totalTaxes],
     [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, before.totalTaxFreeIncome, (after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0), (after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome],
     [`Total Lifetime Guaranteed Income by Age ${planningHorizonAge()}`, (before.totalGuaranteedTaxFreeIncome || 0) + (before.totalGuaranteedTaxableIncome || 0), (after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0), ((after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0)) - ((before.totalGuaranteedTaxFreeIncome || 0) + (before.totalGuaranteedTaxableIncome || 0))],
     [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
-    [`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA],
     [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`, before.municipalEstate || 0, after.municipalEstate || 0, (after.municipalEstate || 0) - (before.municipalEstate || 0)],
     [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
   ];
+  if(includeIRMAAComparison){
+    comparisonRows.splice(4,0,[`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA]);
+  }
   if(document.getElementById('includeBrokerageDetailColumns')?.checked){
-    comparisonRows.splice(5,0,
+    const legacyInsertIndex = comparisonRows.findIndex(r => String(r[0]).startsWith('Tax-Exempt Municipal Bond Estate'));
+    comparisonRows.splice(legacyInsertIndex < 0 ? comparisonRows.length : legacyInsertIndex,0,
       [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
       [`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`, before.afterTaxLegacyEstate||0, after.afterTaxLegacyEstate||0, (after.afterTaxLegacyEstate||0)-(before.afterTaxLegacyEstate||0)]
     );
@@ -4553,7 +4562,7 @@ function generatePDF(){
       }
     }
   });
-  const totalNetBenefit = (before.totalTaxes - after.totalTaxes) + (before.totalIRMAA - after.totalIRMAA) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome) + ((fiaIncomeIsTaxFree() ? (after.totalGuaranteedTaxFreeIncome || 0) : (after.totalGuaranteedTaxableIncome || 0)) - (fiaIncomeIsTaxFree() ? (before.totalGuaranteedTaxFreeIncome || 0) : (before.totalGuaranteedTaxableIncome || 0))) + (after.taxFreeEstate - before.taxFreeEstate);
+  const totalNetBenefit = (before.totalTaxes - after.totalTaxes) + (includeIRMAAComparison ? (before.totalIRMAA - after.totalIRMAA) : 0) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome) + ((fiaIncomeIsTaxFree() ? (after.totalGuaranteedTaxFreeIncome || 0) : (after.totalGuaranteedTaxableIncome || 0)) - (fiaIncomeIsTaxFree() ? (before.totalGuaranteedTaxFreeIncome || 0) : (before.totalGuaranteedTaxableIncome || 0))) + (after.taxFreeEstate - before.taxFreeEstate);
   const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY : 220;
   if(hasRothConversion){
   doc.setFillColor(11,58,111);
@@ -4568,7 +4577,10 @@ function generatePDF(){
   doc.setTextColor(90,90,90);
   doc.setFont(undefined,'normal');
   doc.setFontSize(9);
-  doc.text(doc.splitTextToSize('Includes estimated federal tax savings, IRMAA savings, increased tax-free income, and increased tax-free estate.', 680), 46, finalY + 52);
+  const netBenefitExplanation = includeIRMAAComparison
+    ? 'Includes estimated federal tax savings, IRMAA savings, increased tax-free income, and increased tax-free estate.'
+    : 'Includes estimated federal tax savings, increased tax-free income, and increased tax-free estate. IRMAA is excluded unless selected in the report options.';
+  doc.text(doc.splitTextToSize(netBenefitExplanation, 680), 46, finalY + 52);
   } else {
     doc.setTextColor(90,90,90); doc.setFont(undefined,'normal'); doc.setFontSize(9);
     doc.text(doc.splitTextToSize('Lifetime income and remaining legacy are shown separately. They are not added into a single net-benefit figure because income received and assets remaining at death are different economic outcomes.', 680), 46, finalY + 24);
