@@ -1083,7 +1083,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Fidelity Mutual Financial does not guarantee applicability to any individual circumstances. Fidelity Mutual Financial encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Fidelity Mutual Financial LLC: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V56';
+const ENGINE_VERSION = 'V57';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -4217,18 +4217,20 @@ function generatePDF(){
     doc.addPage();
     addTitle(doc,'Client Goals and Plan Alignment','The priorities approved for inclusion and how the proposed income strategy addresses them.');
     addPdfLogo(doc);
+    doc.setFont(undefined,'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(90,90,90);
+    doc.text(doc.splitTextToSize('Only goals manually reviewed and approved by the advisor are shown. Modeled results are hypothetical planning illustrations and should be reviewed with the client as assumptions change.',680),44,69);
     doc.autoTable({
-      startY:78,
+      startY:86,
       head:[['Priority','Client Goal','Why It Matters','How the Plan Responds','Modeled Result / Evidence']],
       body:approvedClientGoals.map(goal=>[String(goal.priority),goal.title,goal.importance || '-',goal.response || '-',goal.result || '-']),
-      styles:{fontSize:8.5,cellPadding:4,overflow:'linebreak',valign:'top'},
+      styles:{fontSize:8.1,cellPadding:3.25,overflow:'linebreak',valign:'top'},
       headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[245,247,250]},
       columnStyles:{0:{cellWidth:55,halign:'center'},1:{cellWidth:135,fontStyle:'bold'},2:{cellWidth:165},3:{cellWidth:180},4:{cellWidth:155}},
       margin:{left:40,right:40}
     });
-    doc.setFont(undefined,'normal'); doc.setFontSize(8); doc.setTextColor(90,90,90);
-    doc.text(doc.splitTextToSize('Only goals manually reviewed and approved by the advisor are shown. Modeled results are hypothetical planning illustrations and should be reviewed with the client as assumptions change.',680),44,doc.lastAutoTable.finalY+16);
     addPdfFooter(doc,doc.getNumberOfPages());
   }
 
