@@ -171,11 +171,11 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     :root { --blue:#0b3a6f; --gold:#c89a3d; --light:#f6f8fb; --border:#d7deea; --text:#1f2937; --muted:#6b7280; }
     *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:#eef2f7}
     .container{max-width:1500px;margin:0 auto;padding:24px}.hero{background:linear-gradient(120deg,var(--blue),#143f7a 55%,#1f4f92);color:#fff;border-radius:18px;padding:28px;box-shadow:0 12px 28px rgba(8,25,53,.18);margin-bottom:22px}
-    .hero h1{margin:0 0 8px;font-size:34px}.hero p{margin:0;font-size:16px;line-height:1.5;max-width:1050px}
+    .hero h1{margin:0 0 8px;font-size:34px}.hero p{margin:0;font-size:16px;line-height:1.5;max-width:100%}
     .hero-flex{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
     .hero-left{flex:1;min-width:0}
-    .hero-right{flex:0 0 300px;min-width:300px;display:flex;align-items:flex-start;justify-content:flex-end}
-    .hero-right img{height:150px;max-height:150px;width:auto;display:block;object-fit:contain}
+    .hero-right{flex:0 0 360px;min-width:360px;max-width:360px;display:flex;align-items:flex-start;justify-content:flex-end;overflow:hidden}
+    .hero-right img{display:block;width:100%;max-width:360px;height:auto;max-height:125px;object-fit:contain;object-position:right top}
     .grid{display:grid;grid-template-columns:minmax(430px,480px) minmax(0,1fr);gap:22px;align-items:start}
     .card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 22px rgba(16,24,40,.07);border:1px solid var(--border);margin-bottom:18px}
     .card h2,.card h3{margin:0 0 14px;color:var(--blue)}.section-title{font-size:20px;margin-bottom:16px}
@@ -226,7 +226,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
     @media (max-width:1450px){.pill-row{grid-template-columns:1.35fr 1fr .85fr .95fr .95fr}}
     @media (max-width:1280px){.pill-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
     @media (max-width:1200px){.grid{grid-template-columns:1fr}.pill-row{grid-template-columns:repeat(2,1fr)}.two-col,.three-col,.client-box-grid{grid-template-columns:1fr}.social-security-card .inputs-grid{grid-template-columns:1fr}}
-    @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{min-width:0;justify-content:flex-start}.hero-right img{height:110px;max-height:110px}}
+    @media (max-width:900px){.hero-flex{flex-direction:column;align-items:flex-start}.hero-right{flex:0 1 auto;min-width:0;max-width:100%;width:100%;justify-content:flex-start}.hero-right img{width:auto;max-width:100%;height:auto;max-height:110px;object-position:left top}}
     @media (max-width:650px){.inputs-grid,.pill-row,.client-bio-top,.client-box-grid,.shared-grid{grid-template-columns:1fr}}
   
 .annuity-compare-card{background:#fff7ed;border:1px solid #fed7aa;border-radius:16px;padding:16px;margin-top:16px}
@@ -602,6 +602,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
               <div class="additional-account inherited-ira-account">
                 <div class="field"><label>Account Title</label><input class="inheritedIraTitle" type="text" value="Inherited IRA 1" /></div>
                 <div class="field"><label>Beneficiary / Owner</label><select class="inheritedIraOwner"><option value="husband">Client 1</option><option value="wife">Client 2</option></select></div>
+                <div class="field"><label>Inherited Account Type</label><select class="inheritedIraTaxTreatment"><option value="traditional">Inherited Traditional IRA — taxable distributions</option><option value="roth">Inherited Roth IRA — qualified distributions tax-free</option></select><div class="mode-help">Inherited Roth accounts have no annual beneficiary RMD in this model and are fully distributed in the entered final year. Confirm the Roth five-year rule with the custodian or tax advisor.</div></div>
                 <div class="field"><label>Current Account Balance ($)</label><input class="inheritedIraBalance" type="number" value="0" min="0" step="1000" /></div>
                 <div class="field"><label>Decedent Year of Death</label><input class="inheritedIraDeathYear" type="number" value="2025" min="2000" max="2100" step="1" /></div>
                 <div class="field"><label>Decedent Age at Death</label><input class="inheritedIraDecedentAge" type="number" value="0" min="0" max="120" step="1" /></div>
@@ -976,6 +977,7 @@ function inheritedIraRowHtml(index, values={}){
   return `<div class="additional-account inherited-ira-account">
     <div class="field"><label>Account Title</label><input class="inheritedIraTitle" type="text" value="${escapeHtmlAttr(values.title || `Inherited IRA ${index}`)}" /></div>
     <div class="field"><label>Beneficiary / Owner</label><select class="inheritedIraOwner"><option value="husband" ${owner==='husband'?'selected':''}>Client 1</option><option value="wife" ${owner==='wife'?'selected':''}>Client 2</option></select></div>
+    <div class="field"><label>Inherited Account Type</label><select class="inheritedIraTaxTreatment"><option value="traditional" ${(values.taxTreatment||'traditional')==='traditional'?'selected':''}>Inherited Traditional IRA — taxable distributions</option><option value="roth" ${values.taxTreatment==='roth'?'selected':''}>Inherited Roth IRA — qualified distributions tax-free</option></select></div>
     <div class="field"><label>Current Account Balance ($)</label><input class="inheritedIraBalance" type="number" value="${escapeHtmlAttr(values.balance ?? 0)}" min="0" step="1000" /></div>
     <div class="field"><label>Decedent Year of Death</label><input class="inheritedIraDeathYear" type="number" value="${deathYear}" min="2000" max="2100" step="1" /></div>
     <div class="field"><label>Decedent Age at Death</label><input class="inheritedIraDecedentAge" type="number" value="${escapeHtmlAttr(values.decedentAge ?? 0)}" min="0" max="120" step="1" /></div>
@@ -1015,6 +1017,7 @@ function getInheritedIraAccounts(){
     return {
       title:(value('.inheritedIraTitle')||`Inherited IRA ${index+1}`).trim(),
       owner:value('.inheritedIraOwner')||'husband',
+      taxTreatment:value('.inheritedIraTaxTreatment')||'traditional',
       balance:Math.max(0,Number(value('.inheritedIraBalance')||0)),
       deathYear,
       decedentAge:Math.max(0,Number(value('.inheritedIraDecedentAge')||0)),
@@ -1083,7 +1086,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V58';
+const ENGINE_VERSION = 'V61';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -2647,19 +2650,28 @@ function buildScenario(useStrategy){
     }
     const calendarYear = PROJECTION_BASE_TAX_YEAR + year - 1;
     let inheritedIraRmd = 0;
+    let inheritedRothDistribution = 0;
     const inheritedIraRmdByAccount = inheritedIraAccounts.map(a=>{
-      if(a.balance <= 0.004 || calendarYear < a.firstRmdYear) return {title:a.title,amount:0};
+      const isInheritedRoth = a.taxTreatment === 'roth';
+      if(a.balance <= 0.004) return {title:a.title,amount:0,taxTreatment:a.taxTreatment};
       let amount = 0;
-      if(calendarYear >= a.finalYear){
+      if(isInheritedRoth && calendarYear >= a.finalYear){
         amount = a.balance;
+        inheritedRothDistribution += amount;
+      } else if(isInheritedRoth || calendarYear < a.firstRmdYear){
+        amount = 0;
+      } else if(calendarYear >= a.finalYear){
+        amount = a.balance;
+        inheritedIraRmd += amount;
       } else if(year === 1 && a.currentRmd > 0){
         amount = Math.min(a.balance,a.currentRmd);
+        inheritedIraRmd += amount;
       } else if(a.initialDivisor > 0){
         const divisor = Math.max(1,a.initialDivisor - Math.max(0,calendarYear-a.firstRmdYear));
         amount = Math.min(a.balance,a.balance/divisor);
+        inheritedIraRmd += amount;
       }
-      inheritedIraRmd += amount;
-      return {title:a.title,amount};
+      return {title:a.title,amount,taxTreatment:a.taxTreatment};
     });
     const rmd=conversionPoolRmd+liquidTraditionalRmd+inheritedIraRmd;
 
@@ -2669,7 +2681,7 @@ function buildScenario(useStrategy){
     // then IRA, then Roth, then any extra IRA gap-fill if Roth is unavailable.
     // NQ withdrawals are intentionally schedule-driven, not just gap-fill driven,
     // so a planned $20,000 from age 67-72 appears every eligible year.
-    const baseIncome = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + inheritedIraRmd;
+    const baseIncome = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + inheritedIraRmd + inheritedRothDistribution;
     const hasTrackedNqAccount = nqBalance > 0 || enteredNqAccountValue > 0 || additionalNq > 0;
     const nqAvailableForYear = hasTrackedNqAccount ? Math.min(plannedNqWithdrawal, nqBalance) : plannedNqWithdrawal;
     let nqUsed = Math.max(0, nqAvailableForYear);
@@ -2969,7 +2981,7 @@ function buildScenario(useStrategy){
     totalIRMAA += irmaa;
     totalRMDs += rmd;
 
-    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + rothWithdrawal - rmdAppliedToConversionTax;
+    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + inheritedRothDistribution + rothWithdrawal - rmdAppliedToConversionTax;
     const displayedIncome = spendableIncomeBeforeBrokerage;
     // Apply the same reinvestment convention to both scenarios. Any modeled cash
     // income above the stated income goal is deposited into the taxable brokerage
@@ -3033,6 +3045,7 @@ function buildScenario(useStrategy){
       extraIraGapWithdrawal,
       rmd,
       inheritedIraRmd,
+      inheritedRothDistribution,
       inheritedIraRmdByAccount,
       inheritedIraBalance: inheritedIraAccounts.reduce((sum,a)=>sum+a.balance,0),
       conversion,
@@ -3153,11 +3166,13 @@ function buildScenario(useStrategy){
   // always add exactly to the visible Gross Legacy Estate amount.
   const afterTaxLegacyEstate = roundMoney(Math.max(0, outside - municipalEstate) + finalAfterTaxNonQualified);
   const finalLiquidTraditionalIra = liquidTraditionalAccounts.reduce((s,a)=>s+a.balance,0);
-  const finalInheritedIra = inheritedIraAccounts.reduce((s,a)=>s+a.balance,0);
+  const finalInheritedTraditionalIra = inheritedIraAccounts.filter(a=>a.taxTreatment!=='roth').reduce((s,a)=>s+a.balance,0);
+  const finalInheritedRothIra = inheritedIraAccounts.filter(a=>a.taxTreatment==='roth').reduce((s,a)=>s+a.balance,0);
+  const finalInheritedIra = finalInheritedTraditionalIra + finalInheritedRothIra;
   const finalTotalIra = ira + finalLiquidTraditionalIra;
-  const taxableEstate = roundMoney(Math.max(0, finalTotalIra + finalInheritedIra + taxableBrokerage + finalTaxableNonQualified));
+  const taxableEstate = roundMoney(Math.max(0, finalTotalIra + finalInheritedTraditionalIra + taxableBrokerage + finalTaxableNonQualified));
   const grossLegacyEstate = roundMoney(
-    taxableEstate + afterTaxLegacyEstate + roundMoney(municipalEstate) + roundMoney(roth)
+    taxableEstate + afterTaxLegacyEstate + roundMoney(municipalEstate) + roundMoney(roth + finalInheritedRothIra)
   );
   return {
     premium, bonus, bonusPct: premiumBonusRate * 100, beginning: premium+bonus, firstConv,
@@ -3165,7 +3180,7 @@ function buildScenario(useStrategy){
     conversionFinishedYear: conversionFinishedYear || null,
     conversionEndYear,
     totalTaxes, totalTaxableIncome, lifetimeEffectiveTaxRate: totalTaxableIncome > 0 ? totalTaxes/totalTaxableIncome : 0, year1MarginalTaxRate, totalTaxFreeIncome, totalGuaranteedTaxFreeIncome, totalGuaranteedTaxableIncome, totalRMDs, totalIRMAA,
-    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: finalTotalIra, finalConversionEligibleIra: ira, finalLiquidTraditionalIra, finalInheritedIra, inheritedIraAccounts: inheritedIraAccounts.map(a=>({...a})), liquidTraditionalAccounts: liquidTraditionalAccounts.map(a=>({...a})), finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
+    taxableEstate, afterTaxLegacyEstate, grossLegacyEstate, finalAfterTaxNonQualified, finalTaxableNonQualified, municipalEstate, finalIra: finalTotalIra, finalConversionEligibleIra: ira, finalLiquidTraditionalIra, finalInheritedIra, finalInheritedTraditionalIra, finalInheritedRothIra, inheritedIraAccounts: inheritedIraAccounts.map(a=>({...a})), liquidTraditionalAccounts: liquidTraditionalAccounts.map(a=>({...a})), finalOutside: outside, finalNonQualified: nqBalance, finalTaxableBrokerage: taxableBrokerage, finalNonQualifiedAccounts: additionalNqAccounts.map(a=>({title:a.title,balance:a.balance,growthPct:a.growthPct,funds:a.funds,legacyTreatment:a.legacyTreatment,availableForGap:a.availableForGap,minimumReserve:a.minimumReserve})), taxFreeEstate: roth + finalInheritedRothIra, projectedTaxFreeResidualBenefit: Math.max(0, num('fiaProjectedResidualHorizon')), guaranteedAnnuityDeathBenefit: Math.max(0, num('fiaDeathBenefitHorizon')), milestones, details, survivorPct,
     uhnwOptimizationMode, uhnwMaxAnnualConversion,
     applySpousal, hFRAAge, hPIA, wPIA, wOwnSSCurrent, spousalFactor, carriedHigherSS,
     survivorSnapshotBefore, survivorSnapshotAfter, initialIra, desiredIncomeBase, incomeCola,
@@ -3275,8 +3290,10 @@ function addPdfLogo(doc){
   const data=getLogoData();
   if(!data) return;
   const pageWidth = doc.internal.pageSize.getWidth();
-  const x = pageWidth - 160;
-  try { doc.addImage(data, "PNG", x, 20, 125, 35); } catch(e){ try { doc.addImage(data, "JPEG", x, 20, 125, 35); } catch(_e){} }
+  const logoWidth = 110;
+  const logoHeight = 31;
+  const x = pageWidth - 40 - logoWidth;
+  try { doc.addImage(data, "PNG", x, 20, logoWidth, logoHeight); } catch(e){ try { doc.addImage(data, "JPEG", x, 20, logoWidth, logoHeight); } catch(_e){} }
 }
 function addPdfFooter(doc, pageNum){
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -3296,8 +3313,12 @@ function addPdfFooter(doc, pageNum){
 }
 function addTitle(doc, title, subtitle=''){
   const pageWidth = doc.internal.pageSize.getWidth();
-  doc.setFontSize(18); doc.text(title,40,40,{maxWidth: pageWidth-180});
-  if(subtitle){ doc.setFontSize(10); doc.text(subtitle,40,56,{maxWidth: pageWidth-180}); }
+  const logoWidth = 110;
+  const logoLeft = pageWidth - 40 - logoWidth;
+  const protectedGap = 22;
+  const titleWidth = logoLeft - protectedGap - 40;
+  doc.setFontSize(18); doc.text(title,40,40,{maxWidth:titleWidth});
+  if(subtitle){ doc.setFontSize(10); doc.text(subtitle,40,56,{maxWidth:titleWidth}); }
 }
 function hasAnyValue(details, key){
   return details.some(r => Math.abs(Number(r[key] || 0)) > 0.004);
@@ -3648,6 +3669,7 @@ function tableConfigFromDetails(details, mode='before'){
   const showInvestmentIncome = rowsData.some(r => Math.abs(Number(r.investmentIncome || 0)) > 0.004);
   const rentalColumnTitle = `${String((rowsData.find(r=>r.rentalIncomeTitle)?.rentalIncomeTitle) || 'Rental Income')}\nCash Flow`;
   const showRmd = rowsData.some(r => Math.abs(Number(r.rmd || 0)) > 0.004);
+  const showInheritedRothDistribution = rowsData.some(r => Math.abs(Number(r.inheritedRothDistribution || 0)) > 0.004);
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.nonRmdIraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
   const showNqGapWithdrawal = rowsData.some(r => Math.abs(Number(r.nqGapWithdrawal || 0)) > 0.004);
@@ -3668,6 +3690,7 @@ function tableConfigFromDetails(details, mode='before'){
     cols.push('SS','Taxable\nSS','Pension');
     if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
     if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
+    if(showInheritedRothDistribution) cols.push('INHERITED ROTH\nTAX-FREE\nDISTRIBUTION');
     if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
     if(showNqWithdrawal){ cols.push('NQ\nWithdrawal','TAX-FREE\nNQ BASIS','TAXABLE\nNQ AMOUNT'); }
     if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
@@ -3693,6 +3716,7 @@ function tableConfigFromDetails(details, mode='before'){
       row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
       if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
       if(showRmd) row.push(fmt2(r.rmd||0));
+      if(showInheritedRothDistribution) row.push(fmt2(r.inheritedRothDistribution||0));
       if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
       if(showNqWithdrawal) row.push(fmt2(r.plannedNqWithdrawal||0), fmt2(r.nqTaxFreeWithdrawal||0), fmt2(r.nqTaxableWithdrawal||0));
       if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
@@ -3710,8 +3734,13 @@ function tableConfigFromDetails(details, mode='before'){
   }
 
   const showTaxFreeRothIncome = reportColumnHasMoney(rowsData, ['taxFreeIncome']);
-  const showConversion = reportColumnHasMoney(rowsData, ['conversion','conversionTax']);
-  const showRmdTaxFunding = reportColumnHasMoney(rowsData, ['rmdAppliedToConversionTax','conversionTaxDeductedFromConversion']);
+  // Optional After-table columns are evaluated independently. A populated
+  // companion column must never force an all-zero column into the report.
+  const showConversion = reportColumnHasMoney(rowsData, ['conversion']);
+  const showConversionTax = reportColumnHasMoney(rowsData, ['conversionTax']);
+  const showRmdUsedForConversionTax = reportColumnHasMoney(rowsData, ['rmdAppliedToConversionTax']);
+  const showTaxDeductedFromConversion = reportColumnHasMoney(rowsData, ['conversionTaxDeductedFromConversion']);
+  const showTaxFreeNqBasis = reportColumnHasMoney(rowsData, ['nqTaxFreeWithdrawal']);
   const showTaxFreeEstate = reportColumnHasMoney(rowsData, ['roth']);
   const showIRMAA = reportColumnHasMoney(rowsData, ['irmaa']);
   const showSurplusReinvestment = !!document.getElementById('includeBrokerageDetailColumns')?.checked
@@ -3729,14 +3758,17 @@ function tableConfigFromDetails(details, mode='before'){
   cols.push('SS','Taxable\nSS','Pension');
   if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
   if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
+  if(showInheritedRothDistribution) cols.push('INHERITED ROTH\nTAX-FREE\nDISTRIBUTION');
   if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
   // Show only the tax-free NQ basis portion on the After table. The total NQ
   // withdrawal and any taxable portion remain tracked internally and included
   // in cash-flow and tax calculations.
-  if(showNqWithdrawal) cols.push('TAX-FREE\nNQ BASIS');
+  if(showTaxFreeNqBasis) cols.push('TAX-FREE\nNQ BASIS');
   if(showNqGapWithdrawal) cols.push('NQ CASH\nGAP FUNDING');
-  if(showConversion) cols.push('Conversion','Conversion\nTaxes');
-  if(showRmdTaxFunding) cols.push('RMD USED FOR\nCONVERSION TAX','TAX DEDUCTED\nFROM CONVERSION');
+  if(showConversion) cols.push('Conversion');
+  if(showConversionTax) cols.push('Conversion\nTaxes');
+  if(showRmdUsedForConversionTax) cols.push('RMD USED FOR\nCONVERSION TAX');
+  if(showTaxDeductedFromConversion) cols.push('TAX DEDUCTED\nFROM CONVERSION');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
   if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
   // Gap / Surplus remains calculated and is reflected in the applicable
@@ -3760,11 +3792,14 @@ function tableConfigFromDetails(details, mode='before'){
     row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), fmt2(r.pension));
     if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
     if(showRmd) row.push(fmt2(r.rmd||0));
+    if(showInheritedRothDistribution) row.push(fmt2(r.inheritedRothDistribution||0));
     if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
-    if(showNqWithdrawal) row.push(fmt2(r.nqTaxFreeWithdrawal||0));
+    if(showTaxFreeNqBasis) row.push(fmt2(r.nqTaxFreeWithdrawal||0));
     if(showNqGapWithdrawal) row.push(fmt2(r.nqGapWithdrawal||0));
-    if(showConversion) row.push(fmt2(r.conversion), fmt2(r.conversionTax||0));
-    if(showRmdTaxFunding) row.push(fmt2(r.rmdAppliedToConversionTax||0),fmt2(r.conversionTaxDeductedFromConversion||0));
+    if(showConversion) row.push(fmt2(r.conversion));
+    if(showConversionTax) row.push(fmt2(r.conversionTax||0));
+    if(showRmdUsedForConversionTax) row.push(fmt2(r.rmdAppliedToConversionTax||0));
+    if(showTaxDeductedFromConversion) row.push(fmt2(r.conversionTaxDeductedFromConversion||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
     if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.taxableIncomeAfterDeductions||0), fmt2(r.tax), fmt2(r.grossIncome || 0));
@@ -4020,8 +4055,8 @@ function validateReportInputs(){
     if(rentalStart>0 && rentalEnd<rentalStart) errors.push('Rental income last age must be the same as or later than its start age.');
   }
   getInheritedIraAccounts().forEach(a=>{
-    if(a.initialDivisor <= 0) errors.push(`${a.title}: enter the initial beneficiary divisor so annual RMDs can be calculated through the final distribution year.`);
-    if(a.finalYear < a.firstRmdYear) errors.push(`${a.title}: final distribution year cannot be before the first beneficiary RMD year.`);
+    if(a.taxTreatment !== 'roth' && a.initialDivisor <= 0) errors.push(`${a.title}: enter the initial beneficiary divisor so annual RMDs can be calculated through the final distribution year.`);
+    if(a.taxTreatment !== 'roth' && a.finalYear < a.firstRmdYear) errors.push(`${a.title}: final distribution year cannot be before the first beneficiary RMD year.`);
   });
   return errors;
 }
@@ -4126,7 +4161,7 @@ function generatePDF(){
   addAssetRow('Nonqualified / Brokerage', 'Primary NQ Account', 'joint', num('nqAccountValue'));
   addAssetRow('Brokerage / Outside Assets', 'Brokerage / Outside Assets', 'joint', num('outsideAssets'));
   if(typeof getInheritedIraAccounts === 'function'){
-    (getInheritedIraAccounts() || []).forEach(a => addAssetRow('Inherited IRA', a.title || 'Inherited IRA', a.owner || 'joint', a.balance || a.funds || 0));
+    (getInheritedIraAccounts() || []).forEach(a => addAssetRow(a.taxTreatment==='roth' ? 'Inherited Roth IRA' : 'Inherited Traditional IRA', a.title || 'Inherited IRA', a.owner || 'joint', a.balance || a.funds || 0));
   }
   let nextSummaryY = 76;
   if(assetRows.length){
@@ -5216,6 +5251,7 @@ function collectInheritedIraAccountsForSave(){
     return {
       title:value('.inheritedIraTitle')||`Inherited IRA ${index+1}`,
       owner:value('.inheritedIraOwner')||'husband',
+      taxTreatment:value('.inheritedIraTaxTreatment')||'traditional',
       balance:value('.inheritedIraBalance')||'0',
       deathYear:value('.inheritedIraDeathYear')||'2025',
       decedentAge:value('.inheritedIraDecedentAge')||'0',
@@ -5287,7 +5323,7 @@ function setAdditionalAccountsFromSave(accounts){
 function setInheritedIraAccountsFromSave(accounts){
   const container=document.getElementById('inheritedIraAccountsContainer');
   if(!container) return;
-  const rows=Array.isArray(accounts)&&accounts.length?accounts:[{title:'Inherited IRA 1',owner:'husband',balance:'0',deathYear:'2025',decedentAge:'0',firstRmdYear:'2026',initialDivisor:'0',currentRmd:'0',finalYear:'2035',growth:'5'}];
+  const rows=Array.isArray(accounts)&&accounts.length?accounts:[{title:'Inherited IRA 1',owner:'husband',taxTreatment:'traditional',balance:'0',deathYear:'2025',decedentAge:'0',firstRmdYear:'2026',initialDivisor:'0',currentRmd:'0',finalYear:'2035',growth:'5'}];
   container.innerHTML=rows.map((a,index)=>inheritedIraRowHtml(index+1,a)).join('');
   bindInheritedIraInputs(container);
 }
