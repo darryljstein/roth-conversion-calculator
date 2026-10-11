@@ -708,6 +708,10 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 <div class="field"><label>Beneficiary Income-Tax Treatment</label><select class="additionalAccountLegacyTreatment"><option value="aftertax" selected>After-Tax Asset - Received Without Income Tax</option><option value="taxable">Tax-Deferred Asset - Taxable to Beneficiary</option></select></div>
                 <div class="field"><label>Available to Fund Income Gaps? (Non-Qualified Only)</label><select class="additionalAccountGapAvailable"><option value="no" selected>No - Preserve for Emergency / Legacy</option><option value="yes">Yes - Use After IRA Is Exhausted</option></select></div>
                 <div class="field"><label>Minimum Balance to Preserve ($)</label><input class="additionalAccountMinimumReserve" type="number" value="0" min="0" step="1000" /></div>
+                <div class="field"><label>Use Existing Roth for Retirement Income?</label><select class="additionalAccountRothIncomeEnabled"><option value="no" selected>No - Preserve Roth</option><option value="yes">Yes - Fund Income Gaps</option></select><div class="mode-help">Applies only to an existing Roth account. Converted Roth dollars remain subject to their separate modeled availability.</div></div>
+                <div class="field"><label>Qualified for Tax-Free Withdrawals?</label><select class="additionalAccountRothQualified"><option value="yes" selected>Yes - Qualified</option><option value="no">No / Confirm With Tax Advisor</option></select></div>
+                <div class="field"><label>Existing Roth Income Starts at Age</label><input class="additionalAccountRothIncomeStartAge" type="number" value="71" min="40" max="100" step="1" /></div>
+                <div class="field"><label>Existing Roth Spending Priority</label><select class="additionalAccountRothPriority"><option value="beforeIra" selected>Before IRA Withdrawals</option><option value="afterIra">After Planned IRA Withdrawals</option></select></div>
                 <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
               </div>
             </div>
@@ -891,7 +895,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
 
       <div class="card">
         <h2 class="section-title">Year-by-Year Tax Flow Preview</h2>
-        <div class="small">This preview shows the first 15 years from the strategy scenario. The redesigned engine respects advisor-entered IRA withdrawals first, applies taxable and tax-free pension separately, then uses matured Roth money only after the 5-year ladder is available. Desired income now fills only the remaining gap instead of overriding the entered IRA draw.</div>
+        <div class="small">This preview shows the first 15 years from the strategy scenario. A qualified existing Roth may be designated to fund income gaps beginning at the entered age, either before or after planned IRA withdrawals. Newly converted Roth dollars retain their separate modeled availability. Desired income fills only the remaining gap.</div>
         <table id="detailPreviewTable"><thead><tr><th>Year</th><th>Age</th><th>Income Goal</th><th>RMD<br>Required Withdrawal<br>Required Withdrawal</th><th>NQ<br>Withdrawal</th><th>Conversion</th><th>Conversion<br>Taxes</th><th>TAX-FREE<br>ROTH INCOME</th><th>Taxes</th><th>IRMAA</th><th>IRA</th><th>TAX-FREE<br>ESTATE</th></tr></thead><tbody></tbody></table>
       </div>
 
@@ -924,6 +928,10 @@ function additionalAccountRowHtml(index, values={}){
   const legacyTreatment = values.legacyTreatment || 'aftertax';
   const availableForGap = values.availableForGap || 'no';
   const minimumReserve = escapeHtmlAttr(values.minimumReserve ?? '0');
+  const rothIncomeEnabled = values.rothIncomeEnabled || 'no';
+  const rothQualified = values.rothQualified || 'yes';
+  const rothIncomeStartAge = escapeHtmlAttr(values.rothIncomeStartAge ?? '71');
+  const rothPriority = values.rothPriority || 'beforeIra';
   return `<div class="additional-account">
     <div class="field"><label>Account Title</label><input class="additionalAccountTitle" type="text" value="${title}" placeholder="Example: CD or Checking and Savings" /></div>
     <div class="field"><label>Current Account Balance ($)</label><input class="additionalAccountFunds" type="number" value="${funds}" min="0" step="1000" placeholder="Enter dollar amount" /></div>
@@ -953,6 +961,19 @@ function additionalAccountRowHtml(index, values={}){
       <option value="yes" ${availableForGap==='yes'?'selected':''}>Yes - Use After IRA Is Exhausted</option>
     </select></div>
     <div class="field"><label>Minimum Balance to Preserve ($)</label><input class="additionalAccountMinimumReserve" type="number" value="${minimumReserve}" min="0" step="1000" /></div>
+    <div class="field"><label>Use Existing Roth for Retirement Income?</label><select class="additionalAccountRothIncomeEnabled">
+      <option value="no" ${rothIncomeEnabled!=='yes'?'selected':''}>No - Preserve Roth</option>
+      <option value="yes" ${rothIncomeEnabled==='yes'?'selected':''}>Yes - Fund Income Gaps</option>
+    </select><div class="mode-help">Applies only to an existing Roth account. Converted Roth dollars remain subject to their separate modeled availability.</div></div>
+    <div class="field"><label>Qualified for Tax-Free Withdrawals?</label><select class="additionalAccountRothQualified">
+      <option value="yes" ${rothQualified!=='no'?'selected':''}>Yes - Qualified</option>
+      <option value="no" ${rothQualified==='no'?'selected':''}>No / Confirm With Tax Advisor</option>
+    </select></div>
+    <div class="field"><label>Existing Roth Income Starts at Age</label><input class="additionalAccountRothIncomeStartAge" type="number" value="${rothIncomeStartAge}" min="40" max="100" step="1" /></div>
+    <div class="field"><label>Existing Roth Spending Priority</label><select class="additionalAccountRothPriority">
+      <option value="beforeIra" ${rothPriority!=='afterIra'?'selected':''}>Before IRA Withdrawals</option>
+      <option value="afterIra" ${rothPriority==='afterIra'?'selected':''}>After Planned IRA Withdrawals</option>
+    </select></div>
     <button type="button" class="account-remove-btn" onclick="removeAdditionalAccount(this)">Remove</button>
   </div>`;
 }
@@ -1089,7 +1110,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V63';
+const ENGINE_VERSION = 'V64';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -2188,6 +2209,10 @@ function getAdditionalAccounts(){
     const legacyTreatmentEl = row.querySelector('.additionalAccountLegacyTreatment');
     const gapAvailableEl = row.querySelector('.additionalAccountGapAvailable');
     const minimumReserveEl = row.querySelector('.additionalAccountMinimumReserve');
+    const rothIncomeEnabledEl = row.querySelector('.additionalAccountRothIncomeEnabled');
+    const rothQualifiedEl = row.querySelector('.additionalAccountRothQualified');
+    const rothIncomeStartAgeEl = row.querySelector('.additionalAccountRothIncomeStartAge');
+    const rothPriorityEl = row.querySelector('.additionalAccountRothPriority');
     const includeConversionEl = row.querySelector('.additionalAccountIncludeConversion');
     return {
       title: titleEl && titleEl.value.trim() ? titleEl.value.trim() : `Additional Account ${idx+1}`,
@@ -2200,7 +2225,11 @@ function getAdditionalAccounts(){
       includeConversion: includeConversionEl ? includeConversionEl.value !== 'no' : true,
       legacyTreatment: legacyTreatmentEl ? legacyTreatmentEl.value : 'aftertax',
       availableForGap: gapAvailableEl ? gapAvailableEl.value : 'no',
-      minimumReserve: Math.max(0, parseFloat(minimumReserveEl && minimumReserveEl.value ? minimumReserveEl.value : '0') || 0)
+      minimumReserve: Math.max(0, parseFloat(minimumReserveEl && minimumReserveEl.value ? minimumReserveEl.value : '0') || 0),
+      rothIncomeEnabled: rothIncomeEnabledEl ? rothIncomeEnabledEl.value : 'no',
+      rothQualified: rothQualifiedEl ? rothQualifiedEl.value : 'yes',
+      rothIncomeStartAge: Math.max(40, parseFloat(rothIncomeStartAgeEl && rothIncomeStartAgeEl.value ? rothIncomeStartAgeEl.value : '71') || 71),
+      rothPriority: rothPriorityEl ? rothPriorityEl.value : 'beforeIra'
     };
   }).filter(a => a.funds !== 0);
 }
@@ -2454,7 +2483,13 @@ function buildScenario(useStrategy){
       balance:a.funds * (useStrategy ? (1+a.bonusPct/100) : 1),
       growthPct:a.growthPct,
       bonusPct:a.bonusPct,
-      funds:a.funds
+      funds:a.funds,
+      owner:a.owner||'joint',
+      minimumReserve:Math.max(0,Number(a.minimumReserve||0)),
+      incomeEnabled:a.rothIncomeEnabled==='yes',
+      qualified:a.rothQualified!=='no',
+      incomeStartAge:Math.max(40,Number(a.rothIncomeStartAge||71)),
+      priority:a.rothPriority||'beforeIra'
     }));
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   const conversionEligibleTraditionalAccounts = additionalAccounts
@@ -2706,6 +2741,27 @@ function buildScenario(useStrategy){
     const rmd=conversionPoolRmd+liquidTraditionalRmd+inheritedIraRmd;
 
     let rothWithdrawal = 0;
+    let existingRothIncomeWithdrawal = 0;
+    const existingRothIncomeByAccount = additionalRothAccounts.map(a=>({title:a.title,amount:0}));
+    const useExistingRothForGap = (priority, need) => {
+      let remaining = Math.max(0,need);
+      if(!useStrategy || remaining <= 0) return 0;
+      let usedTotal = 0;
+      additionalRothAccounts.forEach((a,index)=>{
+        if(remaining <= 0 || !a.incomeEnabled || !a.qualified || a.priority !== priority) return;
+        const ownerAge = a.owner === 'wife' ? wAge : hAge;
+        if(ownerAge < a.incomeStartAge) return;
+        const available = Math.max(0,a.balance-Math.min(a.balance,a.minimumReserve||0));
+        const used = Math.min(available,remaining);
+        if(used <= 0) return;
+        a.balance = Math.max(0,a.balance-used);
+        existingRothIncomeByAccount[index].amount += used;
+        existingRothIncomeWithdrawal += used;
+        usedTotal += used;
+        remaining -= used;
+      });
+      return usedTotal;
+    };
     let extraIraGapWithdrawal = 0;
     // Spend-order engine: base income first, then FORCED scheduled NQ assets,
     // then IRA, then Roth, then any extra IRA gap-fill if Roth is unavailable.
@@ -2769,11 +2825,15 @@ function buildScenario(useStrategy){
       baseIncome += inheritedRothIncomeWithdrawal;
     }
 
+    const existingRothBeforeIra = useExistingRothForGap('beforeIra',desiredIncome-(baseIncome+nqUsed));
     const iraProtectionActive = useStrategy && conversionEnabled && protectIraDuringConversionEnabled() && year>=startYear && year<=conversionEndYear;
-    let iraGapNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed));
+    let iraGapNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed + existingRothBeforeIra));
     let iraUsedForIncome = iraProtectionActive ? 0 : Math.min(plannedIraWithdrawal, iraGapNeed, Math.max(0, ira));
 
-    let remainingNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed + iraUsedForIncome));
+    let remainingNeed = Math.max(0, desiredIncome - (baseIncome + nqUsed + existingRothBeforeIra + iraUsedForIncome));
+
+    const existingRothAfterIra = useExistingRothForGap('afterIra',remainingNeed);
+    remainingNeed = Math.max(0,remainingNeed-existingRothAfterIra);
 
     const availableRoth = rothBuckets.reduce((sum,b)=> sum + (year >= b.availableYear ? b.balance : 0), 0);
     if(useStrategy && remainingNeed > 0 && availableRoth > 0){
@@ -2795,7 +2855,7 @@ function buildScenario(useStrategy){
     // while respecting each account's minimum preserved balance.
     let nqGapWithdrawal = 0;
     const nqGapWithdrawalsByAccount = additionalNqAccounts.map(()=>0);
-    let remainingGapAfterIra = Math.max(0, desiredIncome - (baseIncome + nqUsed + rothWithdrawal + iraWithdrawal));
+    let remainingGapAfterIra = Math.max(0, desiredIncome - (baseIncome + nqUsed + existingRothIncomeWithdrawal + rothWithdrawal + iraWithdrawal));
     if(remainingGapAfterIra > 0){
       additionalNqAccounts.forEach((a,index)=>{
         if(remainingGapAfterIra <= 0 || !a.availableForGap) return;
@@ -3038,7 +3098,7 @@ function buildScenario(useStrategy){
       if(includeTaxFundingComparison){
         outside=Math.max(0, outside-totalTax-irmaa);
       }
-      totalTaxFreeIncome += rothWithdrawal;
+      totalTaxFreeIncome += rothWithdrawal + existingRothIncomeWithdrawal;
       totalGuaranteedTaxFreeIncome += guaranteedTaxFreeIncome;
       if(!fiaIncomeIsTaxFree()) totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
     } else {
@@ -3053,7 +3113,7 @@ function buildScenario(useStrategy){
     totalIRMAA += irmaa;
     totalRMDs += rmd;
 
-    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + inheritedRothIncomeWithdrawal + rothWithdrawal - rmdAppliedToConversionTax;
+    const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + inheritedRothIncomeWithdrawal + existingRothIncomeWithdrawal + rothWithdrawal - rmdAppliedToConversionTax;
     const displayedIncome = spendableIncomeBeforeBrokerage;
     // Apply the same reinvestment convention to both scenarios. Any modeled cash
     // income above the stated income goal is deposited into the taxable brokerage
@@ -3134,7 +3194,10 @@ function buildScenario(useStrategy){
       conversionTaxDeductedFromConversion,
       remainingRmdCash,
       conversionEffectiveTaxRate: conversion > 0 ? (conversionTax / conversion) : 0,
-      taxFreeIncome: rothWithdrawal,
+      existingRothIncomeWithdrawal,
+      existingRothIncomeByAccount,
+      convertedRothIncomeWithdrawal: rothWithdrawal,
+      taxFreeIncome: rothWithdrawal + existingRothIncomeWithdrawal,
       guaranteedTaxFreeIncome,
       guaranteedTaxableIncome,
       guaranteedLifetimeIncome,
@@ -3818,7 +3881,8 @@ function tableConfigFromDetails(details, mode='before'){
     return {cols:[cols], rows};
   }
 
-  const showTaxFreeRothIncome = reportColumnHasMoney(rowsData, ['taxFreeIncome']);
+  const showExistingRothIncome = reportColumnHasMoney(rowsData, ['existingRothIncomeWithdrawal']);
+  const showConvertedRothIncome = reportColumnHasMoney(rowsData, ['convertedRothIncomeWithdrawal']);
   // Optional After-table columns are evaluated independently. A populated
   // companion column must never force an all-zero column into the report.
   const showConversion = reportColumnHasMoney(rowsData, ['conversion']);
@@ -3855,7 +3919,8 @@ function tableConfigFromDetails(details, mode='before'){
   if(showRmdUsedForConversionTax) cols.push('RMD USED FOR\nCONVERSION TAX');
   if(showTaxDeductedFromConversion) cols.push('TAX DEDUCTED\nFROM CONVERSION');
   if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
-  if(showTaxFreeRothIncome) cols.push('TAX-FREE\nROTH INCOME');
+  if(showExistingRothIncome) cols.push('EXISTING ROTH\nTAX-FREE INCOME');
+  if(showConvertedRothIncome) cols.push('CONVERTED ROTH\nTAX-FREE INCOME');
   // Gap / Surplus remains calculated and is reflected in the applicable
   // carryover/reinvestment values, but is omitted from this crowded table.
   cols.push('Income\nGoal','GROSS TAXABLE\nINCOME','FEDERAL TAXABLE\nAFTER DEDUCTIONS','Taxes','GROSS\nINCOME');
@@ -3886,7 +3951,8 @@ function tableConfigFromDetails(details, mode='before'){
     if(showRmdUsedForConversionTax) row.push(fmt2(r.rmdAppliedToConversionTax||0));
     if(showTaxDeductedFromConversion) row.push(fmt2(r.conversionTaxDeductedFromConversion||0));
     if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
-    if(showTaxFreeRothIncome) row.push(fmt2(r.taxFreeIncome));
+    if(showExistingRothIncome) row.push(fmt2(r.existingRothIncomeWithdrawal||0));
+    if(showConvertedRothIncome) row.push(fmt2(r.convertedRothIncomeWithdrawal||0));
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.taxableIncomeAfterDeductions||0), fmt2(r.tax), fmt2(r.grossIncome || 0));
     if(showIRMAA) row.push(fmt2(r.irmaa));
     if(showSurplusReinvestment) row.push(fmt2(r.surplusIncomeReinvested||0),fmt2(r.brokerageUnrealizedAppreciation||0),fmt2(r.taxableBrokerage||0));
@@ -5327,7 +5393,11 @@ function collectAdditionalAccountsForSave(){
     includeConversion: row.querySelector('.additionalAccountIncludeConversion')?.value || 'yes',
     legacyTreatment: row.querySelector('.additionalAccountLegacyTreatment')?.value || 'aftertax',
     availableForGap: row.querySelector('.additionalAccountGapAvailable')?.value || 'no',
-    minimumReserve: row.querySelector('.additionalAccountMinimumReserve')?.value || '0'
+    minimumReserve: row.querySelector('.additionalAccountMinimumReserve')?.value || '0',
+    rothIncomeEnabled: row.querySelector('.additionalAccountRothIncomeEnabled')?.value || 'no',
+    rothQualified: row.querySelector('.additionalAccountRothQualified')?.value || 'yes',
+    rothIncomeStartAge: row.querySelector('.additionalAccountRothIncomeStartAge')?.value || '71',
+    rothPriority: row.querySelector('.additionalAccountRothPriority')?.value || 'beforeIra'
   }));
 }
 function collectInheritedIraAccountsForSave(){
