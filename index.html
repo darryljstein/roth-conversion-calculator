@@ -593,6 +593,17 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
           <div class="account-panel">
             <div class="account-panel-header">
               <div>
+                <div class="account-panel-title">Additional Proposed Annuities</div>
+                <div class="account-panel-subtitle">Add separate proposed annuity income streams with independent funding, start dates, tax treatment, COLA and survivor continuation.</div>
+              </div>
+              <button type="button" class="mini-btn ghost" onclick="addProposedAnnuity()">+ Add Proposed Annuity</button>
+            </div>
+            <div id="proposedAnnuitiesContainer"></div>
+            <div class="small" style="margin-top:8px;">For income deferred for 10 complete years, enter Strategy Year 11. Traditional IRA funding is always modeled as taxable; qualified Roth funding is modeled as tax-free.</div>
+          </div>
+          <div class="account-panel">
+            <div class="account-panel-header">
+              <div>
                 <div class="account-panel-title">Inherited IRA Accounts</div>
                 <div class="account-panel-subtitle">Tracks beneficiary RMDs separately from the clients' own IRAs. Inherited IRAs are never included in the Roth conversion pool and are forced to $0 by the entered final distribution year.</div>
               </div>
@@ -1110,7 +1121,7 @@ function incomeGoalAssumptionText(){
     : `Desired annual income starts at ${fmt2(num('desiredIncome'))} and increases by ${num('incomeCola').toFixed(1)}% annually.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V64';
+const ENGINE_VERSION = 'V65';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -1647,6 +1658,89 @@ function loadWidowPlannerScenario(){
     safeCalculate();
   }catch(e){ showCalcError(e); }
 }
+function proposedAnnuityRowHtml(index,values={}){
+  const title=escapeHtmlAttr(values.title||`Proposed Annuity ${index}`);
+  const owner=values.owner||'husband';
+  const fundingSource=values.fundingSource||'traditional';
+  const fundingAmount=escapeHtmlAttr(values.fundingAmount??'0');
+  const bonusPct=escapeHtmlAttr(values.bonusPct??'0');
+  const annualIncome=escapeHtmlAttr(values.annualIncome??'0');
+  const startYear=escapeHtmlAttr(values.startYear??'11');
+  const cola=escapeHtmlAttr(values.cola??'0');
+  const survivorPct=escapeHtmlAttr(values.survivorPct??'100');
+  const deathBenefit=escapeHtmlAttr(values.deathBenefit??'0');
+  return `<div class="additional-account proposed-annuity-account">
+    <div class="field"><label>Annuity Title</label><input class="proposedAnnuityTitle" type="text" value="${title}" /></div>
+    <div class="field"><label>Owner</label><select class="proposedAnnuityOwner"><option value="husband" ${owner==='husband'?'selected':''}>${displayClient1Name()}</option><option value="wife" ${owner==='wife'?'selected':''}>${displayClient2Name()}</option><option value="joint" ${owner==='joint'?'selected':''}>Joint / Household</option></select></div>
+    <div class="field"><label>Funding Source</label><select class="proposedAnnuityFundingSource"><option value="traditional" ${fundingSource==='traditional'?'selected':''}>Traditional IRA - Taxable Income</option><option value="roth" ${fundingSource==='roth'?'selected':''}>Qualified Roth - Tax-Free Income</option><option value="nonqualified" ${fundingSource==='nonqualified'?'selected':''}>Nonqualified - Taxable Income Assumption</option></select></div>
+    <div class="field"><label>Funding Amount ($)</label><input class="proposedAnnuityFundingAmount" type="number" value="${fundingAmount}" min="0" step="1000" /></div>
+    <div class="field"><label>Premium Bonus %</label><input class="proposedAnnuityBonusPct" type="number" value="${bonusPct}" min="0" step="0.1" /></div>
+    <div class="field"><label>Annual Lifetime Income ($)</label><input class="proposedAnnuityAnnualIncome" type="number" value="${annualIncome}" min="0" step="100" /></div>
+    <div class="field"><label>Income Begins in Strategy Year</label><input class="proposedAnnuityStartYear" type="number" value="${startYear}" min="1" max="40" step="1" /><div class="mode-help">Year 11 means income begins after 10 complete deferral years.</div></div>
+    <div class="field"><label>Income COLA %</label><input class="proposedAnnuityCola" type="number" value="${cola}" step="0.1" /></div>
+    <div class="field"><label>Survivor Continuation %</label><input class="proposedAnnuitySurvivorPct" type="number" value="${survivorPct}" min="0" max="100" step="1" /></div>
+    <div class="field"><label>Projected Death Benefit at Horizon ($)</label><input class="proposedAnnuityDeathBenefit" type="number" value="${deathBenefit}" min="0" step="1000" /></div>
+    <button type="button" class="account-remove-btn" onclick="removeProposedAnnuity(this)">Remove</button>
+  </div>`;
+}
+function bindProposedAnnuityInputs(scope=document){
+  scope.querySelectorAll('#proposedAnnuitiesContainer input,#proposedAnnuitiesContainer select').forEach(el=>{
+    if(el.dataset.boundRecalc==='true') return;
+    el.dataset.boundRecalc='true';
+    el.addEventListener('input',safeCalculate);
+    el.addEventListener('change',safeCalculate);
+  });
+}
+function addProposedAnnuity(values={}){
+  const container=document.getElementById('proposedAnnuitiesContainer');
+  if(!container) return;
+  const index=container.querySelectorAll('.proposed-annuity-account').length+1;
+  container.insertAdjacentHTML('beforeend',proposedAnnuityRowHtml(index,values));
+  bindProposedAnnuityInputs(container.lastElementChild);
+  safeCalculate();
+}
+function removeProposedAnnuity(btn){
+  const row=btn?.closest?.('.proposed-annuity-account');
+  if(row) row.remove();
+  safeCalculate();
+}
+function getAdditionalProposedAnnuities(){
+  return Array.from(document.querySelectorAll('#proposedAnnuitiesContainer .proposed-annuity-account')).map((row,index)=>{
+    const value=selector=>row.querySelector(selector)?.value;
+    const fundingSource=value('.proposedAnnuityFundingSource')||'traditional';
+    return {
+      title:(value('.proposedAnnuityTitle')||`Proposed Annuity ${index+1}`).trim(),
+      owner:value('.proposedAnnuityOwner')||'husband',
+      fundingSource,
+      fundingAmount:Math.max(0,parseFloat(value('.proposedAnnuityFundingAmount'))||0),
+      bonusPct:Math.max(0,parseFloat(value('.proposedAnnuityBonusPct'))||0),
+      annualIncome:Math.max(0,parseFloat(value('.proposedAnnuityAnnualIncome'))||0),
+      startYear:Math.max(1,Math.floor(parseFloat(value('.proposedAnnuityStartYear'))||11)),
+      cola:(parseFloat(value('.proposedAnnuityCola'))||0)/100,
+      survivorPct:Math.max(0,Math.min(1,(parseFloat(value('.proposedAnnuitySurvivorPct'))||0)/100)),
+      deathBenefit:Math.max(0,parseFloat(value('.proposedAnnuityDeathBenefit'))||0),
+      taxFree:fundingSource==='roth'
+    };
+  }).filter(a=>a.fundingAmount>0.004||a.annualIncome>0.004||a.deathBenefit>0.004);
+}
+function getAdditionalProposedAnnuityIncome(year,useStrategy,filingStart,deathApplied,deathWho){
+  const rows=[];
+  let taxable=0,taxFree=0,total=0;
+  if(!useStrategy||getStrategyMasterMode()==='rothOnly') return {taxable,taxFree,total,rows};
+  getAdditionalProposedAnnuities().forEach(a=>{
+    let amount=0;
+    if(year>=a.startYear){
+      const ownerDied=deathApplied&&filingStart==='MFJ'&&a.owner!=='joint'&&deathWho===a.owner;
+      const continuation=ownerDied?a.survivorPct:1;
+      amount=a.annualIncome*Math.pow(1+a.cola,Math.max(0,year-a.startYear))*continuation;
+    }
+    total+=amount;
+    if(a.taxFree) taxFree+=amount; else taxable+=amount;
+    rows.push({...a,amount});
+  });
+  return {taxable,taxFree,total,rows};
+}
+
 function getFiaSurvivorPct(){
   const el = document.getElementById('fiaSurvivorPct');
   if(!el) return 1;
@@ -2475,6 +2569,7 @@ function buildScenario(useStrategy){
   let outside=num('outsideAssets');
   const additionalTotals = additionalAccountTotals();
   const additionalAccounts = additionalTotals.accounts;
+  const additionalProposedAnnuities = getAdditionalProposedAnnuities();
   const additionalAccountFunds = additionalTotals.totalFunds;
   let additionalRothAccounts = additionalAccounts
     .filter(a=>a.type==='roth')
@@ -2492,6 +2587,14 @@ function buildScenario(useStrategy){
       priority:a.rothPriority||'beforeIra'
     }));
   let additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
+  let proposedRothFundingRemaining = useStrategy && masterMode!=='rothOnly' ? additionalProposedAnnuities.filter(a=>a.fundingSource==='roth').reduce((s,a)=>s+a.fundingAmount,0) : 0;
+  additionalRothAccounts.forEach(a=>{
+    if(proposedRothFundingRemaining<=0) return;
+    const used=Math.min(a.balance,proposedRothFundingRemaining);
+    a.balance=Math.max(0,a.balance-used);
+    proposedRothFundingRemaining-=used;
+  });
+  additionalRoth = additionalRothAccounts.reduce((s,a)=>s+a.balance,0);
   const conversionEligibleTraditionalAccounts = additionalAccounts
     .filter(a=>a.type==='traditional' && a.includeConversion);
   conversionEligibleTraditionalAccounts.forEach(a=>{
@@ -2528,6 +2631,16 @@ function buildScenario(useStrategy){
   const enteredNqAccountValue = Math.max(0, num('nqAccountValue'));
   let nqBalance = enteredNqAccountValue > 0 ? enteredNqAccountValue : Math.max(0, additionalNq);
   let nqBasis = Math.min(nqBalance, Math.max(0, num('nqCostBasis') || nqBalance));
+  const proposedNqFunding = useStrategy && masterMode!=='rothOnly' ? additionalProposedAnnuities.filter(a=>a.fundingSource==='nonqualified').reduce((s,a)=>s+a.fundingAmount,0) : 0;
+  if(proposedNqFunding>0){
+    const funded=Math.min(nqBalance,proposedNqFunding);
+    nqBalance=Math.max(0,nqBalance-funded);
+    nqBasis=Math.max(0,nqBasis-Math.min(nqBasis,funded));
+    if(enteredNqAccountValue<=0&&additionalNqAccounts.length){
+      let remaining=proposedNqFunding;
+      additionalNqAccounts.forEach(a=>{const used=Math.min(a.balance,remaining);a.balance=Math.max(0,a.balance-used);remaining-=used;});
+    }
+  }
   const nqTaxTreatment = document.getElementById('nqTaxTreatment')?.value || 'taxfree';
   const nqCustomTaxablePct = Math.max(0, Math.min(1, num('nqCustomTaxablePct') / 100));
   ira = client1IraBalance + client2IraBalance;
@@ -2537,10 +2650,12 @@ function buildScenario(useStrategy){
   const fiaFundingActive = useStrategy && masterMode !== 'rothOnly';
   const client1LifetimeIncomeIraFunding = fiaFundingActive ? Math.min(Math.max(0, enteredHusbandIra), Math.max(0, num('client1LifetimeIncomeIraFunding'))) : 0;
   const client2LifetimeIncomeIraFunding = fiaFundingActive ? Math.min(Math.max(0, enteredWifeIra), Math.max(0, num('client2LifetimeIncomeIraFunding'))) : 0;
-  const lifetimeIncomeIraFunding = client1LifetimeIncomeIraFunding + client2LifetimeIncomeIraFunding;
+  const additionalClient1FiaFunding = fiaFundingActive ? additionalProposedAnnuities.filter(a=>a.fundingSource==='traditional').reduce((s,a)=>s+a.fundingAmount*(a.owner==='wife'?0:(a.owner==='joint'&&filingStart==='MFJ'?0.5:1)),0) : 0;
+  const additionalClient2FiaFunding = fiaFundingActive ? additionalProposedAnnuities.filter(a=>a.fundingSource==='traditional').reduce((s,a)=>s+a.fundingAmount*(a.owner==='wife'?1:(a.owner==='joint'&&filingStart==='MFJ'?0.5:0)),0) : 0;
+  const lifetimeIncomeIraFunding = client1LifetimeIncomeIraFunding + client2LifetimeIncomeIraFunding + additionalClient1FiaFunding + additionalClient2FiaFunding;
   if(lifetimeIncomeIraFunding > 0){
-    client1IraBalance = Math.max(0,client1IraBalance-client1LifetimeIncomeIraFunding);
-    client2IraBalance = Math.max(0,client2IraBalance-client2LifetimeIncomeIraFunding);
+    client1IraBalance = Math.max(0,client1IraBalance-client1LifetimeIncomeIraFunding-additionalClient1FiaFunding);
+    client2IraBalance = Math.max(0,client2IraBalance-client2LifetimeIncomeIraFunding-additionalClient2FiaFunding);
     ira = client1IraBalance + client2IraBalance;
   }
   const initialIra = ira + liquidTraditionalAccounts.reduce((s,a)=>s+a.balance,0);
@@ -2613,9 +2728,10 @@ function buildScenario(useStrategy){
     const primaryAge=currentStatus==='MFJ' ? Math.max(hAge,wAge) : hAge;
     let {taxablePension, taxFreePension, totalPension:pension} = getPensionStreams(year, filingStart, deathApplied, deathWho, currentStatus, hAge, wAge);
     const guaranteedIncomeComponents = getGuaranteedLifetimeIncomeComponents(year, useStrategy, filingStart, deathApplied, deathWho);
-    const guaranteedLifetimeIncome = guaranteedIncomeComponents.total;
-    const guaranteedTaxFreeIncome = fiaIncomeIsTaxFree() ? guaranteedLifetimeIncome : 0;
-    const guaranteedTaxableIncome = fiaIncomeIsTaxFree() ? 0 : guaranteedLifetimeIncome;
+    const additionalGuaranteedIncomeComponents = getAdditionalProposedAnnuityIncome(year,useStrategy,filingStart,deathApplied,deathWho);
+    const guaranteedLifetimeIncome = guaranteedIncomeComponents.total + additionalGuaranteedIncomeComponents.total;
+    const guaranteedTaxFreeIncome = (fiaIncomeIsTaxFree() ? guaranteedIncomeComponents.total : 0) + additionalGuaranteedIncomeComponents.taxFree;
+    const guaranteedTaxableIncome = (fiaIncomeIsTaxFree() ? 0 : guaranteedIncomeComponents.total) + additionalGuaranteedIncomeComponents.taxable;
     // Existing rider income always appears on the Current Situation side. On the
     // Strategy side it remains active when the advisor selects Retain or Supplement,
     // and is removed only when Replace Existing Income Rider is selected.
@@ -3100,12 +3216,12 @@ function buildScenario(useStrategy){
       }
       totalTaxFreeIncome += rothWithdrawal + existingRothIncomeWithdrawal;
       totalGuaranteedTaxFreeIncome += guaranteedTaxFreeIncome;
-      if(!fiaIncomeIsTaxFree()) totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
+      totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
     } else {
       roth = additionalRoth;
       outside=Math.max(0, outside-totalTax-irmaa);
       totalGuaranteedTaxFreeIncome += guaranteedTaxFreeIncome;
-      if(!fiaIncomeIsTaxFree()) totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
+      totalGuaranteedTaxableIncome = (totalGuaranteedTaxableIncome || 0) + guaranteedTaxableIncome;
     }
 
     totalTaxes += totalTax;
@@ -3201,6 +3317,7 @@ function buildScenario(useStrategy){
       guaranteedTaxFreeIncome,
       guaranteedTaxableIncome,
       guaranteedLifetimeIncome,
+      additionalGuaranteedIncomeByAccount: additionalGuaranteedIncomeComponents.rows,
       fiaInitialIncomePayment: guaranteedIncomeComponents.initialPayment,
       fiaJointLifetimeIncome: guaranteedIncomeComponents.jointLifetimeIncome,
       ira: totalIraBalance,
@@ -3825,7 +3942,8 @@ function tableConfigFromDetails(details, mode='before'){
   const showLiquidTraditionalIra = rowsData.some(r => Math.abs(Number(r.liquidTraditionalIra || 0)) > 0.004);
   const showNonQualifiedAssets = rowsData.some(r => Math.abs(Number(r.nonQualifiedCashAssets ?? r.nqBalance ?? 0)) > 0.004);
   const showMunicipalAssets = rowsData.some(r => Math.abs(Number(r.municipalEstate || 0)) > 0.004);
-  const showGuaranteedLifetimeIncome = rowsData.some(r => Math.abs(Number(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0)) > 0.004);
+  const showGuaranteedTaxableIncome = rowsData.some(r => Math.abs(Number(r.guaranteedTaxableIncome || 0)) > 0.004);
+  const showGuaranteedTaxFreeIncome = rowsData.some(r => Math.abs(Number(r.guaranteedTaxFreeIncome || 0)) > 0.004);
 
   if(mode === 'before'){
     const showExistingAnnuityIncome = rowsData.some(r => Math.abs(Number(r.existingAnnuityIncome || 0)) > 0.004);
@@ -3918,7 +4036,8 @@ function tableConfigFromDetails(details, mode='before'){
   if(showConversionTax) cols.push('Conversion\nTaxes');
   if(showRmdUsedForConversionTax) cols.push('RMD USED FOR\nCONVERSION TAX');
   if(showTaxDeductedFromConversion) cols.push('TAX DEDUCTED\nFROM CONVERSION');
-  if(showGuaranteedLifetimeIncome) cols.push(fiaIncomeLabel());
+  if(showGuaranteedTaxableIncome) cols.push('GUARANTEED\nTAXABLE INCOME');
+  if(showGuaranteedTaxFreeIncome) cols.push('GUARANTEED\nTAX-FREE INCOME');
   if(showExistingRothIncome) cols.push('EXISTING ROTH\nTAX-FREE INCOME');
   if(showConvertedRothIncome) cols.push('CONVERTED ROTH\nTAX-FREE INCOME');
   // Gap / Surplus remains calculated and is reflected in the applicable
@@ -3950,7 +4069,8 @@ function tableConfigFromDetails(details, mode='before'){
     if(showConversionTax) row.push(fmt2(r.conversionTax||0));
     if(showRmdUsedForConversionTax) row.push(fmt2(r.rmdAppliedToConversionTax||0));
     if(showTaxDeductedFromConversion) row.push(fmt2(r.conversionTaxDeductedFromConversion||0));
-    if(showGuaranteedLifetimeIncome) row.push(fmt2(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0));
+    if(showGuaranteedTaxableIncome) row.push(fmt2(r.guaranteedTaxableIncome||0));
+    if(showGuaranteedTaxFreeIncome) row.push(fmt2(r.guaranteedTaxFreeIncome||0));
     if(showExistingRothIncome) row.push(fmt2(r.existingRothIncomeWithdrawal||0));
     if(showConvertedRothIncome) row.push(fmt2(r.convertedRothIncomeWithdrawal||0));
     row.push(fmt2(r.incomeGoal ?? r.grossIncome), fmt2(r.taxableIncome), fmt2(r.taxableIncomeAfterDeductions||0), fmt2(r.tax), fmt2(r.grossIncome || 0));
@@ -4350,6 +4470,12 @@ function generatePDF(){
     const recurringTreatment = recurringTaxable <= 0.004 ? 'Tax-free' : (Math.abs(recurringGross-recurringTaxable) <= 0.004 ? 'Taxable' : `${fmt2(recurringTaxable)} taxable / ${fmt2(Math.max(0,recurringGross-recurringTaxable))} tax-free`);
     addIncomeRow(document.getElementById('rentalIncomeTitle')?.value || 'Other Recurring Income', document.getElementById('rentalIncomeOwner')?.value || 'joint', recurringStart > 0 ? `Age ${recurringStart}` : 'Already receiving', recurringGross, recurringTreatment);
   }
+  if((document.getElementById('fiaEnabled')?.value||'no')==='yes' && getStrategyMasterMode()!=='rothOnly'){
+    addIncomeRow(document.getElementById('fiaTitle')?.value||'Guaranteed Lifetime Income',document.getElementById('fiaOwner')?.value||'husband',`Strategy Year ${fiaJointIncomeStartYear()}`,num('fiaAnnualIncome'),fiaIncomeIsTaxFree()?'Tax-free / Roth':'Taxable / Non-Roth');
+  }
+  getAdditionalProposedAnnuities().forEach(a=>{
+    addIncomeRow(a.title,a.owner,`Strategy Year ${a.startYear}`,a.annualIncome,a.taxFree?'Tax-free / Qualified Roth':'Taxable');
+  });
   if(guaranteedIncomeRows.length){
     doc.setFont(undefined,'bold'); doc.setFontSize(13); doc.setTextColor(11,58,111); doc.text('Guaranteed Income',44,nextSummaryY);
     doc.autoTable({
@@ -4442,18 +4568,21 @@ function generatePDF(){
     ['IRMAA Optimization', irmaaOptimizationLabel()],
     ['Medicare IRMAA Coverage Start Ages', `${displayClient1Name()}: ${num('hMedicarePartBStartAge') > 0 ? `Age ${Math.floor(num('hMedicarePartBStartAge'))}` : 'Not modeled'}${(document.getElementById('filingStatus')?.value || 'MFJ')==='MFJ' ? `; ${displayClient2Name()}: ${num('wMedicarePartBStartAge') > 0 ? `Age ${Math.floor(num('wMedicarePartBStartAge'))}` : 'Not modeled'}` : ''}`],
     ['First Tax-Free Income Year', firstPositiveYear(after.details, 'taxFreeIncome')],
-    [fiaIncomeIsTaxFree() ? 'First Guaranteed Tax-Free Income Year' : 'First Guaranteed Taxable Income Year', firstPositiveYear(after.details, fiaIncomeIsTaxFree() ? 'guaranteedTaxFreeIncome' : 'guaranteedTaxableIncome')],
+    ['First Guaranteed Taxable Income Year', firstPositiveYear(after.details,'guaranteedTaxableIncome')],
+    ['First Guaranteed Tax-Free Income Year', firstPositiveYear(after.details,'guaranteedTaxFreeIncome')],
     ['Total Lifetime Guaranteed Income', fmt2((after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0))],
     ['Total Tax-Free Roth Withdrawals', fmt2((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) || 0)],
     ['Tax-Free Estate at Horizon', fmt2(after.taxFreeEstate || 0)],
     ['Projected Tax-Free Residual Benefit (Non-Guaranteed)', fmt2(after.projectedTaxFreeResidualBenefit || 0)],
     ['Total Potential Tax-Free Benefit at Horizon', fmt2((after.taxFreeEstate || 0) + (after.projectedTaxFreeResidualBenefit || 0))],
-    ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + summaryIRMAABenefit + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0)-before.totalTaxFreeIncome) + ((fiaIncomeIsTaxFree() ? (after.totalGuaranteedTaxFreeIncome||0) : (after.totalGuaranteedTaxableIncome||0))-(fiaIncomeIsTaxFree() ? (before.totalGuaranteedTaxFreeIncome||0) : (before.totalGuaranteedTaxableIncome||0))) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
+    ['Estimated Net Benefit', fmt2(((before.totalTaxes-after.totalTaxes) + summaryIRMAABenefit + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0)-before.totalTaxFreeIncome) + ((after.totalGuaranteedTaxFreeIncome||0)+(after.totalGuaranteedTaxableIncome||0)-(before.totalGuaranteedTaxFreeIncome||0)-(before.totalGuaranteedTaxableIncome||0)) + (after.taxFreeEstate-before.taxFreeEstate)) || 0)]
   ];
   const totalGuaranteedIncome = (after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0);
   if(Math.abs(totalGuaranteedIncome) <= 0.004){
     summaryRows = summaryRows.filter(r => !['First Guaranteed Tax-Free Income Year','First Guaranteed Taxable Income Year','Total Lifetime Guaranteed Income'].includes(r[0]));
   }
+  if(Math.abs(Number(after.totalGuaranteedTaxableIncome||0))<=0.004) summaryRows=summaryRows.filter(r=>r[0]!=='First Guaranteed Taxable Income Year');
+  if(Math.abs(Number(after.totalGuaranteedTaxFreeIncome||0))<=0.004) summaryRows=summaryRows.filter(r=>r[0]!=='First Guaranteed Tax-Free Income Year');
   if(Math.abs(Number(after.projectedTaxFreeResidualBenefit || 0)) <= 0.004){
     summaryRows = summaryRows.filter(r => r[0] !== 'Projected Tax-Free Residual Benefit (Non-Guaranteed)');
   }
@@ -4753,7 +4882,7 @@ function generatePDF(){
       }
     }
   });
-  const totalNetBenefit = (before.totalTaxes - after.totalTaxes) + (includeIRMAAComparison ? (before.totalIRMAA - after.totalIRMAA) : 0) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome) + ((fiaIncomeIsTaxFree() ? (after.totalGuaranteedTaxFreeIncome || 0) : (after.totalGuaranteedTaxableIncome || 0)) - (fiaIncomeIsTaxFree() ? (before.totalGuaranteedTaxFreeIncome || 0) : (before.totalGuaranteedTaxableIncome || 0))) + (after.taxFreeEstate - before.taxFreeEstate);
+  const totalNetBenefit = (before.totalTaxes - after.totalTaxes) + (includeIRMAAComparison ? (before.totalIRMAA - after.totalIRMAA) : 0) + ((after.totalTaxFreeIncome || (after.totalTaxFreeRothWithdrawals || after.totalTaxFreeIncome || 0) || 0) - before.totalTaxFreeIncome) + ((after.totalGuaranteedTaxFreeIncome||0)+(after.totalGuaranteedTaxableIncome||0)-(before.totalGuaranteedTaxFreeIncome||0)-(before.totalGuaranteedTaxableIncome||0)) + (after.taxFreeEstate - before.taxFreeEstate);
   const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY : 220;
   if(hasRothConversion){
   doc.setFillColor(11,58,111);
@@ -4841,8 +4970,24 @@ function generatePDF(){
     doc.text(riderStrategyText.bottom(beforeTaxable), 64, yA+292, {maxWidth:665});
     addPdfFooter(doc, doc.getNumberOfPages());
   }
-
-
+  const additionalProposedForReport=getAdditionalProposedAnnuities();
+  if(additionalProposedForReport.length){
+    doc.addPage();
+    addTitle(doc,'Proposed Annuity Income Schedule','Each proposed annuity is modeled independently and begins income in its selected strategy year.');
+    addPdfLogo(doc);
+    const proposedRows=additionalProposedForReport.map(a=>{
+      const lifetime=after.details.reduce((sum,r)=>{
+        const match=(r.additionalGuaranteedIncomeByAccount||[]).find(x=>x.title===a.title);
+        return sum+Math.max(0,Number(match?.amount||0));
+      },0);
+      return [a.title,ownerDisplay(a.owner),a.fundingSource==='roth'?'Qualified Roth':(a.fundingSource==='traditional'?'Traditional IRA':'Nonqualified'),fmt2(a.fundingAmount),`${a.bonusPct.toFixed(1)}%`,`Year ${a.startYear}`,fmt2(a.annualIncome),a.taxFree?'Tax-free':'Taxable',`${(a.survivorPct*100).toFixed(0)}%`,fmt2(lifetime)];
+    });
+    doc.autoTable({startY:78,head:[['Proposed Annuity','Owner','Funding Source','Funding','Bonus','Income Starts','Annual Income','Tax Treatment','Survivor','Projected Lifetime Income']],body:proposedRows,styles:{fontSize:7.2,cellPadding:3,overflow:'linebreak'},headStyles:{fillColor:[11,58,111],textColor:255,fontStyle:'bold'},alternateRowStyles:{fillColor:[245,247,250]},margin:{left:28,right:28}});
+    const noteY=(doc.lastAutoTable?.finalY||160)+18;
+    doc.setFontSize(9);doc.setTextColor(80,80,80);doc.setFont(undefined,'normal');
+    doc.text(doc.splitTextToSize('Traditional IRA-funded annuity income is included in federal taxable income. Qualified Roth-funded annuity income is shown separately as tax-free. A Strategy Year 11 start represents 10 complete deferral years.',720),36,noteY);
+    addPdfFooter(doc,doc.getNumberOfPages());
+  }
 
   if((document.getElementById('fiaEnabled')?.value || 'no') === 'yes'){
     doc.addPage();
@@ -4854,7 +4999,7 @@ function generatePDF(){
     const jointStartRow = after.details.find(r => (r.fiaJointLifetimeIncome || 0) > 0) || firstFiaRow;
     const startAgeText = jointStartRow.age ? String(jointStartRow.age) : ('Year ' + jointStartYear);
     const annualTaxFreeIncome = Math.max(0, num('fiaAnnualIncome'));
-    const totalJointIncome = (fiaIncomeIsTaxFree() ? after.totalGuaranteedTaxFreeIncome : after.totalGuaranteedTaxableIncome) || after.details.reduce((s,r)=>s + Math.max(0, Number(r.guaranteedLifetimeIncome || r.guaranteedTaxFreeIncome || r.guaranteedTaxableIncome || 0)),0);
+    const totalJointIncome = after.details.reduce((s,r)=>s + Math.max(0,Number(r.fiaInitialIncomePayment||0))+Math.max(0,Number(r.fiaJointLifetimeIncome||0)),0);
     const guaranteedDeathBenefitAtHorizon = Math.max(0, num('fiaDeathBenefitHorizon'));
     const projectedResidualAtHorizon = Math.max(0, num('fiaProjectedResidualHorizon'));
     const deathBenefitAtHorizon = guaranteedDeathBenefitAtHorizon;
@@ -5419,6 +5564,20 @@ function collectInheritedIraAccountsForSave(){
     };
   });
 }
+function collectProposedAnnuitiesForSave(){
+  return Array.from(document.querySelectorAll('#proposedAnnuitiesContainer .proposed-annuity-account')).map((row,index)=>({
+    title:row.querySelector('.proposedAnnuityTitle')?.value||`Proposed Annuity ${index+1}`,
+    owner:row.querySelector('.proposedAnnuityOwner')?.value||'husband',
+    fundingSource:row.querySelector('.proposedAnnuityFundingSource')?.value||'traditional',
+    fundingAmount:row.querySelector('.proposedAnnuityFundingAmount')?.value||'0',
+    bonusPct:row.querySelector('.proposedAnnuityBonusPct')?.value||'0',
+    annualIncome:row.querySelector('.proposedAnnuityAnnualIncome')?.value||'0',
+    startYear:row.querySelector('.proposedAnnuityStartYear')?.value||'11',
+    cola:row.querySelector('.proposedAnnuityCola')?.value||'0',
+    survivorPct:row.querySelector('.proposedAnnuitySurvivorPct')?.value||'100',
+    deathBenefit:row.querySelector('.proposedAnnuityDeathBenefit')?.value||'0'
+  }));
+}
 function collectPlannerClientCase(name){
   return {
     version: 1,
@@ -5427,7 +5586,8 @@ function collectPlannerClientCase(name){
     values: collectBasicFormValues(),
     pensions: collectPensionRowsForSave(),
     additionalAccounts: collectAdditionalAccountsForSave(),
-    inheritedIraAccounts: collectInheritedIraAccountsForSave()
+    inheritedIraAccounts: collectInheritedIraAccountsForSave(),
+    proposedAnnuities: collectProposedAnnuitiesForSave()
   };
 }
 function setBasicFieldValues(values){
@@ -5483,6 +5643,13 @@ function setInheritedIraAccountsFromSave(accounts){
   container.innerHTML=rows.map((a,index)=>inheritedIraRowHtml(index+1,a)).join('');
   bindInheritedIraInputs(container);
 }
+function setProposedAnnuitiesFromSave(accounts){
+  const container=document.getElementById('proposedAnnuitiesContainer');
+  if(!container) return;
+  const rows=Array.isArray(accounts)?accounts:[];
+  container.innerHTML=rows.map((a,index)=>proposedAnnuityRowHtml(index+1,a)).join('');
+  bindProposedAnnuityInputs(container);
+}
 function escapeHtmlAttr(value){
   return String(value ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -5493,6 +5660,7 @@ function applyPlannerClientCase(clientCase){
   }
   setAdditionalAccountsFromSave(clientCase.additionalAccounts);
   setInheritedIraAccountsFromSave(clientCase.inheritedIraAccounts);
+  setProposedAnnuitiesFromSave(clientCase.proposedAnnuities);
   setPensionRowsFromSave(clientCase.pensions);
   setBasicFieldValues(clientCase.values);
   // Brokerage-detail visibility is a report-only choice. Never restore it from
@@ -5579,7 +5747,7 @@ function importPlannerClientCase(event){
   reader.readAsText(file);
 }
 
-window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); refreshManualConversionVisibility(); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); applyMasterModeReset(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); bindInheritedIraInputs(); refreshSavedClientSelect(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
+window.addEventListener('DOMContentLoaded', () => { try { ['Title','StartAge','StartMonth','Taxable','TaxFree','Cola','Owner','SurvivorPct','SurvivorCustom'].forEach(suffix => attachDynamicInput(document.getElementById(`pension1${suffix}`))); refreshPensionRowVisibility(1); refreshManualConversionVisibility(); setupSpouseVisibility(); refreshClientDisplay(); renderLogoPreview(); applyMasterModeReset(); syncPremiumToIraTotal(); bindAdditionalAccountInputs(); bindInheritedIraInputs(); bindProposedAnnuityInputs(); refreshSavedClientSelect(); safeCalculate(); } catch(e){ console.error(e); const box=document.getElementById('onscreenDisclaimer'); if(box) box.textContent='Initialization error: '+(e&&e.message?e.message:e); } });
 
 
 
