@@ -1133,7 +1133,7 @@ function incomeGoalAssumptionText(){
     : `${incomeGoalSummaryText()}.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V66';
+const ENGINE_VERSION = 'V67';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -3486,7 +3486,7 @@ function fillMetricTable(id,scenario,pairedScenario){
     addMoneyRow(`Total IRMAA by Age ${planningHorizonAge()}`,scenario.totalIRMAA,pairedScenario?.totalIRMAA);
   }
   if(document.getElementById('includeBrokerageDetailColumns')?.checked){
-    addMoneyRow(`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`,scenario.taxableEstate,pairedScenario?.taxableEstate);
+    addMoneyRow(`Remaining Traditional IRA and Taxable Brokerage Assets at Age ${planningHorizonAge()}`,scenario.taxableEstate,pairedScenario?.taxableEstate);
     addMoneyRow(`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`,scenario.afterTaxLegacyEstate,pairedScenario?.afterTaxLegacyEstate);
   }
   addMoneyRow(`Gross Legacy Estate by Age ${planningHorizonAge()}`,scenario.grossLegacyEstate,pairedScenario?.grossLegacyEstate);
@@ -4707,7 +4707,7 @@ function generatePDF(){
     legacyComparisonRows.push(
       ['After-Tax / Nonqualified Legacy', fmt2(before.afterTaxLegacyEstate||0), fmt2(after.afterTaxLegacyEstate||0), fmt2((after.afterTaxLegacyEstate||0)-(before.afterTaxLegacyEstate||0))],
       ['Taxable Brokerage from Reinvested Excess RMDs', fmt2(before.finalTaxableBrokerage||0), fmt2(after.finalTaxableBrokerage||0), fmt2((after.finalTaxableBrokerage||0)-(before.finalTaxableBrokerage||0))],
-      ['Income-Tax-Exposed Estate', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))]
+      ['Remaining Traditional IRA and Taxable Brokerage Assets', fmt2(before.taxableEstate||0), fmt2(after.taxableEstate||0), fmt2((after.taxableEstate||0)-(before.taxableEstate||0))]
     );
   }
   legacyComparisonRows.push(
@@ -4744,7 +4744,7 @@ function generatePDF(){
   doc.setFontSize(9);
   doc.setTextColor(90,90,90);
   if(includeBrokerageDetails){
-    doc.text(doc.splitTextToSize('Income-Tax-Exposed Estate includes remaining traditional IRA assets, taxable-to-beneficiary accounts, and taxable brokerage assets. After-Tax / Nonqualified Legacy separately shows cash, checking, savings, CDs, and other assets selected as received without beneficiary income tax. These assets may still be part of the gross estate for estate-tax or probate purposes. An IRA amount allocated to the lifetime-income annuity is no longer shown as liquid IRA value.', 680), 58, 478);
+    doc.text(doc.splitTextToSize('Remaining Traditional IRA and Taxable Brokerage Assets includes remaining traditional IRA assets, taxable-to-beneficiary accounts, and taxable brokerage assets. This is a projected asset balance, not a tax bill; the entire brokerage balance is not necessarily taxable. After-Tax / Nonqualified Legacy separately shows cash, checking, savings, CDs, and other assets selected as received without beneficiary income tax. These assets may still be part of the gross estate for estate-tax or probate purposes. An IRA amount allocated to the lifetime-income annuity is no longer shown as liquid IRA value.', 680), 58, 478);
   }
   addPdfFooter(doc, doc.getNumberOfPages());
   }
@@ -4843,7 +4843,7 @@ function generatePDF(){
   if(document.getElementById('includeBrokerageDetailColumns')?.checked){
     const legacyInsertIndex = comparisonRows.findIndex(r => String(r[0]).startsWith('Tax-Exempt Municipal Bond Estate'));
     comparisonRows.splice(legacyInsertIndex < 0 ? comparisonRows.length : legacyInsertIndex,0,
-      [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
+      [`Remaining Traditional IRA and Taxable Brokerage Assets at Age ${planningHorizonAge()}`, before.taxableEstate, after.taxableEstate, before.taxableEstate - after.taxableEstate],
       [`After-Tax / Nonqualified Legacy by Age ${planningHorizonAge()}`, before.afterTaxLegacyEstate||0, after.afterTaxLegacyEstate||0, (after.afterTaxLegacyEstate||0)-(before.afterTaxLegacyEstate||0)]
     );
   }
@@ -5134,7 +5134,7 @@ function generatePDF(){
       [`Total Tax-Free Roth Withdrawals by Age ${planningHorizonAge()}`, conversionTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome, outsideTaxScenario.totalTaxFreeIncome - conversionTaxScenario.totalTaxFreeIncome],
       [`Total RMDs by Age ${planningHorizonAge()}`, conversionTaxScenario.totalRMDs, outsideTaxScenario.totalRMDs, conversionTaxScenario.totalRMDs - outsideTaxScenario.totalRMDs],
       [`Total IRMAA by Age ${planningHorizonAge()}`, conversionTaxScenario.totalIRMAA, outsideTaxScenario.totalIRMAA, conversionTaxScenario.totalIRMAA - outsideTaxScenario.totalIRMAA],
-      [`Income-Tax-Exposed Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
+      [`Remaining Traditional IRA and Taxable Brokerage Assets at Age ${planningHorizonAge()}`, conversionTaxScenario.taxableEstate, outsideTaxScenario.taxableEstate, conversionTaxScenario.taxableEstate - outsideTaxScenario.taxableEstate],
       [`Tax-Free Estate by Age ${planningHorizonAge()}`, conversionTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate, outsideTaxScenario.taxFreeEstate - conversionTaxScenario.taxFreeEstate]
     ];
     doc.autoTable({
@@ -5241,7 +5241,10 @@ function generatePDF(){
     doc.addPage((mode === 'after' || initialColCount >= 16) ? 'legal' : 'letter','l');
     addTitle(doc,title, mode==='before' ? 'Before page shows taxable income and any applicable withdrawals through the selected planning horizon. IRMAA begins at each client\'s entered Medicare IRMAA coverage start age and uses a two-year MAGI lookback.' : 'After page shows conversion taxes, Roth income, tax-free estate, and any applicable withdrawals through the selected planning horizon. IRMAA begins at each client\'s entered Medicare IRMAA coverage start age and uses a two-year MAGI lookback.');
     addPdfLogo(doc);
-    const greenIncomeIndex = tableCfg.cols[0].indexOf('TAX-FREE\nROTH INCOME');
+    const greenIncomeIndexes = tableCfg.cols[0].reduce((indexes, header, index) => {
+      if(['TAX-FREE\nROTH INCOME','EXISTING ROTH\nTAX-FREE INCOME','CONVERTED ROTH\nTAX-FREE INCOME'].includes(header)) indexes.push(index);
+      return indexes;
+    }, []);
     const guaranteedLifetimeIndex = tableCfg.cols[0].indexOf(fiaIncomeLabel());
     const grossIncomeIndex = tableCfg.cols[0].indexOf('GROSS\nINCOME');
     const greenEstateIndex = tableCfg.cols[0].indexOf('TAX-FREE\nESTATE');
@@ -5334,14 +5337,14 @@ function generatePDF(){
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='head' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex || data.column.index===grossIncomeIndex)){
+        if(mode==='after' && data.section==='head' && (greenIncomeIndexes.includes(data.column.index) || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex || data.column.index===grossIncomeIndex)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
           data.cell.styles.halign='center';
           data.cell.styles.valign='middle';
         }
-        if(mode==='after' && data.section==='body' && (data.column.index===greenIncomeIndex || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex || data.column.index===grossIncomeIndex)){
+        if(mode==='after' && data.section==='body' && (greenIncomeIndexes.includes(data.column.index) || data.column.index===greenEstateIndex || data.column.index===guaranteedLifetimeIndex || data.column.index===grossIncomeIndex)){
           data.cell.styles.fillColor=[0,200,83];
           data.cell.styles.textColor=[255,255,255];
           data.cell.styles.fontStyle='bold';
