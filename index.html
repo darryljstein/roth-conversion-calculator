@@ -292,6 +292,11 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
       <div class="field"><label>Tax Bracket Inflation %</label><input id="saTaxInflation" type="number" value="2.6" step="0.1" /></div>
       <div class="field"><label>Quick Action</label><button type="button" class="primary" onclick="standaloneRothCalculate()">Calculate Roth Conversion</button></div>
     </div>
+    <input id="bsExtraBucketsJson" type="hidden" value="[]" />
+    <div style="margin-top:14px;"><button type="button" class="primary" onclick="addBusinessSaleBucket()">+ Add Bucket</button></div>
+    <div class="mode-help">Bucket #1 is funded first. Allocation percentages for Buckets #2 onward divide the remaining proceeds proportionally. For example, weights of 50%, 25%, 15%, and 10% allocate all remaining funds across four buckets.</div>
+    <div id="bsExtraBucketInputs"></div>
+    <div id="bsAllocationSummary" class="note" style="margin-top:12px;"></div>
     <div class="three-col" style="margin-top:16px;">
       <div class="panel"><h3>Tax Impact</h3><table><tbody>
         <tr><td>Tax Before Conversion</td><td id="saTaxBefore">$0</td></tr>
@@ -315,10 +320,10 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
   </div>
 
   <div class="card" id="businessSaleThreeBucketModule" style="border:2px solid #c89a3d; margin-bottom:22px;">
-    <h2 class="section-title">Business Sale / 3-Bucket Wealth Strategy</h2>
-    <div class="small" style="margin-bottom:12px;">For clients selling a business or receiving a large taxable liquidity event. Models a simple 3-bucket allocation: guaranteed household income, long-term growth, and a self-directed stock market bucket.</div>
+    <h2 class="section-title">Business Sale / Multi-Bucket Wealth Strategy</h2>
+    <div class="small" style="margin-bottom:12px;">For clients selling a business or receiving a large taxable liquidity event. Start with income, growth, and discretionary buckets, then add buckets for cash reserves, travel, healthcare, or other goals.</div>
     <div class="inputs-grid" style="grid-template-columns:repeat(4,minmax(160px,1fr));">
-      <div class="field"><label>Include 3-Bucket Strategy in PDF?</label><select id="bsEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
+      <div class="field"><label>Include Bucket Strategy in PDF?</label><select id="bsEnabled"><option value="no" selected>No</option><option value="yes">Yes</option></select></div>
       <div class="field"><label>Client Age</label><input id="bsClientAge" type="number" value="80" min="40" max="100" /></div>
       <div class="field"><label>Spouse Age</label><input id="bsSpouseAge" type="number" value="65" min="40" max="100" /></div>
       <div class="field"><label>Expected Net Sale Proceeds</label><input id="bsNetProceeds" type="number" value="10000000" step="100000" /></div>
@@ -335,7 +340,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
       <div class="field"><label>Bucket #3 Tax Drag %</label><input id="bsPlayTaxDrag" type="number" value="2" step="0.1" /></div>
       <div class="field"><label>Spouse Estate Share %</label><input id="bsSpouseEstatePct" type="number" value="20" step="1" min="0" max="100" /></div>
       <div class="field"><label>Projection Years</label><input id="bsProjectionYears" type="number" value="15" min="1" max="40" step="1" /></div>
-      <div class="field"><label>Quick Action</label><button type="button" class="primary" onclick="calculateBusinessSaleBuckets(true)">Calculate 3-Bucket Strategy</button></div>
+      <div class="field"><label>Quick Action</label><button type="button" class="primary" onclick="calculateBusinessSaleBuckets(true)">Calculate Bucket Strategy</button></div>
     </div>
     <div class="three-col" style="margin-top:16px;">
       <div class="panel"><h3>Bucket #1: Guaranteed Income</h3><table><tbody>
@@ -357,6 +362,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
         <tr><td>Advisor Guardrail</td><td>Speculative / discretionary</td></tr>
       </tbody></table></div>
     </div>
+    <div id="bsExtraBucketResults" class="three-col" style="margin-top:16px;"></div>
     <div class="note" style="margin-top:12px;">Planning note: This module is an allocation and income illustration only. For business-sale taxation, coordinate with the client's CPA, estate attorney, and transaction counsel before finalizing any strategy.</div>
   </div>
 
@@ -618,6 +624,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
                 <div class="field"><label>Current Account Balance ($)</label><input class="inheritedIraBalance" type="number" value="0" min="0" step="1000" /></div>
                 <div class="field"><label>Decedent Year of Death</label><input class="inheritedIraDeathYear" type="number" value="2025" min="2000" max="2100" step="1" /></div>
                 <div class="field"><label>Decedent Age at Death</label><input class="inheritedIraDecedentAge" type="number" value="0" min="0" max="120" step="1" /></div>
+                <div class="field"><label>Traditional IRA Distribution Rule</label><select class="inheritedIraDistributionRule"><option value="auto" selected>Auto — pre-2020 death uses stretch</option><option value="stretch">Lifetime Stretch — No Forced Final Year</option><option value="deadline">Use Entered Final Distribution Year</option></select><div class="mode-help">Auto assumes a direct individual beneficiary using life-expectancy payments for a traditional IRA inherited before 2020. Confirm eligibility with the custodian. Roth accounts retain their entered deadline.</div></div>
                 <div class="field"><label>First Beneficiary RMD Year</label><input class="inheritedIraFirstRmdYear" type="number" value="2026" min="2000" max="2100" step="1" /></div>
                 <div class="field"><label>Initial Beneficiary Divisor</label><input class="inheritedIraInitialDivisor" type="number" value="0" min="0" max="100" step="0.1" /><div class="mode-help">Enter the custodian/CPA divisor for the first beneficiary RMD year. It decreases by 1 each subsequent year.</div></div>
                 <div class="field"><label>Current-Year Custodian RMD ($, optional)</label><input class="inheritedIraCurrentRmd" type="number" value="0" min="0" step="100" /><div class="mode-help">When entered, this overrides the calculated RMD in the first projection year only.</div></div>
@@ -1016,6 +1023,7 @@ function inheritedIraRowHtml(index, values={}){
     <div class="field"><label>Current Account Balance ($)</label><input class="inheritedIraBalance" type="number" value="${escapeHtmlAttr(values.balance ?? 0)}" min="0" step="1000" /></div>
     <div class="field"><label>Decedent Year of Death</label><input class="inheritedIraDeathYear" type="number" value="${deathYear}" min="2000" max="2100" step="1" /></div>
     <div class="field"><label>Decedent Age at Death</label><input class="inheritedIraDecedentAge" type="number" value="${escapeHtmlAttr(values.decedentAge ?? 0)}" min="0" max="120" step="1" /></div>
+    <div class="field"><label>Traditional IRA Distribution Rule</label><select class="inheritedIraDistributionRule"><option value="auto" ${!values.distributionRule || values.distributionRule==='auto'?'selected':''}>Auto — pre-2020 death uses stretch</option><option value="stretch" ${values.distributionRule==='stretch'?'selected':''}>Lifetime Stretch — No Forced Final Year</option><option value="deadline" ${values.distributionRule==='deadline'?'selected':''}>Use Entered Final Distribution Year</option></select><div class="mode-help">Auto assumes a direct individual beneficiary using life-expectancy payments for a traditional IRA inherited before 2020. Confirm eligibility with the custodian. Roth accounts retain their entered deadline.</div></div>
     <div class="field"><label>First Beneficiary RMD Year</label><input class="inheritedIraFirstRmdYear" type="number" value="${firstRmdYear}" min="2000" max="2100" step="1" /></div>
     <div class="field"><label>Initial Beneficiary Divisor</label><input class="inheritedIraInitialDivisor" type="number" value="${escapeHtmlAttr(values.initialDivisor ?? 0)}" min="0" max="100" step="0.1" /></div>
     <div class="field"><label>Current-Year Custodian RMD ($, optional)</label><input class="inheritedIraCurrentRmd" type="number" value="${escapeHtmlAttr(values.currentRmd ?? 0)}" min="0" step="100" /></div>
@@ -1025,9 +1033,12 @@ function inheritedIraRowHtml(index, values={}){
   </div>`;
 }
 function bindInheritedIraInputs(scope=document){
+  refreshInheritedIraDistributionVisibility();
   scope.querySelectorAll('#inheritedIraAccountsContainer input,#inheritedIraAccountsContainer select').forEach(el=>{
     if(el.dataset.boundInheritedIra === 'true') return;
     el.dataset.boundInheritedIra = 'true';
+    el.addEventListener('change',refreshInheritedIraDistributionVisibility);
+    el.addEventListener('input',refreshInheritedIraDistributionVisibility);
     el.addEventListener('input',safeCalculate);
     el.addEventListener('change',safeCalculate);
   });
@@ -1045,6 +1056,24 @@ function removeInheritedIraAccount(btn){
   const container=document.getElementById('inheritedIraAccountsContainer');
   if(row && container && container.querySelectorAll('.inherited-ira-account').length>1){ row.remove(); safeCalculate(); }
 }
+function inheritedIraUsesStretch(account){
+  return account.taxTreatment !== 'roth' && (account.distributionRule === 'stretch' ||
+    (account.distributionRule !== 'deadline' && account.deathYear < 2020));
+}
+function refreshInheritedIraDistributionVisibility(){
+  document.querySelectorAll('#inheritedIraAccountsContainer .inherited-ira-account').forEach(row=>{
+    const account={taxTreatment:row.querySelector('.inheritedIraTaxTreatment')?.value||'traditional',
+      distributionRule:row.querySelector('.inheritedIraDistributionRule')?.value||'auto',
+      deathYear:Number(row.querySelector('.inheritedIraDeathYear')?.value)||2025};
+    const input=row.querySelector('.inheritedIraFinalYear');
+    if(input){input.disabled=inheritedIraUsesStretch(account);input.closest('.field')?.classList.toggle('hidden',input.disabled);}
+  });
+}
+function inheritedIraDistributionNote(account){
+  if(!inheritedIraUsesStretch(account)) return `${account.title}: entered final distribution year ${account.finalYear}.`;
+  const divisor=Math.max(1,account.initialDivisor-Math.max(0,PROJECTION_BASE_TAX_YEAR-account.firstRmdYear));
+  return `${account.title}: lifetime stretch, no forced final-year liquidation. First beneficiary RMD year ${account.firstRmdYear}; initial divisor ${account.initialDivisor.toFixed(1)}; projection-start divisor ${divisor.toFixed(1)}. Confirm the starting factor includes the 2022 table reset when applicable.`;
+}
 function getInheritedIraAccounts(){
   return Array.from(document.querySelectorAll('#inheritedIraAccountsContainer .inherited-ira-account')).map((row,index)=>{
     const value = selector => row.querySelector(selector)?.value;
@@ -1056,6 +1085,7 @@ function getInheritedIraAccounts(){
       rothStrategy:value('.inheritedRothStrategy')||'deadlineReinvest',
       balance:Math.max(0,Number(value('.inheritedIraBalance')||0)),
       deathYear,
+      distributionRule:value('.inheritedIraDistributionRule')||'auto',
       decedentAge:Math.max(0,Number(value('.inheritedIraDecedentAge')||0)),
       firstRmdYear:Math.max(deathYear+1,Math.floor(Number(value('.inheritedIraFirstRmdYear')||(deathYear+1)))),
       initialDivisor:Math.max(0,Number(value('.inheritedIraInitialDivisor')||0)),
@@ -1133,7 +1163,7 @@ function incomeGoalAssumptionText(){
     : `${incomeGoalSummaryText()}.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V67';
+const ENGINE_VERSION = 'V69';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -2853,7 +2883,7 @@ function buildScenario(useStrategy){
         brokerageAmount = amount;
       } else if(isInheritedRoth || calendarYear < a.firstRmdYear){
         amount = 0;
-      } else if(calendarYear >= a.finalYear){
+      } else if(!inheritedIraUsesStretch(a) && calendarYear >= a.finalYear){
         amount = a.balance;
         inheritedIraRmd += amount;
       } else if(year === 1 && a.currentRmd > 0){
@@ -3187,7 +3217,7 @@ function buildScenario(useStrategy){
     inheritedIraAccounts.forEach((a,index)=>{
       const distribution = Math.max(0,Number(inheritedIraRmdByAccount[index]?.amount||0));
       a.balance = Math.max(0,a.balance-distribution);
-      if(a.balance > 0 && calendarYear < a.finalYear){
+      if(a.balance > 0 && (inheritedIraUsesStretch(a) || calendarYear < a.finalYear)){
         a.balance = a.balance * (1 + a.growth/100);
       }
     });
@@ -3553,7 +3583,7 @@ function calculate(){
   const deathSummary = ((document.getElementById('filingStatus')?.value || 'MFJ')==='MFJ' && effectiveDeathWho() && num('deathAge'))
     ? `${capFirst(effectiveDeathWho())} dies first at the end of age ${Math.floor(num('deathAge'))}. Pension survivor continuation, Single filing status, survivor Social Security, and the ${survivorIncomeNeedReductionPct().toFixed(0)}% survivor income-need reduction begin in the following projection year. ${deathEventNoticeText()}`
     : 'No death event is applied.';
-  document.getElementById('assumptionText').innerHTML=`${incomeGoalAssumptionText()} The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and a planned NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)} before it uses Desired Income as a gap-filler. NQ withdrawals use the selected tax treatment and track remaining cost basis so only the taxable portion enters federal taxable income. Each pension is modeled separately with its own taxable amount, tax-free amount, owner, and survivor continuation. Guaranteed FIA income, when enabled, is modeled separately from Roth withdrawals and begins in the entered strategy year. If the income tax treatment is set to Taxable / Non-Roth, that income is included in taxable income instead of tax-free income. Widow Social Security switch modeling, when enabled, uses the widow benefit first and switches to the client's own benefit at the selected age. IRA percentage schedule modeling, when enabled, replaces the flat IRA withdrawal with the entered age-based percentages. Any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${Number(after.bonusPct || 0).toFixed(1)}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode ignores bracket, IRMAA, and UHNW annual caps so the selected conversion window is treated as a hard deadline.' : 'Conversion is constrained by the selected tax bracket and inflation-adjusted tax limits. When IRMAA-aware optimization is enabled, the engine can stretch the conversion period up to the entered maximum years and cap annual conversions to avoid or reduce Medicare IRMAA exposure when possible.'} ${conversionRuleDescription()} ${pensionOwnerLabel}. If a death event is entered, each pension applies its own survivor continuation based on its assigned owner. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
+  document.getElementById('assumptionText').innerHTML=`${incomeGoalAssumptionText()} ${getInheritedIraAccounts().map(a=>escapeHtmlAttr(inheritedIraDistributionNote(a))).join(' ')} The redesigned engine now respects an advisor-entered IRA withdrawal of ${fmt2(num('plannedIraWithdrawal'))} through age ${Math.floor(num('plannedIraEndAge')||70)} and a planned NQ withdrawal of ${fmt2(num('plannedNqWithdrawal'))} from age ${Math.floor(num('plannedNqStartAge')||67)} through age ${Math.floor(num('plannedNqEndAge')||70)} before it uses Desired Income as a gap-filler. NQ withdrawals use the selected tax treatment and track remaining cost basis so only the taxable portion enters federal taxable income. Each pension is modeled separately with its own taxable amount, tax-free amount, owner, and survivor continuation. Guaranteed FIA income, when enabled, is modeled separately from Roth withdrawals and begins in the entered strategy year. If the income tax treatment is set to Taxable / Non-Roth, that income is included in taxable income instead of tax-free income. Widow Social Security switch modeling, when enabled, uses the widow benefit first and switches to the client's own benefit at the selected age. IRA percentage schedule modeling, when enabled, replaces the flat IRA withdrawal with the entered age-based percentages. Any alimony or other deduction of ${fmt2(num('alimonyDeduction'))} is applied through age ${Math.floor(num('alimonyEndAge')||72)}. Premium defaults to ${fmt2(after.premium)}. Bonus defaults to ${Number(after.bonusPct || 0).toFixed(1)}%, which creates a one-time bonus of ${fmt2(after.bonus)}. Beginning value therefore starts at ${fmt2(after.beginning)} and compounds at a gross ${num('growth').toFixed(1)}% annual rate, net of the displayed ${feeLabel()} inside the Premium Finance Roth Conversion illustration. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode ignores bracket, IRMAA, and UHNW annual caps so the selected conversion window is treated as a hard deadline.' : 'Conversion is constrained by the selected tax bracket and inflation-adjusted tax limits. When IRMAA-aware optimization is enabled, the engine can stretch the conversion period up to the entered maximum years and cap annual conversions to avoid or reduce Medicare IRMAA exposure when possible.'} ${conversionRuleDescription()} ${pensionOwnerLabel}. If a death event is entered, each pension applies its own survivor continuation based on its assigned owner. ${deathSummary} If a death event is applied for an MFJ case, the model switches the survivor to Single filing status and carries forward the higher Social Security benefit. ${after.applySpousal ? `Client 2 spousal Social Security modeling is active: once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, the Client 2 annual benefit is modeled as their own reduced benefit plus a reduced spousal excess based on 50% of Client 1 PIA less Client 2 PIA, using a ${(after.spousalFactor*100).toFixed(0)}% reduction factor.` : 'Client 2 spousal Social Security modeling is not active in this run.'}`;
   document.querySelector('#milestoneTable tbody').innerHTML=after.milestones.map(m=>`<tr><td>${m.label}</td><td>${m.age}</td><td>${fmt2(m.income)}</td><td>${fmt2(m.conversion)}</td><td>${fmt2(m.ira)}</td><td>${fmt2(m.additionalRoth||0)}</td><td>${fmt2(m.conversionRoth||0)}</td><td>${fmt2(m.taxFree)}</td></tr>`).join('');
   fillMetricTable('beforeMetrics',before,after); fillMetricTable('afterMetrics',after,before);
   document.getElementById('estateExplain').innerHTML= fiaIncomeIsTaxFree()
@@ -4259,6 +4289,49 @@ function businessSaleTaxLabel(){
   if(v === 'taxfree') return 'Tax-free / Roth-based income';
   return 'Taxable guaranteed income';
 }
+function businessSaleExtraBuckets(){
+  try{
+    const rows = JSON.parse(document.getElementById('bsExtraBucketsJson')?.value || '[]');
+    return Array.isArray(rows) ? rows.filter(row=>row && typeof row==='object').map((row,index)=>({
+      name:String(row.name || `Bucket #${index+4}`),
+      purpose:String(row.purpose || ''),
+      allocation:Math.max(0,Number(row.allocation)||0),
+      growth:Math.max(-99,Number(row.growth)||0),
+      taxDrag:Math.max(0,Number(row.taxDrag)||0)
+    })) : [];
+  }catch(e){ return []; }
+}
+function renderBusinessSaleExtraBuckets(){
+  const container=document.getElementById('bsExtraBucketInputs');
+  if(!container) return;
+  container.innerHTML=businessSaleExtraBuckets().map((row,index)=>`<div class="account-panel" style="margin-top:12px;">
+    <h3>Bucket #${index+4}</h3><div class="inputs-grid">
+    <div class="field"><label>Bucket Name</label><input data-bs-index="${index}" data-bs-field="name" value="${escapeHtmlAttr(row.name)}" /></div>
+    <div class="field"><label>Purpose / Planning Note</label><input data-bs-index="${index}" data-bs-field="purpose" value="${escapeHtmlAttr(row.purpose)}" /></div>
+    <div class="field"><label>Allocation % of Remaining Proceeds</label><input type="number" min="0" max="100" step="1" data-bs-index="${index}" data-bs-field="allocation" value="${row.allocation}" /></div>
+    <div class="field"><label>Growth Rate %</label><input type="number" min="-99" step="0.1" data-bs-index="${index}" data-bs-field="growth" value="${row.growth}" /></div>
+    <div class="field"><label>Annual Tax Drag %</label><input type="number" min="0" step="0.1" data-bs-index="${index}" data-bs-field="taxDrag" value="${row.taxDrag}" /></div>
+    </div><button type="button" onclick="removeBusinessSaleBucket(${index})">Remove Bucket</button></div>`).join('');
+}
+function addBusinessSaleBucket(){
+  const rows=businessSaleExtraBuckets();
+  rows.push({name:`Bucket #${rows.length+4}`,purpose:'',allocation:0,growth:0,taxDrag:0});
+  document.getElementById('bsExtraBucketsJson').value=JSON.stringify(rows);
+  renderBusinessSaleExtraBuckets();calculateBusinessSaleBuckets(true);
+}
+function removeBusinessSaleBucket(index){
+  const rows=businessSaleExtraBuckets();rows.splice(index,1);
+  document.getElementById('bsExtraBucketsJson').value=JSON.stringify(rows);
+  renderBusinessSaleExtraBuckets();calculateBusinessSaleBuckets(true);
+}
+function businessSaleBucketReportRows(bs){
+  return [
+    ['Bucket #1','Guaranteed household income',fmt2(bs.bucket1),`${fmt2(bs.income)} annual income; survivor income ${fmt2(bs.survivorIncome)}`,bs.taxTreatment],
+    ['Bucket #2','Long-term growth / legacy',fmt2(bs.bucket2),`${fmt2(bs.b2Projected)} projected value in ${bs.years} years`,'Growth bucket; taxable drag estimate depends on holdings and turnover'],
+    ['Bucket #3','Stock market play account',fmt2(bs.bucket3),`${fmt2(bs.b3Projected)} projected value in ${bs.years} years`,'Discretionary / speculative bucket with defined guardrails'],
+    ...bs.extraBuckets.map((row,index)=>[`Bucket #${index+4}`,row.name,fmt2(row.funding),`${fmt2(row.projected)} projected value in ${bs.years} years`,`${row.purpose ? row.purpose+'; ' : ''}${row.growth}% growth; ${row.taxDrag}% annual tax drag`])
+  ];
+}
 function calculateBusinessSaleBuckets(updateDom=false){
   const proceeds = Math.max(0, num('bsNetProceeds'));
   const taxReserve = proceeds * Math.max(0, num('bsTaxReservePct')) / 100;
@@ -4271,7 +4344,9 @@ function calculateBusinessSaleBuckets(updateDom=false){
   const remaining = Math.max(0, investable - bucket1);
   const growthPctRaw = Math.max(0, num('bsGrowthPct'));
   const playPctRaw = Math.max(0, num('bsPlayPct'));
-  const pctTotal = Math.max(1, growthPctRaw + playPctRaw);
+  const extraBuckets = businessSaleExtraBuckets();
+  const allocationWeightTotal = growthPctRaw + playPctRaw + extraBuckets.reduce((sum,row)=>sum+row.allocation,0);
+  const pctTotal = allocationWeightTotal || 1;
   const bucket2 = remaining * (growthPctRaw / pctTotal);
   const bucket3 = remaining * (playPctRaw / pctTotal);
   const years = Math.max(1, Math.floor(num('bsProjectionYears') || 1));
@@ -4279,12 +4354,20 @@ function calculateBusinessSaleBuckets(updateDom=false){
   const b3NetRate = Math.max(-0.99, (num('bsPlayGrowthRate') - num('bsPlayTaxDrag')) / 100);
   const b2Projected = bucket2 * Math.pow(1 + b2NetRate, years);
   const b3Projected = bucket3 * Math.pow(1 + b3NetRate, years);
+  extraBuckets.forEach(row=>{
+    row.funding=remaining*row.allocation/pctTotal;
+    row.projected=row.funding*Math.pow(1+Math.max(-0.99,(row.growth-row.taxDrag)/100),years);
+  });
+  const unallocated = allocationWeightTotal > 0 ? 0 : remaining;
   const survivorIncome = income * Math.max(0, num('bsSpouseContinuation')) / 100;
-  const spouseEstateValue = (b2Projected + b3Projected) * Math.max(0, num('bsSpouseEstatePct')) / 100;
+  const spouseEstateValue = (b2Projected + b3Projected + extraBuckets.reduce((sum,row)=>sum+row.projected,0)) * Math.max(0, num('bsSpouseEstatePct')) / 100;
   const taxTreatment = businessSaleTaxLabel();
-  const out = { proceeds, taxReserve, investable, bucket1, income, survivorIncome, bucket2, bucket3, b2Projected, b3Projected, years, spouseEstateValue, taxTreatment };
+  const out = { proceeds, taxReserve, investable, bucket1, income, survivorIncome, bucket2, bucket3, b2Projected, b3Projected, years, spouseEstateValue, taxTreatment, extraBuckets, unallocated, allocationWeightTotal };
   if(updateDom){
     const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('bsAllocationSummary', `Total buckets: ${3+extraBuckets.length}. Allocation weights total ${allocationWeightTotal.toFixed(1)}%; positive weights are scaled proportionally to divide the remaining ${fmt2(remaining)}. Unallocated: ${fmt2(unallocated)}.`);
+    const extraResults=document.getElementById('bsExtraBucketResults');
+    if(extraResults) extraResults.innerHTML=extraBuckets.map((row,index)=>`<div class="panel"><h3>Bucket #${index+4}: ${escapeHtmlAttr(row.name)}</h3><table><tbody><tr><td>Recommended Funding</td><td>${fmt2(row.funding)}</td></tr><tr><td>Projected Value</td><td>${fmt2(row.projected)}</td></tr><tr><td>Annual Tax Drag Estimate</td><td>${fmt2(row.funding*row.taxDrag/100)}</td></tr></tbody></table><div class="small">${escapeHtmlAttr(row.purpose)}</div></div>`).join('');
     set('bsBucket1Funding', fmt2(bucket1));
     set('bsBucket1Income', fmt2(income));
     set('bsSurvivorIncome', fmt2(survivorIncome));
@@ -4299,6 +4382,20 @@ function calculateBusinessSaleBuckets(updateDom=false){
   return out;
 }
 function bindBusinessSaleBuckets(){
+  renderBusinessSaleExtraBuckets();
+  const container=document.getElementById('bsExtraBucketInputs');
+  if(container && !container.dataset.bound){
+    container.dataset.bound='yes';
+    container.addEventListener('input',event=>{
+      const field=event.target.dataset.bsField;
+      if(!['name','purpose','allocation','growth','taxDrag'].includes(field)) return;
+      const rows=businessSaleExtraBuckets(),index=Number(event.target.dataset.bsIndex);
+      if(!rows[index]) return;
+      rows[index][field]=['name','purpose'].includes(field) ? event.target.value : Number(event.target.value)||0;
+      document.getElementById('bsExtraBucketsJson').value=JSON.stringify(rows);
+      calculateBusinessSaleBuckets(true);
+    });
+  }
   ['bsEnabled','bsNetProceeds','bsTaxReservePct','bsIncomeTarget','bsPayoutRate','bsSpouseContinuation','bsIncomeTaxTreatment','bsGrowthPct','bsGrowthRate','bsGrowthTaxDrag','bsPlayPct','bsPlayGrowthRate','bsPlayTaxDrag','bsSpouseEstatePct','bsProjectionYears'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('input', () => calculateBusinessSaleBuckets(true));
@@ -4338,8 +4435,8 @@ function validateReportInputs(){
     if(rentalStart>0 && rentalEnd<rentalStart) errors.push('Rental income last age must be the same as or later than its start age.');
   }
   getInheritedIraAccounts().forEach(a=>{
-    if(a.taxTreatment !== 'roth' && a.initialDivisor <= 0) errors.push(`${a.title}: enter the initial beneficiary divisor so annual RMDs can be calculated through the final distribution year.`);
-    if(a.taxTreatment !== 'roth' && a.finalYear < a.firstRmdYear) errors.push(`${a.title}: final distribution year cannot be before the first beneficiary RMD year.`);
+    if(a.taxTreatment !== 'roth' && a.initialDivisor <= 0) errors.push(`${a.title}: enter the initial beneficiary divisor so annual beneficiary RMDs can be calculated.`);
+    if(!inheritedIraUsesStretch(a) && a.taxTreatment !== 'roth' && a.finalYear < a.firstRmdYear) errors.push(`${a.title}: final distribution year cannot be before the first beneficiary RMD year.`);
   });
   return errors;
 }
@@ -4622,7 +4719,7 @@ function generatePDF(){
   if(businessSaleEnabled && businessSaleEnabled()){
     const bs = calculateBusinessSaleBuckets(false);
     doc.addPage();
-    addTitle(doc,'Business Sale / 3-Bucket Wealth Strategy','Illustrates how expected business-sale proceeds may be segmented into income, growth, and discretionary buckets.');
+    addTitle(doc,'Business Sale / Multi-Bucket Wealth Strategy','Illustrates how expected business-sale proceeds may be segmented into income, growth, and discretionary buckets.');
     addPdfLogo(doc);
     doc.autoTable({
       startY:78,
@@ -4631,6 +4728,8 @@ function generatePDF(){
         ['Expected net sale proceeds', fmt2(bs.proceeds)],
         ['Optional tax reserve', fmt2(bs.taxReserve)],
         ['Net investable after reserve', fmt2(bs.investable)],
+        ['Unallocated proceeds', fmt2(bs.unallocated)],
+        ['Allocation method', 'Bucket #1 funded first; remaining funds divided proportionally across the entered allocation weights'],
         ['Client / spouse ages', `${Math.floor(num('bsClientAge')||0)} / ${Math.floor(num('bsSpouseAge')||0)}`],
         ['Spouse estate share entered', `${Number(num('bsSpouseEstatePct')||0).toFixed(1)}%`]
       ],
@@ -4643,26 +4742,25 @@ function generatePDF(){
     doc.autoTable({
       startY:y1,
       head:[['Bucket','Purpose','Funding','Modeled Outcome','Tax / Planning Note']],
-      body:[
-        ['Bucket #1','Guaranteed household income', fmt2(bs.bucket1), `${fmt2(bs.income)} annual income; survivor income ${fmt2(bs.survivorIncome)}`, bs.taxTreatment],
-        ['Bucket #2','Long-term growth / legacy', fmt2(bs.bucket2), `${fmt2(bs.b2Projected)} projected value in ${bs.years} years`, 'Growth bucket; taxable drag estimate depends on holdings and turnover'],
-        ['Bucket #3','Stock market play account', fmt2(bs.bucket3), `${fmt2(bs.b3Projected)} projected value in ${bs.years} years`, 'Discretionary / speculative bucket with defined guardrails']
-      ],
+      body:businessSaleBucketReportRows(bs),
       styles:{fontSize:9.5,cellPadding:4,overflow:'linebreak'},
       headStyles:{fillColor:[200,154,61],textColor:255,fontStyle:'bold'},
       alternateRowStyles:{fillColor:[245,247,250]},
       columnStyles:{0:{cellWidth:90,fontStyle:'bold'},1:{cellWidth:145},2:{cellWidth:95,halign:'right'},3:{cellWidth:185},4:{cellWidth:230}},
       margin:{left:40,right:40}
     });
-    const y2 = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 330) + 22;
+    let y2 = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : 330) + 22;
     doc.setFont(undefined,'bold');
     doc.setTextColor(11,58,111);
     doc.setFontSize(12);
+    if(y2 + 150 > doc.internal.pageSize.getHeight() - 80){
+      addPdfFooter(doc,doc.getNumberOfPages());doc.addPage();addTitle(doc,'Bucket Strategy — Planning Notes','');y2=90;
+    }
     doc.text('Advisor positioning', 44, y2);
     doc.setFont(undefined,'normal');
     doc.setTextColor(55,65,81);
     doc.setFontSize(10);
-    const note = 'Bucket #1 is designed to cover required household income with a contractual or highly predictable income source. Bucket #2 is designed for long-term growth, inflation protection, and legacy planning. Bucket #3 gives the client a defined pool for active stock-market participation without putting the income plan at risk. Business-sale taxation, charitable planning, estate structure, municipal bond suitability, and installment-sale or trust strategies should be reviewed with the client\'s CPA and estate attorney.';
+    const note = 'Bucket #1 is designed to cover required household income with a contractual or highly predictable income source. Bucket #2 is designed for long-term growth, inflation protection, and legacy planning. Bucket #3 gives the client a defined pool for active stock-market participation without putting the income plan at risk. Additional buckets follow their entered purpose, allocation weight, growth, and annual tax-drag assumptions. Projected growth is illustrative. Business-sale taxation, charitable planning, estate structure, municipal bond suitability, and installment-sale or trust strategies should be reviewed with the client\'s CPA and estate attorney.';
     doc.text(doc.splitTextToSize(note, 700), 44, y2 + 20);
     addPdfFooter(doc, doc.getNumberOfPages());
   }
@@ -5225,7 +5323,7 @@ function generatePDF(){
   doc.addPage();
   addTitle(doc,'Assumptions and Calculation Transparency','This page explains where the tax-free estate and timeline results come from.');
   addPdfLogo(doc);
-  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. ${incomeGoalAssumptionText()} If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. Each spouse's IRA balance, birth-year RMD age, and annual required distribution are modeled separately; one spouse reaching RMD age does not trigger an RMD from the other spouse's IRA. Clients born in 1960 or later use age 75. When income exceeds the entered retirement income goal, the excess is reinvested into a brokerage account. Brokerage growth is modeled as unrealized appreciation: it remains invested, compounds the account value, and is excluded from gross income, taxable income, taxes, and IRMAA. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use the entered pre-projection MAGI for Years 1 and 2, then use the proper projected MAGI from two calendar years earlier beginning in Year 3. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page separates Roth assets under Tax-Free Estate and municipal bonds under Tax-Exempt Municipal Bond Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
+  const transparencyText = doc.splitTextToSize(`${getStrategyMasterMode && getStrategyMasterMode()==='rothOnly' ? 'Master Strategy Mode is Roth Conversion Only, so Premium Finance inputs are ignored and the conversion base comes from the entered IRA balances. ' : (getStrategyMasterMode && getStrategyMasterMode()==='fiaIncome' ? 'Master Strategy Mode is FIA / Income Strategy, so premium and bonus inputs drive the illustrated funding base. ' : 'Master Strategy Mode is Hybrid, so both IRA conversion and FIA / income modules may affect the report. ')}Tax-Free Estate is the projected Roth-side ending value at the selected planning horizon. ${incomeGoalAssumptionText()} If an IRA or NQ bridge withdrawal is entered before that age, the Year-by-Year report treats that scheduled bridge withdrawal as the interim Income Goal, then switches to the formal retirement income goal once it begins. ${getInheritedIraAccounts().map(inheritedIraDistributionNote).join(' ')} This run tracks all entered pensions separately, including taxable and tax-free amounts, pension-specific COLA, pension start timing, partial-year proration, survivor continuation, taxable Social Security calculated separately from user-entered non-SS taxable income, and an alimony or other deduction of ${fmt2(num('alimonyDeduction'))} through age ${Math.floor(num('alimonyEndAge')||72)}. Tax brackets, IRMAA brackets, the standard deduction, and the entered 65+ deduction of ${fmt2(num('seniorDeduction'))} per eligible person are all indexed upward by ${num('taxInflation').toFixed(1)}% annually. Each spouse's IRA balance, birth-year RMD age, and annual required distribution are modeled separately; one spouse reaching RMD age does not trigger an RMD from the other spouse's IRA. Clients born in 1960 or later use age 75. When income exceeds the entered retirement income goal, the excess is reinvested into a brokerage account. Brokerage growth is modeled as unrealized appreciation: it remains invested, compounds the account value, and is excluded from gross income, taxable income, taxes, and IRMAA. IRMAA brackets are inflated annually using the Tax Bracket Inflation field, defaulting to 2.6%, and IRMAA surcharges use the entered pre-projection MAGI for Years 1 and 2, then use the proper projected MAGI from two calendar years earlier beginning in Year 3. The run starts with a premium of ${fmt2(after.premium)} and a one-time upfront bonus of ${Number(after.bonusPct || 0).toFixed(1)}% (${fmt2(after.bonus)}), which creates a beginning value of ${fmt2(after.beginning)}. If Additional Account Funds are entered as Roth, each Roth account is modeled on the Before side at its entered value and own growth rate without bonus, and on the Strategy side with its own bonus percentage and growth rate. The year-by-year pages show Additional Account Assets separately for transparency, while the comparison page separates Roth assets under Tax-Free Estate and municipal bonds under Tax-Exempt Municipal Bond Estate. The Before year-by-year report now separates taxable existing annuity rider income from pension income, so clients can see the taxable FIA/rider income being replaced. The Milestone Summary now breaks Total Tax-Free Assets into Existing Roth Component plus Converted Roth Component so the total can be verified without double-counting. That amount compounds annually by first applying the gross growth rate of ${num('growth').toFixed(1)}%, then applying the displayed ${feeLabel()} for the first 10 years only. Additional Roth conversions are added across the entered ${after.yearsToComplete}-year planning window beginning in Year ${Math.max(1,Math.floor(num('startYear')||1))}. Conversion completion mode is ${conversionCompletionModeLabel()}. ${forceConversionCompletionActive() ? 'Forced Completion Mode converts the remaining eligible IRA balance evenly over the remaining selected window and overrides bracket, IRMAA, and UHNW annual caps so the conversion targets completion by the selected year.' : 'Each active conversion year is capped by the selected During Conversion Target Bracket after applying inflation-adjusted bracket ceilings, the standard deduction, and the entered additional 65+ deduction, while still trying to stay on schedule. If IRMAA-aware optimization is enabled, the conversion cap is further limited by the selected IRMAA rule and the conversion may stretch longer instead of forcing income into an IRMAA surcharge year.'} The After Conversion Target Bracket is shown separately to illustrate the intended post-conversion tax environment once the conversion window is complete. The IRA is reduced by the gross conversion before year-end growth, and the Roth receives only the gross conversion or net conversion depending on the tax payment source. Pension income follows each pension's assigned owner and survivor continuation rule if a death event is entered. UHNW Optimization Mode, when enabled or automatically detected, separates IRA tax exposure from non-qualified/outside assets that may receive a basis step-up, and flags conversions that increase taxes, IRMAA, or reduce step-up-adjusted legacy value. ${after.applySpousal ? `Client 2 spousal Social Security modeling is enabled, so once Client 1 reaches age ${after.hFRAAge.toFixed(1)}, Client 2 is modeled at their own reduced annual benefit plus a reduced spousal excess equal to ((50% of Client 1 PIA minus Client 2 PIA) × ${(after.spousalFactor*100).toFixed(0)}%). ` : ''}If a death event is entered, the survivor shifts from married filing jointly to single and retains the higher Social Security benefit.`, 520);
   doc.setFontSize(11); doc.text(transparencyText,40,84);
   addPdfFooter(doc,6);
   }
@@ -5570,6 +5668,7 @@ function collectInheritedIraAccountsForSave(){
       rothStrategy:value('.inheritedRothStrategy')||'deadlineReinvest',
       balance:value('.inheritedIraBalance')||'0',
       deathYear:value('.inheritedIraDeathYear')||'2025',
+      distributionRule:value('.inheritedIraDistributionRule')||'auto',
       decedentAge:value('.inheritedIraDecedentAge')||'0',
       firstRmdYear:value('.inheritedIraFirstRmdYear')||'2026',
       initialDivisor:value('.inheritedIraInitialDivisor')||'0',
@@ -5677,7 +5776,8 @@ function applyPlannerClientCase(clientCase){
   setInheritedIraAccountsFromSave(clientCase.inheritedIraAccounts);
   setProposedAnnuitiesFromSave(clientCase.proposedAnnuities);
   setPensionRowsFromSave(clientCase.pensions);
-  setBasicFieldValues({...clientCase.values, incomeGoalAgeOwner: clientCase.values.incomeGoalAgeOwner || 'husband'});
+  setBasicFieldValues({...clientCase.values, incomeGoalAgeOwner: clientCase.values.incomeGoalAgeOwner || 'husband', bsExtraBucketsJson: clientCase.values.bsExtraBucketsJson || '[]'});
+  renderBusinessSaleExtraBuckets();calculateBusinessSaleBuckets(true);
   // Brokerage-detail visibility is a report-only choice. Never restore it from
   // a saved/imported client case; require an intentional selection for each report.
   const brokerageDetailOption = document.getElementById('includeBrokerageDetailColumns');
