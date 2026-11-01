@@ -496,12 +496,14 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div class="field"><label>Current Rider Income Taxable %</label><input id="existingAnnuityTaxablePct" type="number" value="100" min="0" max="100" step="1" /></div>
             <div class="field"><label>Annuity 1 Title</label><input id="existingAnnuity1Title" type="text" value="Existing FIA 1" /></div>
             <div class="field"><label>Annuity 1 Account Value</label><input id="existingAnnuity1Value" type="number" value="0" step="1000" /></div>
+            <div class="field"><label>Annuity 1 Included in Owner's Main IRA Balance?</label><select id="existingAnnuity1IncludedInIra"><option value="no" selected>No - Separate Account / Income Only</option><option value="yes">Yes - Debit Main IRA and Credit Its RMD</option></select><div class="mode-help">Select Yes only when this contract value is already included in that owner's Client IRA balance. Payments reduce that balance and satisfy its RMD before any additional RMD cash is withdrawn. Separate annuities must stay No.</div></div>
             <div class="field"><label>Annuity 1 Rider Income Annual</label><input id="existingAnnuity1Income" type="number" value="0" step="100" /></div>
             <div class="field"><label>Annuity 1 Income Start Age</label><input id="existingAnnuity1StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
             <div class="field"><label>Annuity 1 Owner</label><select id="existingAnnuity1Owner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
             <div class="field"><label>Annuity 1 Payout Type</label><select id="existingAnnuity1Payout"><option value="single" selected>Single Life / Stops at Owner Death</option><option value="joint">Joint / Continues to Survivor</option></select></div>
             <div class="field"><label>Annuity 2 Title</label><input id="existingAnnuity2Title" type="text" value="Existing FIA 2" /></div>
             <div class="field"><label>Annuity 2 Account Value</label><input id="existingAnnuity2Value" type="number" value="0" step="1000" /></div>
+            <div class="field"><label>Annuity 2 Included in Owner's Main IRA Balance?</label><select id="existingAnnuity2IncludedInIra"><option value="no" selected>No - Separate Account / Income Only</option><option value="yes">Yes - Debit Main IRA and Credit Its RMD</option></select><div class="mode-help">Select Yes only when this contract value is already included in that owner's Client IRA balance. Payments reduce that balance and satisfy its RMD before any additional RMD cash is withdrawn. Separate annuities must stay No.</div></div>
             <div class="field"><label>Annuity 2 Rider Income Annual</label><input id="existingAnnuity2Income" type="number" value="0" step="100" /></div>
             <div class="field"><label>Annuity 2 Income Start Age</label><input id="existingAnnuity2StartAge" type="number" value="67" min="40" max="100" step="1" /></div>
             <div class="field"><label>Annuity 2 Owner</label><select id="existingAnnuity2Owner"><option value="husband" selected>Client 1</option><option value="wife">Client 2</option></select></div>
@@ -1165,7 +1167,7 @@ function incomeGoalAssumptionText(){
     : `${incomeGoalSummaryText()}.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V72';
+const ENGINE_VERSION = 'V73';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -1928,6 +1930,7 @@ function getExistingAnnuityRiders(){
     startAge: Math.floor(num(`existingAnnuity${i}StartAge`) || 67),
     owner: (document.getElementById(`existingAnnuity${i}Owner`)?.value || 'husband'),
     payout: (document.getElementById(`existingAnnuity${i}Payout`)?.value || 'single'),
+    includedInIra: (document.getElementById(`existingAnnuity${i}IncludedInIra`)?.value || 'no') === 'yes',
     taxablePct
   })).filter(r => r.value > 0 || r.income > 0);
   return riders;
@@ -1938,12 +1941,13 @@ function existingAnnuityRiderIsActive(r, primaryAge, filingStart='MFJ', deathApp
   if(filingStart === 'MFJ' && deathApplied && r.payout !== 'joint' && deathWho && r.owner === deathWho) return false;
   return true;
 }
-function getExistingAnnuityIncomeForAge(primaryAge, filingStart='MFJ', deathApplied=false, deathWho=''){
+function getExistingAnnuityIncomeForAge(primaryAge, filingStart='MFJ', deathApplied=false, deathWho='', projectionYear=null){
   if(!existingAnnuityComparisonEnabled()) return {gross:0, taxable:0, riders:[]};
   const riders = getExistingAnnuityRiders();
   let gross = 0, taxable = 0;
   riders.forEach(r => {
-    if(existingAnnuityRiderIsActive(r, primaryAge, filingStart, deathApplied, deathWho)){
+    const ownerAge = projectionYear === null ? primaryAge : num(r.owner === 'wife' ? 'wAge' : 'hAge') + projectionYear - 1;
+    if(existingAnnuityRiderIsActive(r, ownerAge, filingStart, deathApplied, deathWho)){
       gross += Math.max(0,r.income);
       taxable += Math.max(0,r.income) * r.taxablePct;
     }
@@ -1953,7 +1957,7 @@ function getExistingAnnuityIncomeForAge(primaryAge, filingStart='MFJ', deathAppl
 function existingAnnuityComparisonRows(){
   const riders = getExistingAnnuityRiders();
   if(!riders.length) return [['No existing riders entered','—','—','—','—','—','—']];
-  return riders.map(r => [r.title, existingAnnuityOwnerLabel(r.owner), existingAnnuityPayoutLabel(r.payout), fmt2(r.value), fmt2(r.income), `Age ${r.startAge}`, `${(r.taxablePct*100).toFixed(0)}% taxable`]);
+  return riders.map(r => [r.title, existingAnnuityOwnerLabel(r.owner), existingAnnuityPayoutLabel(r.payout), fmt2(r.value), fmt2(r.income), `Age ${r.startAge}`, `${(r.taxablePct*100).toFixed(0)}% taxable${r.includedInIra ? '; included in owner main IRA, offsets RMD' : '; separate account'}`]);
 }
 function sumExistingAnnuityValue(){ return getExistingAnnuityRiders().reduce((s,r)=>s + Math.max(0,r.value),0); }
 function sumExistingAnnuityIncome(){ return getExistingAnnuityRiders().reduce((s,r)=>s + Math.max(0,r.income),0); }
@@ -2068,7 +2072,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeIRMAAOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeIRMAAOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity1IncludedInIra','existingAnnuity2IncludedInIra','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.splice(allIds.indexOf('planningHorizonAge'), 0,
   'tieredIncomeEnabled','incomeGoalAgeOwner',
   'incomeTier1StartAge','incomeTier1EndAge','incomeTier1Amount','incomeTier1ColaEnabled','incomeTier1Cola',
@@ -2806,7 +2810,7 @@ function buildScenario(useStrategy){
     const annuityIntent = existingAnnuityStrategyIntent();
     const includeExistingAnnuityInScenario = !useStrategy || shouldRetainExistingAnnuityInStrategy();
     const existingAnnuityInfo = includeExistingAnnuityInScenario
-      ? getExistingAnnuityIncomeForAge(primaryAge, filingStart, deathApplied, deathWho)
+      ? getExistingAnnuityIncomeForAge(primaryAge, filingStart, deathApplied, deathWho, year)
       : {gross:0,taxable:0,riders:[]};
     const existingAnnuityIncome = existingAnnuityInfo.gross || 0;
     const existingAnnuityTaxableIncome = existingAnnuityInfo.taxable || 0;
@@ -2877,10 +2881,25 @@ function buildScenario(useStrategy){
     const desiredIncome = Math.max(retirementIncomeGoal, bridgeIncomeGoal * survivorIncomeNeedFactor);
     const alimonyDeduction = primaryAge <= alimonyEndAge ? alimonyDeductionBase : 0;
 
-    const client1Rmd = hAge>=client1RmdStartAge && client1IraBalance>0
+    const client1RmdRequired = hAge>=client1RmdStartAge && client1IraBalance>0
       ? client1IraBalance/uniformLifetimeDivisor(hAge) : 0;
-    const client2Rmd = currentStatus==='MFJ' && wAge>=client2RmdStartAge && client2IraBalance>0
+    const client2RmdRequired = currentStatus==='MFJ' && wAge>=client2RmdStartAge && client2IraBalance>0
       ? client2IraBalance/uniformLifetimeDivisor(wAge) : 0;
+    const linkedIncomeByOwner = [0,0];
+    existingAnnuityInfo.riders.forEach(r=>{
+      const ownerAge = num(r.owner === 'wife' ? 'wAge' : 'hAge') + year - 1;
+      if(!r.includedInIra || !existingAnnuityRiderIsActive(r,ownerAge,filingStart,deathApplied,deathWho)) return;
+      const ownerIndex = currentStatus==='MFJ' && r.owner==='wife' ? 1 : 0;
+      linkedIncomeByOwner[ownerIndex] += Math.max(0,r.income);
+    });
+    const linkedAnnuityClient1Debit = Math.min(client1IraBalance,linkedIncomeByOwner[0]);
+    const linkedAnnuityClient2Debit = Math.min(client2IraBalance,linkedIncomeByOwner[1]);
+    const annuityRmdCredit = Math.min(client1RmdRequired,linkedAnnuityClient1Debit) + Math.min(client2RmdRequired,linkedAnnuityClient2Debit);
+    const client1Rmd = Math.max(0,client1RmdRequired-linkedAnnuityClient1Debit);
+    const client2Rmd = Math.max(0,client2RmdRequired-linkedAnnuityClient2Debit);
+    client1IraBalance = Math.max(0,client1IraBalance-linkedAnnuityClient1Debit);
+    client2IraBalance = Math.max(0,client2IraBalance-linkedAnnuityClient2Debit);
+    ira = client1IraBalance + client2IraBalance;
     let conversionPoolRmd=client1Rmd+client2Rmd;
     let liquidTraditionalRmd=0;
     const liquidTraditionalRmdByAccount=liquidTraditionalAccounts.map(a=>{
@@ -2923,6 +2942,7 @@ function buildScenario(useStrategy){
       return {title:a.title,amount,incomeAmount,brokerageAmount,taxTreatment:a.taxTreatment};
     });
     const rmd=conversionPoolRmd+liquidTraditionalRmd+inheritedIraRmd;
+    const totalRequiredRmd = rmd + annuityRmdCredit;
 
     let rothWithdrawal = 0;
     let existingRothIncomeWithdrawal = 0;
@@ -3144,12 +3164,12 @@ function buildScenario(useStrategy){
     // RMD remains fully taxable and is never converted. Only an uncovered tax
     // shortfall reduces the dollars credited to the Roth account.
     const rmdAppliedToConversionTax = (useStrategy && selectedTaxFundingMethod==='rmdFirst')
-      ? Math.min(Math.max(0,rmd),conversionTax)
+      ? Math.min(Math.max(0,totalRequiredRmd),conversionTax)
       : 0;
     const conversionTaxDeductedFromConversion = useStrategy
       ? (selectedTaxFundingMethod==='outside' ? 0 : Math.max(0,conversionTax-rmdAppliedToConversionTax))
       : 0;
-    const remainingRmdCash = Math.max(0,rmd-rmdAppliedToConversionTax);
+    const remainingRmdCash = Math.max(0,totalRequiredRmd-rmdAppliedToConversionTax);
     detailTax = useStrategy ? totalTaxWithConversion : baseTax;
     totalTax = detailTax;
     const activeTaxCfg = useStrategy ? taxCfgAfter : taxCfgBefore;
@@ -3296,7 +3316,7 @@ function buildScenario(useStrategy){
     totalTaxes += totalTax;
     totalTaxableIncome += activeTaxableIncome;
     totalIRMAA += irmaa;
-    totalRMDs += rmd;
+    totalRMDs += totalRequiredRmd;
 
     const spendableIncomeBeforeBrokerage = currentGrossIncome + rentalIncome + investmentIncome + pension + existingAnnuityIncome + guaranteedLifetimeIncome + ssIncome + nqUsed + nqGapWithdrawal + iraWithdrawal + inheritedRothIncomeWithdrawal + existingRothIncomeWithdrawal + rothWithdrawal - rmdAppliedToConversionTax;
     const displayedIncome = spendableIncomeBeforeBrokerage;
@@ -3360,6 +3380,9 @@ function buildScenario(useStrategy){
       nqRemainingBasis: nqBasis,
       extraIraGapWithdrawal,
       rmd,
+      totalRequiredRmd,
+      annuityRmdCredit,
+      linkedAnnuityIraDebit: linkedAnnuityClient1Debit + linkedAnnuityClient2Debit,
       client1Rmd,
       client2Rmd,
       client1IraBalance,
@@ -4017,6 +4040,7 @@ function tableConfigFromDetails(details, mode='before'){
   const showInvestmentIncome = rowsData.some(r => Math.abs(Number(r.investmentIncome || 0)) > 0.004);
   const rentalColumnTitle = `${String((rowsData.find(r=>r.rentalIncomeTitle)?.rentalIncomeTitle) || 'Rental Income')}\nCash Flow`;
   const showRmd = rowsData.some(r => Math.abs(Number(r.rmd || 0)) > 0.004);
+  const showAnnuityRmdCredit = rowsData.some(r=>Number(r.annuityRmdCredit||0)>0.004);
   const showInheritedRothDistribution = rowsData.some(r => Math.abs(Number(r.inheritedRothDistribution || 0)) > 0.004);
   const showIraWithdrawal = rowsData.some(r => Math.abs(Number(r.nonRmdIraWithdrawal || 0)) > 0.004);
   const showNqWithdrawal = rowsData.some(r => Math.abs(Number(r.plannedNqWithdrawal || 0)) > 0.004);
@@ -4038,6 +4062,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showInvestmentIncome) cols.push('INVESTMENT\nINCOME');
     cols.push('SS','Taxable\nSS',...pensionHeaders);
     if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
+    if(showAnnuityRmdCredit) cols.push('RMD MET BY\nANNUITY*');
     if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
     if(showInheritedRothDistribution) cols.push('INHERITED ROTH\nTAX-FREE\nDISTRIBUTION');
     if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
@@ -4050,7 +4075,7 @@ function tableConfigFromDetails(details, mode='before'){
     if(showIRMAA) cols.push('IRMAA');
     cols.push(showLiquidTraditionalIra ? 'CONVERSION-ELIGIBLE\nIRA' : 'IRA');
     if(showLiquidTraditionalIra) cols.push('LIQUID IRA\nRESERVE');
-    if(showExcessRmd) cols.push('EXCESS RMD\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
+    if(showExcessRmd) cols.push('SURPLUS INCOME\nREINVESTED','UNREALIZED\nAPPRECIATION','BROKERAGE\nVALUE');
     if(showAdditionalAssets) cols.push('ADDITIONAL\nACCOUNT ASSETS');
     if(showNonQualifiedAssets) cols.push('NON-QUALIFIED /\nCASH ASSETS');
     if(showMunicipalAssets) cols.push('TAX-EXEMPT\nMUNICIPAL ASSETS');
@@ -4064,6 +4089,7 @@ function tableConfigFromDetails(details, mode='before'){
       if(showInvestmentIncome) row.push(fmt2(r.investmentIncome||0));
       row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), ...pensionValues(r));
       if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
+      if(showAnnuityRmdCredit) row.push(fmt2(r.annuityRmdCredit||0));
       if(showRmd) row.push(fmt2(r.rmd||0));
       if(showInheritedRothDistribution) row.push(fmt2(r.inheritedRothDistribution||0));
       if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
@@ -4107,7 +4133,8 @@ function tableConfigFromDetails(details, mode='before'){
   if(showInvestmentIncome) cols.push('INVESTMENT\nINCOME');
   cols.push('SS','Taxable\nSS',...pensionHeaders);
   if(showExistingAnnuityIncome) cols.push('Taxable\nAnnuity Income');
-  if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
+  if(showAnnuityRmdCredit) cols.push('RMD MET BY\nANNUITY*');
+    if(showRmd) cols.push('RMD\nRequired\nWithdrawal');
   if(showInheritedRothDistribution) cols.push('INHERITED ROTH\nTAX-FREE\nDISTRIBUTION');
   if(showIraWithdrawal) cols.push('OTHER IRA\nWITHDRAWAL');
   // Show only the tax-free NQ basis portion on the After table. The total NQ
@@ -4145,7 +4172,8 @@ function tableConfigFromDetails(details, mode='before'){
     if(showInvestmentIncome) row.push(fmt2(r.investmentIncome||0));
     row.push(fmt2(r.ssIncome), fmt2(r.taxableSSIncome||0), ...pensionValues(r));
     if(showExistingAnnuityIncome) row.push(fmt2(r.existingAnnuityIncome||0));
-    if(showRmd) row.push(fmt2(r.rmd||0));
+    if(showAnnuityRmdCredit) row.push(fmt2(r.annuityRmdCredit||0));
+      if(showRmd) row.push(fmt2(r.rmd||0));
     if(showInheritedRothDistribution) row.push(fmt2(r.inheritedRothDistribution||0));
     if(showIraWithdrawal) row.push(fmt2(r.nonRmdIraWithdrawal||0));
     if(showTaxFreeNqBasis) row.push(fmt2(r.nqTaxFreeWithdrawal||0));
@@ -4982,7 +5010,9 @@ function generatePDF(){
     [`Total Lifetime Guaranteed Income by Age ${planningHorizonAge()}`, (before.totalGuaranteedTaxFreeIncome || 0) + (before.totalGuaranteedTaxableIncome || 0), (after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0), ((after.totalGuaranteedTaxFreeIncome || 0) + (after.totalGuaranteedTaxableIncome || 0)) - ((before.totalGuaranteedTaxFreeIncome || 0) + (before.totalGuaranteedTaxableIncome || 0))],
     [`Total RMDs by Age ${planningHorizonAge()}`, before.totalRMDs, after.totalRMDs, before.totalRMDs - after.totalRMDs],
     [`Tax-Exempt Municipal Bond Estate by Age ${planningHorizonAge()}`, before.municipalEstate || 0, after.municipalEstate || 0, (after.municipalEstate || 0) - (before.municipalEstate || 0)],
-    [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate]
+    [`Tax-Free Estate by Age ${planningHorizonAge()}`, before.taxFreeEstate, after.taxFreeEstate, after.taxFreeEstate - before.taxFreeEstate],
+    ['Brokerage Estate - Assumed Basis Adjustment (component)',before.stepUpEligibleBrokerage||0,after.stepUpEligibleBrokerage||0,(after.stepUpEligibleBrokerage||0)-(before.stepUpEligibleBrokerage||0)],
+    ['Combined Roth + Brokerage Estate (subtotal)',before.rothAndBrokerageEstate||0,after.rothAndBrokerageEstate||0,(after.rothAndBrokerageEstate||0)-(before.rothAndBrokerageEstate||0)]
   ];
   if(includeIRMAAComparison){
     comparisonRows.splice(4,0,[`Total IRMAA by Age ${planningHorizonAge()}`, before.totalIRMAA, after.totalIRMAA, before.totalIRMAA - after.totalIRMAA]);
@@ -5536,9 +5566,10 @@ function generatePDF(){
       doc.setFont(undefined,'normal');
     };
     if(details.some(r=>Number(r.stepUpEligibleBrokerage||0)>0)) writeDetailNote('* Roth + Brokerage Estate combines projected Roth assets with eligible NQ brokerage assets and reinvested brokerage cash, assuming a full basis adjustment at death at the planning horizon. Brokerage values overlap the separate NQ / Cash Assets column and must not be added again. This is a federal income-tax legacy illustration, not an estate-tax exemption; future earnings remain taxable. NQ annuity earnings and accounts marked taxable legacy are excluded. Confirm ownership and basis-adjustment eligibility.');
+    if(details.some(r=>Number(r.annuityRmdCredit||0)>0)) writeDetailNote('* RMD Met by Annuity is already included in taxable annuity income, not additional cash. The RMD withdrawal column shows only additional required cash after linked annuity payments. Linked payments reduce the owner main IRA balance once; lifetime RMD totals include the credited portion. Contract-value growth is illustrative, not an insurer death-benefit projection.');
     writeDetailNote('Gross Taxable Income shows taxable income sources before deductions. Federal Taxable After Deductions subtracts the modeled standard, age-65+, and other entered deductions and is the amount used to identify the marginal federal bracket.', [11,58,111], true);
     if(document.getElementById('includeBrokerageDetailColumns')?.checked && mode==='before' && details.some(r => Number(r.excessRmdReinvested || 0) > 0)){
-      writeDetailNote('Excess RMD Reinvestment: required IRA distributions above the retirement income goal are reinvested into a brokerage account. Modeled account growth is shown as unrealized appreciation and does not create current-year taxable income.', [146,64,14], true);
+      writeDetailNote('Surplus Income Reinvestment: only modeled cash income above the entered income goal is reinvested into brokerage. This can include annuity, Social Security, and withdrawal income; it is not an additional RMD distribution. Brokerage growth remains invested.', [146,64,14], true);
     }
     if(document.getElementById('includeBrokerageDetailColumns')?.checked && mode==='after' && details.some(r => Number(r.surplusIncomeReinvested || 0) > 0)){
       writeDetailNote('Surplus Income Reinvestment: modeled income above the annual income goal is deposited into a brokerage account. Modeled account growth is shown as unrealized appreciation and remains invested without creating current-year taxable income.', [146,64,14], true);
@@ -5827,7 +5858,7 @@ function applyPlannerClientCase(clientCase){
   setInheritedIraAccountsFromSave(clientCase.inheritedIraAccounts);
   setProposedAnnuitiesFromSave(clientCase.proposedAnnuities);
   setPensionRowsFromSave(clientCase.pensions);
-  setBasicFieldValues({...clientCase.values, incomeGoalAgeOwner: clientCase.values.incomeGoalAgeOwner || 'husband', bsExtraBucketsJson: clientCase.values.bsExtraBucketsJson || '[]', phasedRothGrowthEnabled: clientCase.values.phasedRothGrowthEnabled || 'no', postConversionRothGrowth: clientCase.values.postConversionRothGrowth ?? '12'});
+  setBasicFieldValues({...clientCase.values, incomeGoalAgeOwner: clientCase.values.incomeGoalAgeOwner || 'husband', bsExtraBucketsJson: clientCase.values.bsExtraBucketsJson || '[]', phasedRothGrowthEnabled: clientCase.values.phasedRothGrowthEnabled || 'no', postConversionRothGrowth: clientCase.values.postConversionRothGrowth ?? '12', existingAnnuity1IncludedInIra: clientCase.values.existingAnnuity1IncludedInIra || 'no', existingAnnuity2IncludedInIra: clientCase.values.existingAnnuity2IncludedInIra || 'no'});
   renderBusinessSaleExtraBuckets();calculateBusinessSaleBuckets(true);
   // Brokerage-detail visibility is a report-only choice. Never restore it from
   // a saved/imported client case; require an intentional selection for each report.
