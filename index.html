@@ -1167,7 +1167,7 @@ function incomeGoalAssumptionText(){
     : `${incomeGoalSummaryText()}.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V73';
+const ENGINE_VERSION = 'V74';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -1953,6 +1953,59 @@ function getExistingAnnuityIncomeForAge(primaryAge, filingStart='MFJ', deathAppl
     }
   });
   return {gross, taxable, riders};
+}
+function drawAnnuityComparisonPanels(doc, y, leftLines, rightLines, proposedTitle, centerText){
+  const fontSize=9.5, lineHeight=11.5, bulletGap=9;
+  doc.setFont(undefined,'normal');doc.setFontSize(fontSize);
+  const wrap = list => list.map(t=>doc.splitTextToSize('• '+t,270));
+  const left=wrap(leftLines), right=wrap(rightLines);
+  const height = blocks=>blocks.reduce((sum,lines)=>sum+lines.length*lineHeight,0)+Math.max(0,blocks.length-1)*bulletGap;
+  const cardHeight=Math.max(220, Math.max(height(left),height(right))+34);
+  doc.setFont(undefined,'bold');doc.setFontSize(11.5);
+  doc.setTextColor(220,53,69);doc.text('CURRENT PLAN: Taxable Rider Income',68,y+22);
+  doc.setTextColor(0,150,80);doc.text(doc.splitTextToSize(proposedTitle,295),445,y+22);
+  doc.setDrawColor(220,53,69);doc.setFillColor(255,241,242);doc.roundedRect(52,y+34,310,cardHeight,10,10,'FD');
+  doc.setDrawColor(0,150,80);doc.setFillColor(236,253,245);doc.roundedRect(430,y+34,310,cardHeight,10,10,'FD');
+  doc.setFont(undefined,'normal');doc.setFontSize(fontSize);doc.setTextColor(30,30,30);
+  const write=(blocks,x)=>{let cursor=y+56;for(const lines of blocks){doc.text(lines,x,cursor,{lineHeightFactor:lineHeight/fontSize});cursor+=lines.length*lineHeight+bulletGap;}};
+  write(left,72);write(right,450);
+  const centerY=y+34+cardHeight/2;
+  doc.setDrawColor(120,120,120);doc.line(372,centerY,420,centerY);
+  doc.setFont(undefined,'bold');doc.setFontSize(8);doc.setTextColor(11,58,111);
+  const centerLines=doc.splitTextToSize(centerText,52);
+  doc.text(centerLines,396,centerY-centerLines.length*9.2/2,{align:'center',lineHeightFactor:1.15});
+  return y+34+cardHeight;
+}
+function drawAnnuityStrategyBanner(doc, y, message){
+  const fontSize=10, lineHeight=12, padding=12;
+  doc.setFont(undefined,'bold');doc.setFontSize(fontSize);
+  const lines=doc.splitTextToSize(message,664);
+  const height=padding*2+lines.length*lineHeight;
+  if(y+height>doc.internal.pageSize.getHeight()-82){
+    addPdfFooter(doc,doc.getNumberOfPages());doc.addPage('letter','l');
+    addTitle(doc,'Annuity Strategy Summary');addPdfLogo(doc);y=90;
+  }
+  doc.setFillColor(11,58,111);doc.roundedRect(52,y,688,height,6,6,'F');
+  doc.setFont(undefined,'bold');doc.setFontSize(fontSize);doc.setTextColor(255,255,255);
+  doc.text(lines,64,y+padding+fontSize,{lineHeightFactor:lineHeight/fontSize});
+  return {y,height,lines};
+}
+function proposedIncomeComparisonSummary(details){
+  const first = (details || []).find(r=>Number(r.guaranteedTaxableIncome||0)>0 || Number(r.guaranteedTaxFreeIncome||0)>0 || Number(r.taxFreeIncome||0)>0) || {};
+  const taxable = Math.max(0,Number(first.guaranteedTaxableIncome||0));
+  const guaranteedTaxFree = Math.max(0,Number(first.guaranteedTaxFreeIncome||0));
+  const rothWithdrawals = Math.max(0,Number(first.taxFreeIncome||0));
+  const taxFree = guaranteedTaxFree + rothWithdrawals;
+  const lines = [];
+  if(rothWithdrawals>0) lines.push(`Roth tax-free income modeled: ${fmt2(rothWithdrawals)}`);
+  if(guaranteedTaxFree>0) lines.push(`Guaranteed tax-free income modeled: ${fmt2(guaranteedTaxFree)}`);
+  if(taxable>0) lines.push(`Guaranteed taxable income modeled: ${fmt2(taxable)}`);
+  if(!lines.length) lines.push('No proposed income withdrawals modeled yet.');
+  return {
+    title: taxFree>0 && taxable>0 ? 'PROPOSED PLAN: Mixed Income Strategy' : taxFree>0 ? 'PROPOSED PLAN: Roth / Tax-Free Strategy' : taxable>0 ? 'PROPOSED PLAN: Taxable Income Strategy' : 'PROPOSED PLAN: Roth / Reserve Strategy',
+    lines,
+    explanation: taxFree>0 && taxable>0 ? 'Tax-free Roth and taxable annuity income are shown separately using the modeled tax treatment.' : taxFree>0 ? 'Roth tax-free income is modeled separately from taxable income. Roth account withdrawals are projections, not a guaranteed annuity payout.' : taxable>0 ? 'Taxable annuity income remains included in the modeled tax calculation.' : 'The proposed account is modeled as a reserve; no income withdrawals are shown.'
+  };
 }
 function existingAnnuityComparisonRows(){
   const riders = getExistingAnnuityRiders();
@@ -5112,26 +5165,12 @@ function generatePDF(){
       margin:{left:40,right:40}
     });
     const yA = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 18 : 170;
-    const firstAfter = after.details.find(r => (r.guaranteedTaxableIncome||0)>0 || (r.guaranteedTaxFreeIncome||0)>0 || (r.taxFreeIncome||0)>0) || after.details[0] || {};
-    const proposedGuaranteedIncome = Math.max(num('fiaAnnualIncome'), firstAfter.guaranteedTaxableIncome || firstAfter.guaranteedTaxFreeIncome || firstAfter.taxFreeIncome || 0);
-    const proposedIncomeTreatment = fiaIncomeIsTaxFree() ? 'tax-free' : 'taxable';
+    const proposedIncomeSummary = proposedIncomeComparisonSummary(after.details);
     const beforeTaxable = sumExistingAnnuityIncome();
     const annuityIntentForReport = existingAnnuityStrategyIntent();
     const existingContractCount = getExistingAnnuityRiders().length;
     const existingContractLabel = `${existingContractCount} existing income annuity contract${existingContractCount === 1 ? '' : 's'}: ${fmt2(sumExistingAnnuityValue())}`;
 
-    // Mind map style left/right boxes
-    doc.setFont(undefined,'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(220,53,69);
-    doc.text('CURRENT PLAN: Taxable Rider Income', 68, yA+22);
-    doc.setTextColor(0,150,80);
-    doc.text(fiaIncomeIsTaxFree() ? 'PROPOSED PLAN: Roth / Tax-Free Strategy' : 'PROPOSED PLAN: Guaranteed Taxable Income Strategy', 445, yA+22);
-    doc.setDrawColor(220,53,69); doc.setFillColor(255,241,242);
-    doc.roundedRect(52, yA+34, 310, 220, 10, 10, 'FD');
-    doc.setDrawColor(0,150,80); doc.setFillColor(236,253,245);
-    doc.roundedRect(430, yA+34, 310, 220, 10, 10, 'FD');
-    doc.setFont(undefined,'normal'); doc.setFontSize(10); doc.setTextColor(30,30,30);
     const leftLines = [
       existingContractLabel,
       `Annual rider income: ${fmt2(beforeTaxable)}`,
@@ -5144,19 +5183,11 @@ function generatePDF(){
       `Premium / conversion base: ${fmt2(after.premium)}`,
       `Bonus modeled: ${Number(after.bonusPct || 0).toFixed(1)}% = ${fmt2(after.bonus)}`,
       `Projected tax-free estate: ${fmt2(after.taxFreeEstate)}`,
-      `${fiaIncomeIsTaxFree() ? 'Tax-free income modeled' : 'Guaranteed taxable income modeled'}: ${fmt2(proposedGuaranteedIncome)}`,
-      fiaIncomeIsTaxFree() ? 'Roth / tax-free income is designed to reduce future taxable income and improve legacy efficiency.' : 'Guaranteed taxable income is designed to replace the existing taxable rider income while preserving the Roth reserve / legacy strategy.'
+      proposedIncomeSummary.lines.join(' / '),
+      proposedIncomeSummary.explanation
     ];
-    leftLines.forEach((t,i)=>doc.text(doc.splitTextToSize('• '+t, 270), 72, yA+64+i*34));
-    rightLines.forEach((t,i)=>doc.text(doc.splitTextToSize('• '+t, 270), 450, yA+64+i*34));
-    doc.setDrawColor(120,120,120);
-    doc.line(372, yA+144, 420, yA+144);
-    doc.setFont(undefined,'bold'); doc.setFontSize(12); doc.setTextColor(11,58,111);
-    doc.text(riderStrategyText.center, 396, yA+132, {align:'center', maxWidth:120});
-    doc.setFillColor(11,58,111);
-    doc.roundedRect(52, yA+270, 688, 34, 6, 6, 'F');
-    doc.setTextColor(255,255,255); doc.setFontSize(11);
-    doc.text(riderStrategyText.bottom(beforeTaxable), 64, yA+292, {maxWidth:665});
+    const annuityComparisonBottom = drawAnnuityComparisonPanels(doc, yA, leftLines, rightLines, proposedIncomeSummary.title, riderStrategyText.center);
+    drawAnnuityStrategyBanner(doc, annuityComparisonBottom + 16, riderStrategyText.bottom(beforeTaxable));
     addPdfFooter(doc, doc.getNumberOfPages());
   }
   const additionalProposedForReport=getAdditionalProposedAnnuities();
