@@ -584,6 +584,7 @@ document.getElementById('addAccountBtn').addEventListener('click', function(){
             <div class="inputs-grid">
               <div class="field"><label>Enable Guaranteed Lifetime Income</label><select id="fiaEnabled"><option value="yes">Yes</option><option value="no" selected>No</option></select></div>
               <div class="field"><label>Income Tax Treatment</label><select id="fiaTaxTreatment"><option value="taxfree" selected>Roth / Tax-Free</option><option value="taxable">Taxable / Non-Roth</option></select></div>
+              <div class="field"><label>Roth Annuity Income Funding</label><select id="fiaRothIncomeFunding"><option value="converted" selected>Converted Roth Balance - Deduct Payments from Account Value</option><option value="separate">Separate Roth Annuity - Funded Outside Conversion Pool</option></select><div class="mode-help">In Hybrid mode, Roth annuity payments reduce the converted Roth account before growth. Entered lifetime income can continue when modeled account value reaches zero. Choose Separate only for a different, already-funded contract whose value is not in the conversion pool.</div></div>
               <div class="field"><label>Income Title</label><input id="fiaTitle" type="text" value="Fixed Index Annuity Guaranteed Lifetime Income" /></div>
               <div class="field"><label>Initial FIA Income Payment</label><input id="fiaInitialIncomePayment" type="number" value="0" min="0" step="100" /><div class="mode-help">One-time initial income payment before joint lifetime income begins.</div></div>
               <div class="field"><label>Initial Payment Begins in Days</label><input id="fiaInitialPaymentDays" type="number" value="30" min="1" max="365" step="1" /></div>
@@ -1168,7 +1169,7 @@ function incomeGoalAssumptionText(){
     : `${incomeGoalSummaryText()}.`;
 }
 const DISCLAIMER = `The following calculations are made available as self-help tools for independent use. Thesauros Planning Group does not guarantee applicability to any individual circumstances. Thesauros Planning Group encourages you to seek personal guidance from qualified professionals regarding all personal finance issues. This analysis is based solely on the information you provide. The results presented by this calculator are hypothetical and for illustrative purposes, and do not represent the current or future performance of any specific financial product. No guarantees are made as to the accuracy of any projection. All financial products carry a degree of risk, and past performance is not a guarantee of future results. Generally, the greater the return, the greater the risk. This calculator does not reflect any possible taxes. It also does not reflect fees, expenses and charges that may be associated with a financial product holding the savings. Intellectual Property of Thesauros Planning Group: "Unauthorized duplication, distribution, or reproduction of this work in any form is strictly prohibited and will result in legal consequences".`;
-const ENGINE_VERSION = 'V76';
+const ENGINE_VERSION = 'V77';
 
 function handleClientTranscriptUpload(event){
   const file = event?.target?.files?.[0];
@@ -1817,6 +1818,23 @@ function fiaIncomeIsTaxFree(){
   if(getStrategyMasterMode() === 'fiaIncome' && traditionalIraFunding > 0) return false;
   return (document.getElementById('fiaTaxTreatment')?.value || 'taxfree') !== 'taxable';
 }
+function linkedConvertedRothAnnuityEnabled(){
+  return getStrategyMasterMode() === 'hybrid'
+    && (document.getElementById('fiaEnabled')?.value || 'no') === 'yes'
+    && fiaIncomeIsTaxFree()
+    && (document.getElementById('fiaRothIncomeFunding')?.value || 'converted') === 'converted';
+}
+function deductRothAnnuityPayment(buckets, payment){
+  const requested = Math.max(0,Number(payment||0));
+  const total = buckets.reduce((sum,b)=>sum+Math.max(0,b.balance),0);
+  const debit = Math.min(total,requested);
+  if(total>0 && debit>0) buckets.forEach(b=>{b.balance=Math.max(0,b.balance-debit*b.balance/total);});
+  return {debit, beyondAccountValue:Math.max(0,requested-debit)};
+}
+function rothAnnuityFundingAssumptionText(){
+  if(!linkedConvertedRothAnnuityEnabled()) return '';
+  return 'Roth annuity income is linked to the converted Roth account. Each payment reduces modeled account value before annual growth and before any additional Roth gap withdrawal. The payment is included in income once. Entered lifetime payments continue after modeled account value reaches zero, assuming the entered contract guarantee applies. Roth Estate shows the remaining modeled account value, not an insurer-quoted death benefit. Use a carrier illustration to verify actual contract values and guarantees.';
+}
 function fiaIncomeLabel(){
   return fiaIncomeIsTaxFree() ? 'GUARANTEED\nTAX-FREE INCOME' : 'GUARANTEED\nTAXABLE INCOME';
 }
@@ -2126,7 +2144,7 @@ function safeCalculate(){
   }
 }
 
-const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeIRMAAOnComparison','includeBrokerageEstateOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity1IncludedInIra','existingAnnuity2IncludedInIra','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
+const allIds = ['strategyMasterMode','desiredIncome','incomeCola','incomeStartAge','planningHorizonAge','scenarioMode','filingStatus','deathWho','deathAge','includeTaxFundingComparison','includeLegacyValueComparison','includeTaxRatesOnComparison','includeIRMAAOnComparison','includeBrokerageEstateOnComparison','includeBrokerageDetailColumns','targetBracket','taxInflation','seniorDeduction','bonusPct','premium','client1LifetimeIncomeIraFunding','client2LifetimeIncomeIraFunding','startYear','conversionYears','conversionCompletionMode','hAge','wAge','hIra','wIra','plannedIraWithdrawal','plannedIraEndAge','plannedNqWithdrawal','plannedNqStartAge','plannedNqEndAge','nqAccountValue','nqCostBasis','nqGrowthRate','nqTaxTreatment','nqCustomTaxablePct','alimonyDeduction','alimonyEndAge','cola','hSSAge','hSS','hSSTiming','hSSStartMonth','wSSAge','wSS','wSSTiming','wSSStartMonth','hCurrentIncome','hTaxableIncome','hIncomeEndAge','wCurrentIncome','wTaxableIncome','wIncomeEndAge','rentalIncomeEnabled','rentalIncomeTitle','rentalGrossIncome','rentalTaxableIncome','rentalStartAge','rentalEndAge','rentalIncomeCola','rentalIncomeOwner','rentalIncomeSurvivorPct','investmentInterestIncome','investmentOrdinaryDividends','investmentQualifiedDividends','investmentIncomeStartAge','investmentIncomeEndAge','investmentIncomeGrowth','growth','outsideAssets','desiredIncome','clientName','client1Name','client2Name','applySpousal','hFRAAge','hPIA','wPIA','wOwnSSCurrent','spousalFactor','feePct','feeType','fiaEnabled','fiaRothIncomeFunding','fiaTitle','fiaInitialIncomePayment','fiaInitialPaymentDays','fiaAnnualIncome','fiaJointIncomeStartMonth','fiaStartYear','fiaCola','fiaOwner','fiaSurvivorPct','fiaSurvivorCustom','fiaDeathBenefitHorizon','fiaProjectedResidualHorizon','widowSwitchEnabled','widowSSAnnual','widowSSStartAge','ownSSAnnualAtSwitch','ownSSSwitchAge','iraPctScheduleEnabled','iraBridgePct','iraBridgeStartAge','iraBridgeEndAge','iraPostPct','iraPostStartAge','existingAnnuityCompareEnabled','existingAnnuityTaxablePct','existingAnnuity1Title','existingAnnuity1Value','existingAnnuity1Income','existingAnnuity1StartAge','existingAnnuity2Title','existingAnnuity2Value','existingAnnuity2Income','existingAnnuity2StartAge','existingAnnuity1Owner','existingAnnuity1Payout','existingAnnuity1IncludedInIra','existingAnnuity2IncludedInIra','existingAnnuity2Owner','existingAnnuity2Payout','irmaaOptimizationMode','irmaaMaxConversionYears','irmaaSafetyBuffer','irmaaMagiTwoYearsPrior','irmaaMagiPriorYear'];
 allIds.splice(allIds.indexOf('planningHorizonAge'), 0,
   'tieredIncomeEnabled','incomeGoalAgeOwner',
   'incomeTier1StartAge','incomeTier1EndAge','incomeTier1Amount','incomeTier1ColaEnabled','incomeTier1Cola',
@@ -2844,6 +2862,9 @@ function buildScenario(useStrategy){
   let deathApplied=false;
   let survivorSnapshotBefore=null, survivorSnapshotAfter=null;
   let conversionFinishedYear = null;
+  let totalRothAnnuityAccountDebit=0, totalRothAnnuityBeyondAccountValue=0;
+  let rothAnnuityFundingEstablished=false;
+  let rothAnnuityFundingMissingAtStart=false;
   let carriedHigherSS = 0;
   let survivorSSBaseYear = 0;
   let currentGrossIncome = 0;
@@ -2858,6 +2879,17 @@ function buildScenario(useStrategy){
     const guaranteedLifetimeIncome = guaranteedIncomeComponents.total + additionalGuaranteedIncomeComponents.total;
     const guaranteedTaxFreeIncome = (fiaIncomeIsTaxFree() ? guaranteedIncomeComponents.total : 0) + additionalGuaranteedIncomeComponents.taxFree;
     const guaranteedTaxableIncome = (fiaIncomeIsTaxFree() ? 0 : guaranteedIncomeComponents.total) + additionalGuaranteedIncomeComponents.taxable;
+    // The main Roth rider and converted account represent the same dollars.
+    // Debit its payment before another gap withdrawal can spend those dollars.
+    const linkedRothAnnuityPayment = useStrategy && linkedConvertedRothAnnuityEnabled() ? guaranteedIncomeComponents.total : 0;
+    if(linkedRothAnnuityPayment>0 && !rothAnnuityFundingEstablished){
+      if(rothBuckets.some(b=>b.balance>0.004)) rothAnnuityFundingEstablished=true;
+      else rothAnnuityFundingMissingAtStart=true;
+    }
+    const rothAnnuityFunding = deductRothAnnuityPayment(rothBuckets,linkedRothAnnuityPayment);
+    totalRothAnnuityAccountDebit += rothAnnuityFunding.debit;
+    totalRothAnnuityBeyondAccountValue += rothAnnuityFunding.beyondAccountValue;
+
     // Existing rider income always appears on the Current Situation side. On the
     // Strategy side it remains active when the advisor selects Retain or Supplement,
     // and is removed only when Replace Existing Income Rider is selected.
@@ -3464,6 +3496,9 @@ function buildScenario(useStrategy){
       guaranteedTaxFreeIncome,
       guaranteedTaxableIncome,
       guaranteedLifetimeIncome,
+      linkedRothAnnuityPayment,
+      rothAnnuityAccountDebit:rothAnnuityFunding.debit,
+      rothAnnuityBeyondAccountValue:rothAnnuityFunding.beyondAccountValue,
       additionalGuaranteedIncomeByAccount: additionalGuaranteedIncomeComponents.rows,
       fiaInitialIncomePayment: guaranteedIncomeComponents.initialPayment,
       fiaJointLifetimeIncome: guaranteedIncomeComponents.jointLifetimeIncome,
@@ -3589,6 +3624,7 @@ function buildScenario(useStrategy){
     taxableEstate + afterTaxLegacyEstate + roundMoney(municipalEstate) + roundMoney(roth + finalInheritedRothIra)
   );
   return {
+    totalRothAnnuityAccountDebit, totalRothAnnuityBeyondAccountValue, rothAnnuityFundingMissingAtStart,
     premium, bonus, bonusPct: premiumBonusRate * 100, beginning: premium+bonus, firstConv,
     yearsToComplete: conversionYears,
     conversionFinishedYear: conversionFinishedYear || null,
@@ -3701,6 +3737,8 @@ function calculate(){
     ? `Tax-Free income in this run lasts through age ${taxFreeCoverageAge(after.details)}. Tax-Free Estate is derived from the projected Roth-side account value at the selected planning horizon.`
     : `The guaranteed lifetime income in this run is taxable because it is funded directly with traditional IRA assets and no Roth conversion is modeled. Tax-Free Estate is ${fmt2(after.taxFreeEstate)} because no Roth assets were entered or created.`;
   document.getElementById('estateExplain').textContent += ' Roth + Brokerage Estate combines projected Roth assets with eligible NQ brokerage assets and reinvested brokerage cash, assuming a full basis adjustment at death at the planning horizon. Brokerage values overlap the separate NQ / Cash Assets column and must not be added again. This is a federal income-tax legacy illustration, not an estate-tax exemption; future earnings remain taxable. NQ annuity earnings and accounts marked taxable legacy are excluded. Confirm ownership and basis-adjustment eligibility.';
+  document.getElementById('estateExplain').textContent += ' ' + rothAnnuityFundingAssumptionText();
+  if(after.rothAnnuityFundingMissingAtStart) document.getElementById('estateExplain').textContent += ' Funding check: linked annuity income starts before any converted Roth balance is available; verify the funding and income start years.';
   renderDetailPreview(after);
   document.getElementById('onscreenDisclaimer').textContent = DISCLAIMER;
 }
@@ -5020,6 +5058,7 @@ function generatePDF(){
     ...(Number(year1Detail.iraWithdrawal||0) > 0.004 ? [['Year 1 IRA Withdrawal', fmt2(year1Detail.iraWithdrawal)]] : []),
     ...((document.getElementById('irmaaOptimizationMode')?.value || 'off') !== 'off' ? [['IRMAA Optimization', irmaaOptimizationLabel()]] : []),
     ...(fiaEnabledForReport ? [[fiaIncomeIsTaxFree() ? 'Guaranteed Tax-Free Income' : 'Guaranteed Taxable Income', `${fmt2(num('fiaAnnualIncome'))} starting Year ${fiaJointIncomeStartYear()}`]] : []),
+    ...(linkedConvertedRothAnnuityEnabled() ? [['Roth Annuity Funding', 'Payments reduce converted Roth account value; income counted once'],['Lifetime Roth Annuity Account Debits',fmt2(after.totalRothAnnuityAccountDebit||0)]] : []),
     ...(existingRiderEnabledForReport ? [
       ['Existing Rider Comparison', 'Enabled'],
       ['Existing Rider Account Value', fmt2(sumExistingAnnuityValue())],
@@ -5599,6 +5638,8 @@ function generatePDF(){
     };
     if(details.some(r=>Number(r.stepUpEligibleBrokerage||0)>0)) writeDetailNote('* Roth + Brokerage Estate combines projected Roth assets with eligible NQ brokerage assets and reinvested brokerage cash, assuming a full basis adjustment at death at the planning horizon. Brokerage values overlap the separate NQ / Cash Assets column and must not be added again. This is a federal income-tax legacy illustration, not an estate-tax exemption; future earnings remain taxable. NQ annuity earnings and accounts marked taxable legacy are excluded. Confirm ownership and basis-adjustment eligibility.');
     if(details.some(r=>Number(r.annuityRmdCredit||0)>0)) writeDetailNote('* RMD Met by Annuity is already included in taxable annuity income, not additional cash. The RMD withdrawal column shows only additional required cash after linked annuity payments. Linked payments reduce the owner main IRA balance once; lifetime RMD totals include the credited portion. Contract-value growth is illustrative, not an insurer death-benefit projection.');
+    if(mode==='after' && linkedConvertedRothAnnuityEnabled()) writeDetailNote(rothAnnuityFundingAssumptionText());
+    if(mode==='after' && after.rothAnnuityFundingMissingAtStart) writeDetailNote('Funding check: Roth annuity payments start before a converted Roth balance is available. Verify account funding and income start years.',[185,28,28],true);
     writeDetailNote('Gross Taxable Income shows taxable income sources before deductions. Federal Taxable After Deductions subtracts the modeled standard, age-65+, and other entered deductions and is the amount used to identify the marginal federal bracket.', [11,58,111], true);
     if(document.getElementById('includeBrokerageDetailColumns')?.checked && mode==='before' && details.some(r => Number(r.excessRmdReinvested || 0) > 0)){
       writeDetailNote('Surplus Income Reinvestment: only modeled cash income above the entered income goal is reinvested into brokerage. This can include annuity, Social Security, and withdrawal income; it is not an additional RMD distribution. Brokerage growth remains invested.', [146,64,14], true);
@@ -5890,7 +5931,7 @@ function applyPlannerClientCase(clientCase){
   setInheritedIraAccountsFromSave(clientCase.inheritedIraAccounts);
   setProposedAnnuitiesFromSave(clientCase.proposedAnnuities);
   setPensionRowsFromSave(clientCase.pensions);
-  setBasicFieldValues({...clientCase.values, includeBrokerageEstateOnComparison: clientCase.values.includeBrokerageEstateOnComparison ?? false, incomeGoalAgeOwner: clientCase.values.incomeGoalAgeOwner || 'husband', bsExtraBucketsJson: clientCase.values.bsExtraBucketsJson || '[]', phasedRothGrowthEnabled: clientCase.values.phasedRothGrowthEnabled || 'no', postConversionRothGrowth: clientCase.values.postConversionRothGrowth ?? '12', existingAnnuity1IncludedInIra: clientCase.values.existingAnnuity1IncludedInIra || 'no', existingAnnuity2IncludedInIra: clientCase.values.existingAnnuity2IncludedInIra || 'no'});
+  setBasicFieldValues({...clientCase.values, includeBrokerageEstateOnComparison: clientCase.values.includeBrokerageEstateOnComparison ?? false, incomeGoalAgeOwner: clientCase.values.incomeGoalAgeOwner || 'husband', bsExtraBucketsJson: clientCase.values.bsExtraBucketsJson || '[]', phasedRothGrowthEnabled: clientCase.values.phasedRothGrowthEnabled || 'no', postConversionRothGrowth: clientCase.values.postConversionRothGrowth ?? '12', fiaRothIncomeFunding: clientCase.values.fiaRothIncomeFunding || 'converted', existingAnnuity1IncludedInIra: clientCase.values.existingAnnuity1IncludedInIra || 'no', existingAnnuity2IncludedInIra: clientCase.values.existingAnnuity2IncludedInIra || 'no'});
   renderBusinessSaleExtraBuckets();calculateBusinessSaleBuckets(true);
   // Brokerage-detail visibility is a report-only choice. Never restore it from
   // a saved/imported client case; require an intentional selection for each report.
